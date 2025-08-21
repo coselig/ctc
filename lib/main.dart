@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -34,52 +33,61 @@ class PhotoRecordPage extends StatefulWidget {
 class _PhotoRecordPageState extends State<PhotoRecordPage> {
   List<PhotoRecord> records = [];
   final ImagePicker _picker = ImagePicker();
+  Offset? selectedPoint;
+  PhotoRecord? selectedRecord;
 
-  Future<Position> _getLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
-    }
-
-    return await Geolocator.getCurrentPosition();
-  }
-
-  Future<void> _takePicture() async {
+  Future<void> _takePicture(Offset point) async {
     try {
       final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
       if (photo == null) return;
-
-      final Position position = await _getLocation();
       
       setState(() {
-        records.add(PhotoRecord(
+        final record = PhotoRecord(
           imagePath: photo.path,
-          latitude: position.latitude,
-          longitude: position.longitude,
+          point: point,
           timestamp: DateTime.now(),
-        ));
+        );
+        records.add(record);
+        selectedRecord = record;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
     }
+  }
+
+  PhotoRecord? _findNearestRecord(Offset point) {
+    const double threshold = 20.0; // 點擊容差範圍
+    PhotoRecord? nearest;
+    double minDistance = double.infinity;
+
+    for (var record in records) {
+      final distance = (record.point - point).distance;
+      if (distance < threshold && distance < minDistance) {
+        minDistance = distance;
+        nearest = record;
+      }
+    }
+
+    return nearest;
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    final nearest = _findNearestRecord(details.localPosition);
+    
+    setState(() {
+      if (nearest != null) {
+        // 如果點擊位置附近有existing標記，就顯示該照片
+        selectedRecord = nearest;
+        selectedPoint = nearest.point;
+      } else {
+        // 如果是新位置，就拍新照片
+        selectedPoint = details.localPosition;
+        selectedRecord = null;
+        _takePicture(details.localPosition);
+      }
+    });
   }
 
   @override
@@ -89,64 +97,119 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: records.isEmpty
-          ? const Center(
-              child: Text('尚未有任何照片記錄'),
-            )
-          : ListView.builder(
-              itemCount: records.length,
-              itemBuilder: (context, index) {
-                final record = records[index];
-                return Card(
-                  margin: const EdgeInsets.all(8.0),
-                  child: Column(
-                    children: [
-                      Image.file(
-                        File(record.imagePath),
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+      body: Column(
+        children: [
+          Expanded(
+            flex: 2,
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: GestureDetector(
+                onTapUp: _handleTapUp,
+                child: Stack(
+                  children: [
+                    // 底圖
+                    Image.asset(
+                      'assets/floorplan.png',
+                      fit: BoxFit.contain,
+                    ),
+                    // 繪製標記點
+                    CustomPaint(
+                      painter: MarkerPainter(
+                        records: records,
+                        selectedPoint: selectedPoint,
+                        selectedRecord: selectedRecord,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '拍攝時間: ${record.timestamp.toString()}',
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                            Text(
-                              '位置: ${record.latitude}, ${record.longitude}',
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                      child: Container(),
+                    ),
+                  ],
+                ),
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _takePicture,
-        tooltip: '拍照',
-        child: const Icon(Icons.camera_alt),
+          ),
+          if (selectedRecord != null) Expanded(
+            flex: 1,
+            child: Card(
+              margin: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Image.file(
+                      File(selectedRecord!.imagePath),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      '拍攝時間: ${selectedRecord!.timestamp}',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
+class MarkerPainter extends CustomPainter {
+  final List<PhotoRecord> records;
+  final Offset? selectedPoint;
+  final PhotoRecord? selectedRecord;
+
+  MarkerPainter({
+    required this.records,
+    this.selectedPoint,
+    this.selectedRecord,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 繪製所有記錄點
+    final dotPaint = Paint()
+      ..color = Colors.red
+      ..strokeWidth = 10
+      ..style = PaintingStyle.fill;
+
+    for (var record in records) {
+      if (record == selectedRecord) {
+        dotPaint.color = Colors.green;
+      } else {
+        dotPaint.color = Colors.red;
+      }
+      canvas.drawCircle(record.point, 8, dotPaint);
+    }
+
+    // 繪製選中的點
+    if (selectedPoint != null) {
+      final selectedPaint = Paint()
+        ..color = Colors.green
+        ..strokeWidth = 10
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(selectedPoint!, 8, selectedPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant MarkerPainter oldDelegate) {
+    return oldDelegate.records != records ||
+        oldDelegate.selectedPoint != selectedPoint ||
+        oldDelegate.selectedRecord != selectedRecord;
+  }
+}
+
 class PhotoRecord {
   final String imagePath;
-  final double latitude;
-  final double longitude;
+  final Offset point;
   final DateTime timestamp;
 
   PhotoRecord({
     required this.imagePath,
-    required this.latitude,
-    required this.longitude,
+    required this.point,
     required this.timestamp,
   });
 }
