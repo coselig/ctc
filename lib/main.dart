@@ -1,21 +1,16 @@
-import 'package:basific/basific.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
+import 'pages/login_page.dart';
+import 'pages/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Basific with Supabase configuration
-  await Basific.initialize(
-    BasificConfig(
-      supabaseUrl: 'https://qikzlcnsyiihftudbmkp.supabase.co',
-      supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpa3psY25zeWlpaGZ0dWRibWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MzI3NDcsImV4cCI6MjA2OTMwODc0N30.Sjy7wm7gqgXfOy48aW52w9lYD8UdeBoKe3AGY1NaUPk',
-      theme: BasificTheme(
-        primaryColor: Colors.deepPurple,
-        borderRadius: 8.0,
-      ),
-    ),
+
+  await Supabase.initialize(
+    url: 'https://qikzlcnsyiihftudbmkp.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpa3psY25zeWlpaGZ0dWRibWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MzI3NDcsImV4cCI6MjA2OTMwODc0N30.Sjy7wm7gqgXfOy48aW52w9lYD8UdeBoKe3AGY1NaUPk',
   );
   
   runApp(const MyApp());
@@ -30,6 +25,56 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  final supabase = Supabase.instance.client;
+  bool _isAuthenticated = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkInitialAuthState();
+    _setupAuthListener();
+  }
+
+  Future<void> _checkInitialAuthState() async {
+    final session = supabase.auth.currentSession;
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = session != null;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _setupAuthListener() {
+    supabase.auth.onAuthStateChange.listen((data) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isAuthenticated = data.session != null;
+      });
+    });
+  }
+
+  Widget _buildHomeWidget() {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_isAuthenticated) {
+      return PhotoRecordPage(
+        title: '工地照片記錄',
+        onThemeToggle: toggleTheme,
+        currentThemeMode: _themeMode,
+      );
+    } else {
+      return const LoginPage();
+    }
+  }
   
   void toggleTheme() {
     setState(() {
@@ -45,38 +90,27 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final basificLightTheme = BasificTheme(
-      primaryColor: Colors.deepPurple,
-      borderRadius: 8.0,
-    );
-    
-    final basificDarkTheme = BasificTheme(
-      primaryColor: Colors.purple,
-      borderRadius: 8.0,
-    );
+    const lightPrimaryColor = Colors.deepPurple;
+    const darkPrimaryColor = Colors.purple;
     
     return MaterialApp(
       title: '工地照片記錄',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: basificLightTheme.primaryColor,
+          seedColor: lightPrimaryColor,
           brightness: Brightness.light,
         ),
         useMaterial3: true,
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: basificDarkTheme.primaryColor,
+          seedColor: darkPrimaryColor,
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
       ),
       themeMode: _themeMode,
-      home: PhotoRecordPage(
-        title: '工地照片記錄',
-        onThemeToggle: toggleTheme,
-        currentThemeMode: _themeMode,
-      ),
+      home: _buildHomeWidget(),
     );
   }
 }
@@ -179,6 +213,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             icon: Icon(_getThemeIcon()),
             onPressed: widget.onThemeToggle,
             tooltip: '切換主題',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+            },
+            tooltip: '登出',
           ),
         ],
       ),

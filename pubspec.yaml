@@ -38,6 +38,9 @@ dependencies:
   # Custom package for basic functionality
   basific: ^1.0.0
   
+  # Supabase for authentication and database
+  supabase_flutter: ^2.9.1
+  
   # Location services
   geolocator: ^10.1.0
   
