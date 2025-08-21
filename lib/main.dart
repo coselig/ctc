@@ -100,35 +100,41 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       body: Column(
         children: [
           Expanded(
-            flex: 2,
+            flex: 3,
             child: InteractiveViewer(
+              constrained: true,
               minScale: 0.5,
               maxScale: 4.0,
               child: GestureDetector(
                 onTapUp: _handleTapUp,
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
                     // 底圖
-                    Image.asset(
-                      'assets/floorplan.png',
-                      fit: BoxFit.contain,
+                    Center(
+                      child: Image.asset(
+                        'assets/floorplan.png',
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                      ),
                     ),
                     // 繪製標記點
-                    CustomPaint(
-                      painter: MarkerPainter(
-                        records: records,
-                        selectedPoint: selectedPoint,
-                        selectedRecord: selectedRecord,
+                    SizedBox.expand(
+                      child: CustomPaint(
+                        painter: MarkerPainter(
+                          records: records,
+                          selectedPoint: selectedPoint,
+                          selectedRecord: selectedRecord,
+                        ),
                       ),
-                      child: Container(),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          if (selectedRecord != null) Expanded(
-            flex: 1,
+          if (selectedRecord != null) Container(
+            height: 200,
             child: Card(
               margin: const EdgeInsets.all(8.0),
               child: Column(
