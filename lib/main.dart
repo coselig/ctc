@@ -4,6 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'dart:typed_data';
 import 'dart:io';
+import 'dart:async';
+import 'models/photo_record.dart';
+import 'widgets/marker_painter.dart';
 import 'pages/login_page.dart';
 
 void main() async {
@@ -136,9 +139,59 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   List<PhotoRecord> records = [];
   final ImagePicker _picker = ImagePicker();
   final supabase = Supabase.instance.client;
-  final bool _isLoading = false;
+  bool _isLoading = false;
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecords();
+    // 設置60秒自動重新載入
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _loadRecords();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadRecords() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('請先登入');
+      }
+
+      final response = await supabase
+          .from('photo_records')
+          .select()
+          .order('created_at');
+
+      final newRecords = (response as List<dynamic>)
+          .map((record) => PhotoRecord.fromJson(record))
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          records.clear();
+          records.addAll(newRecords);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('載入記錄失敗: ${e.toString()}')),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
+  }
 
   IconData _getThemeIcon() {
     switch (widget.currentThemeMode) {
@@ -153,12 +206,17 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
   Future<void> _takePicture(Offset point) async {
     try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('請先登入');
+      }
+
       // 不要立即顯示全螢幕載入指示器，讓使用者看到拍照預覽
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920, // 限制圖片寬度
-        maxHeight: 1080, // 限制圖片高度
-        imageQuality: 85, // 降低圖片品質以減少檔案大小
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
       );
       
       if (photo == null) return;
@@ -169,8 +227,8 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         const SnackBar(content: Text('正在處理圖片...')),
       );
 
-      // 生成唯一的文件名
       final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String userFilePath = 'user_$userId/$fileName';
       
       // 壓縮圖片
       final File file = File(photo.path);
@@ -184,11 +242,15 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       if (compressedBytes == null) throw Exception('圖片壓縮失敗');
 
       // 先在本地顯示圖片
+      final currentUser = supabase.auth.currentUser!;
+      final timestamp = DateTime.now();
       final tempRecord = PhotoRecord(
+        userId: currentUser.id,
+        username: currentUser.email ?? '未知用戶',
         imagePath: photo.path,
         point: point,
-        timestamp: DateTime.now(),
-        isLocal: true, // 標記為本地文件
+        timestamp: timestamp,
+        isLocal: true,
       );
       
       setState(() {
@@ -196,29 +258,51 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         selectedRecord = tempRecord;
       });
 
-      // 在背景上傳圖片
-      final String publicUrl = await _uploadPhoto(fileName, compressedBytes);
+      // 上傳圖片到 Storage
+      await supabase.storage
+          .from('site_photos')
+          .uploadBinary(
+            userFilePath,
+            compressedBytes,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+
+      // 獲取公開訪問URL
+      final String publicUrl = supabase.storage
+          .from('site_photos')
+          .getPublicUrl(userFilePath);
+
+      // 儲存記錄到資料庫
+      final recordData = {
+        'user_id': currentUser.id,
+        'image_url': publicUrl,
+        'x_coordinate': point.dx,
+        'y_coordinate': point.dy,
+        'created_at': timestamp.toIso8601String(),
+      };
+
+      final response = await supabase
+          .from('photo_records')
+          .insert(recordData)
+          .select()
+          .single();
       
-      // 更新記錄為雲端URL
+      // 更新本地記錄
       if (mounted) {
         setState(() {
           final index = records.indexOf(tempRecord);
           if (index != -1) {
-            final updatedRecord = PhotoRecord(
-              imagePath: publicUrl,
-              point: point,
-              timestamp: tempRecord.timestamp,
-              isLocal: false, // 標記為雲端URL
-            );
+            final updatedRecord = PhotoRecord.fromJson(response);
             records[index] = updatedRecord;
             if (selectedRecord == tempRecord) {
               selectedRecord = updatedRecord;
             }
           }
         });
-      }
 
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('上傳完成')),
         );
@@ -231,31 +315,6 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         );
       }
     }
-  }
-
-  Future<String> _uploadPhoto(String fileName, Uint8List bytes) async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) {
-      throw Exception('請先登入');
-    }
-
-    // 在檔案名稱前加上用戶ID作為前綴
-    final String userFilePath = 'user_$userId/$fileName';
-    
-    await supabase.storage
-        .from('site_photos')
-        .uploadBinary(
-          userFilePath,
-          bytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: true,
-          ),
-        );
-
-    return supabase.storage
-        .from('site_photos')
-        .getPublicUrl(userFilePath);
   }
 
   PhotoRecord? _findNearestRecord(Offset point) {
@@ -394,66 +453,4 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       ),
     );
   }
-}
-
-class MarkerPainter extends CustomPainter {
-  final List<PhotoRecord> records;
-  final Offset? selectedPoint;
-  final PhotoRecord? selectedRecord;
-
-  MarkerPainter({
-    required this.records,
-    this.selectedPoint,
-    this.selectedRecord,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 繪製所有記錄點
-    final dotPaint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 10
-      ..style = PaintingStyle.fill;
-
-    for (var record in records) {
-      if (record == selectedRecord) {
-        dotPaint.color = Colors.green;
-      } else if (record.isLocal) {
-        dotPaint.color = Colors.orange; // 上傳中的圖片用橙色標記
-      } else {
-        dotPaint.color = Colors.red;
-      }
-      canvas.drawCircle(record.point, 8, dotPaint);
-    }
-
-    // 繪製選中的點
-    if (selectedPoint != null) {
-      final selectedPaint = Paint()
-        ..color = Colors.green
-        ..strokeWidth = 10
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(selectedPoint!, 8, selectedPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant MarkerPainter oldDelegate) {
-    return oldDelegate.records != records ||
-        oldDelegate.selectedPoint != selectedPoint ||
-        oldDelegate.selectedRecord != selectedRecord;
-  }
-}
-
-class PhotoRecord {
-  final String imagePath;
-  final bool isLocal; // 標記是否為本地文件
-  final Offset point;
-  final DateTime timestamp;
-
-  PhotoRecord({
-    required this.imagePath,
-    required this.point,
-    required this.timestamp,
-    this.isLocal = false,
-  });
 }
