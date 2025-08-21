@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'dart:typed_data';
 import 'dart:io';
 import 'pages/login_page.dart';
-import 'pages/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -134,6 +135,8 @@ class PhotoRecordPage extends StatefulWidget {
 class _PhotoRecordPageState extends State<PhotoRecordPage> {
   List<PhotoRecord> records = [];
   final ImagePicker _picker = ImagePicker();
+  final supabase = Supabase.instance.client;
+  final bool _isLoading = false;
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
 
@@ -150,23 +153,109 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
   Future<void> _takePicture(Offset point) async {
     try {
-      final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+      // 不要立即顯示全螢幕載入指示器，讓使用者看到拍照預覽
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920, // 限制圖片寬度
+        maxHeight: 1080, // 限制圖片高度
+        imageQuality: 85, // 降低圖片品質以減少檔案大小
+      );
+      
       if (photo == null) return;
+
+      // 顯示上傳進度提示
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('正在處理圖片...')),
+      );
+
+      // 生成唯一的文件名
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // 壓縮圖片
+      final File file = File(photo.path);
+      final Uint8List? compressedBytes = await FlutterImageCompress.compressWithFile(
+        file.absolute.path,
+        quality: 85,
+        minWidth: 1024,
+        minHeight: 1024,
+      );
+      
+      if (compressedBytes == null) throw Exception('圖片壓縮失敗');
+
+      // 先在本地顯示圖片
+      final tempRecord = PhotoRecord(
+        imagePath: photo.path,
+        point: point,
+        timestamp: DateTime.now(),
+        isLocal: true, // 標記為本地文件
+      );
       
       setState(() {
-        final record = PhotoRecord(
-          imagePath: photo.path,
-          point: point,
-          timestamp: DateTime.now(),
-        );
-        records.add(record);
-        selectedRecord = record;
+        records.add(tempRecord);
+        selectedRecord = tempRecord;
       });
+
+      // 在背景上傳圖片
+      final String publicUrl = await _uploadPhoto(fileName, compressedBytes);
+      
+      // 更新記錄為雲端URL
+      if (mounted) {
+        setState(() {
+          final index = records.indexOf(tempRecord);
+          if (index != -1) {
+            final updatedRecord = PhotoRecord(
+              imagePath: publicUrl,
+              point: point,
+              timestamp: tempRecord.timestamp,
+              isLocal: false, // 標記為雲端URL
+            );
+            records[index] = updatedRecord;
+            if (selectedRecord == tempRecord) {
+              selectedRecord = updatedRecord;
+            }
+          }
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('上傳完成')),
+        );
+      }
+
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上傳失敗: ${e.toString()}')),
+        );
+      }
     }
+  }
+
+  Future<String> _uploadPhoto(String fileName, Uint8List bytes) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception('請先登入');
+    }
+
+    // 在檔案名稱前加上用戶ID作為前綴
+    final String userFilePath = 'user_$userId/$fileName';
+    
+    await supabase.storage
+        .from('site_photos')
+        .uploadBinary(
+          userFilePath,
+          bytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true,
+          ),
+        );
+
+    return supabase.storage
+        .from('site_photos')
+        .getPublicUrl(userFilePath);
   }
 
   PhotoRecord? _findNearestRecord(Offset point) {
@@ -204,6 +293,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -266,10 +363,21 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               child: Column(
                 children: [
                   Expanded(
-                    child: Image.file(
-                      File(selectedRecord!.imagePath),
-                      fit: BoxFit.cover,
-                    ),
+                    child: selectedRecord!.isLocal
+                        ? Image.file(
+                            File(selectedRecord!.imagePath),
+                            fit: BoxFit.cover,
+                          )
+                        : Image.network(
+                            selectedRecord!.imagePath,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            },
+                          ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -310,6 +418,8 @@ class MarkerPainter extends CustomPainter {
     for (var record in records) {
       if (record == selectedRecord) {
         dotPaint.color = Colors.green;
+      } else if (record.isLocal) {
+        dotPaint.color = Colors.orange; // 上傳中的圖片用橙色標記
       } else {
         dotPaint.color = Colors.red;
       }
@@ -336,6 +446,7 @@ class MarkerPainter extends CustomPainter {
 
 class PhotoRecord {
   final String imagePath;
+  final bool isLocal; // 標記是否為本地文件
   final Offset point;
   final DateTime timestamp;
 
@@ -343,5 +454,6 @@ class PhotoRecord {
     required this.imagePath,
     required this.point,
     required this.timestamp,
+    this.isLocal = false,
   });
 }
