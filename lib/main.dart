@@ -1,30 +1,97 @@
+import 'package:basific/basific.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Basific with Supabase configuration
+  await Basific.initialize(
+    BasificConfig(
+      supabaseUrl: 'https://qikzlcnsyiihftudbmkp.supabase.co',
+      supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpa3psY25zeWlpaGZ0dWRibWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MzI3NDcsImV4cCI6MjA2OTMwODc0N30.Sjy7wm7gqgXfOy48aW52w9lYD8UdeBoKe3AGY1NaUPk',
+      theme: BasificTheme(
+        primaryColor: Colors.deepPurple,
+        borderRadius: 8.0,
+      ),
+    ),
+  );
+  
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+  
+  void toggleTheme() {
+    setState(() {
+      if (_themeMode == ThemeMode.light) {
+        _themeMode = ThemeMode.dark;
+      } else if (_themeMode == ThemeMode.dark) {
+        _themeMode = ThemeMode.system;
+      } else {
+        _themeMode = ThemeMode.light;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final basificLightTheme = BasificTheme(
+      primaryColor: Colors.deepPurple,
+      borderRadius: 8.0,
+    );
+    
+    final basificDarkTheme = BasificTheme(
+      primaryColor: Colors.purple,
+      borderRadius: 8.0,
+    );
+    
     return MaterialApp(
       title: '工地照片記錄',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: basificLightTheme.primaryColor,
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
-      home: const PhotoRecordPage(title: '工地照片記錄'),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: basificDarkTheme.primaryColor,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: _themeMode,
+      home: PhotoRecordPage(
+        title: '工地照片記錄',
+        onThemeToggle: toggleTheme,
+        currentThemeMode: _themeMode,
+      ),
     );
   }
 }
 
 class PhotoRecordPage extends StatefulWidget {
-  const PhotoRecordPage({super.key, required this.title});
+  const PhotoRecordPage({
+    super.key, 
+    required this.title,
+    required this.onThemeToggle,
+    required this.currentThemeMode,
+  });
+  
   final String title;
+  final VoidCallback onThemeToggle;
+  final ThemeMode currentThemeMode;
 
   @override
   State<PhotoRecordPage> createState() => _PhotoRecordPageState();
@@ -35,6 +102,17 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   final ImagePicker _picker = ImagePicker();
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
+
+  IconData _getThemeIcon() {
+    switch (widget.currentThemeMode) {
+      case ThemeMode.light:
+        return Icons.wb_sunny;
+      case ThemeMode.dark:
+        return Icons.nightlight_round;
+      case ThemeMode.system:
+        return Icons.brightness_auto;
+    }
+  }
 
   Future<void> _takePicture(Offset point) async {
     try {
@@ -96,6 +174,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: Icon(_getThemeIcon()),
+            onPressed: widget.onThemeToggle,
+            tooltip: '切換主題',
+          ),
+        ],
       ),
       body: Column(
         children: [

@@ -35,6 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   
+  # Custom package for basic functionality
+  basific: ^1.0.0
+  
   # Location services
   geolocator: ^10.1.0
   
