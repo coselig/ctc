@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import '../services/supabase_service.dart';
 
 class FloorPlanSelectorPage extends StatefulWidget {
@@ -85,14 +84,14 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
     try {
       // 顯示上傳進度
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('正在上傳設計圖...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('正在上傳設計圖...')));
       }
 
       // 讀取圖片數據
       final imageBytes = await image.readAsBytes();
-      
+
       // 上傳到 Supabase
       final imageUrl = await widget.supabaseService.uploadFloorPlan(
         localPath: image.path,
@@ -102,23 +101,19 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
 
       // 更新列表
       setState(() {
-        floorPlans.add({
-          'name': name,
-          'asset': imageUrl,
-          'isLocal': 'false',
-        });
+        floorPlans.add({'name': name, 'asset': imageUrl, 'isLocal': 'false'});
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已上傳設計圖：$name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已上傳設計圖：$name')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('新增設計圖失敗：${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('新增設計圖失敗：${e.toString()}')));
       }
     }
   }
@@ -148,7 +143,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
         itemBuilder: (context, index) {
           final floorPlan = floorPlans[index];
           final isLocal = floorPlan['isLocal'] == 'true';
-          
+
           return InkWell(
             onTap: () => widget.onFloorPlanSelected(floorPlan['asset']!),
             child: Card(
@@ -165,18 +160,16 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                               if (loadingProgress == null) return child;
                               return Center(
                                 child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
+                                            loadingProgress.expectedTotalBytes!
                                       : null,
                                 ),
                               );
                             },
                           )
-                        : Image.asset(
-                            floorPlan['asset']!,
-                            fit: BoxFit.cover,
-                          ),
+                        : Image.asset(floorPlan['asset']!, fit: BoxFit.cover),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
