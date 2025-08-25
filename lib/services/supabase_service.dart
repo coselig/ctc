@@ -7,6 +7,56 @@ class SupabaseService {
 
   SupabaseService(this.client);
 
+  Future<String> uploadFloorPlan({
+    required String localPath,
+    required Uint8List imageBytes,
+    required String name,
+  }) async {
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('未登入');
+    }
+
+    final timestamp = DateTime.now();
+    final fileName = 'floorplan_${timestamp.millisecondsSinceEpoch}.jpg';
+    const bucketName = 'floor_plans';
+    
+    // 上傳設計圖到 Storage
+    await client.storage
+        .from(bucketName)
+        .uploadBinary(
+          fileName,
+          imageBytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true,
+          ),
+        );
+
+    final publicUrl = client.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+
+    // 儲存設計圖記錄到資料庫
+    await client.from('floor_plans').insert({
+      'name': name,
+      'image_url': publicUrl,
+      'user_id': currentUser.id,
+      'created_at': timestamp.toIso8601String(),
+    });
+
+    return publicUrl;
+  }
+
+  Future<List<Map<String, dynamic>>> loadFloorPlans() async {
+    final response = await client
+        .from('floor_plans')
+        .select()
+        .order('created_at');
+
+    return (response as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
   Future<List<PhotoRecord>> loadRecords() async {
     final response = await client
         .from('photo_records')

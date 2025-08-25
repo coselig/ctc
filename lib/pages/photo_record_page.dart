@@ -46,6 +46,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             });
             Navigator.pop(context);
           },
+          supabaseService: _supabaseService,
         ),
       ),
     );
@@ -257,11 +258,28 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   fit: StackFit.expand,
                   children: [
                     Center(
-                      child: Image.asset(
-                        _currentFloorPlan,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                      ),
+                      child: _currentFloorPlan.startsWith('http')
+                          ? Image.network(
+                              _currentFloorPlan,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                );
+                              },
+                            )
+                          : Image.asset(
+                              _currentFloorPlan,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                            ),
                     ),
                     SizedBox.expand(
                       child: CustomPaint(
