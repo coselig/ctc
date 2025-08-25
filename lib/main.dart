@@ -1,12 +1,7 @@
+import 'package:ctc/pages/photo_record_page.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'dart:typed_data';
-import 'dart:io';
 import 'dart:async';
-import 'models/photo_record.dart';
-import 'widgets/marker_painter.dart';
 import 'pages/login_page.dart';
 
 void main() async {
@@ -118,7 +113,7 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-
+/*
 class PhotoRecordPage extends StatefulWidget {
   const PhotoRecordPage({
     super.key, 
@@ -415,7 +410,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               ),
             ),
           ),
-          if (selectedRecord != null) Container(
+          if (selectedRecord != null) SizedBox(
             height: 200,
             child: Card(
               margin: const EdgeInsets.all(8.0),
@@ -454,3 +449,4 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     );
   }
 }
+*/

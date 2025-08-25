@@ -6,6 +6,7 @@ import 'dart:io';
 import '../models/photo_record.dart';
 import '../services/supabase_service.dart';
 import '../widgets/marker_painter.dart';
+import 'floor_plan_selector_page.dart';
 
 class PhotoRecordPage extends StatefulWidget {
   const PhotoRecordPage({
@@ -29,8 +30,26 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   final supabase = Supabase.instance.client;
   late final SupabaseService _supabaseService;
   bool _isLoading = false;
+  bool _isRecordMode = false;
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
+  String _currentFloorPlan = 'assets/floorplan.png';
+
+  void _openFloorPlanSelector() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FloorPlanSelectorPage(
+          onFloorPlanSelected: (String assetPath) {
+            setState(() {
+              _currentFloorPlan = assetPath;
+            });
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -174,7 +193,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       if (nearest != null) {
         selectedRecord = nearest;
         selectedPoint = nearest.point;
-      } else {
+      } else if (_isRecordMode) {
         selectedPoint = details.localPosition;
         selectedRecord = null;
         _takePicture(details.localPosition);
@@ -198,6 +217,20 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         title: Text(widget.title),
         actions: [
           IconButton(
+            icon: const Icon(Icons.map),
+            onPressed: _openFloorPlanSelector,
+            tooltip: '選擇設計圖',
+          ),
+          IconButton(
+            icon: Icon(_isRecordMode ? Icons.camera_alt : Icons.camera_alt_outlined),
+            onPressed: () {
+              setState(() {
+                _isRecordMode = !_isRecordMode;
+              });
+            },
+            tooltip: _isRecordMode ? '關閉記錄模式' : '開啟記錄模式',
+          ),
+          IconButton(
             icon: Icon(_getThemeIcon()),
             onPressed: widget.onThemeToggle,
             tooltip: '切換主題',
@@ -214,7 +247,6 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       body: Column(
         children: [
           Expanded(
-            flex: 3,
             child: InteractiveViewer(
               constrained: true,
               minScale: 0.5,
@@ -226,7 +258,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   children: [
                     Center(
                       child: Image.asset(
-                        'assets/floorplan.png',
+                        _currentFloorPlan,
                         fit: BoxFit.contain,
                         width: double.infinity,
                       ),
@@ -245,7 +277,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               ),
             ),
           ),
-          if (selectedRecord != null) Container(
+          if (selectedRecord != null) SizedBox(
             height: 200,
             child: Card(
               margin: const EdgeInsets.all(8.0),
@@ -291,5 +323,6 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         ],
       ),
     );
+
   }
 }
