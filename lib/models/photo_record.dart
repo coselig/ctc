@@ -9,6 +9,7 @@ class PhotoRecord {
   final Offset point;
   final DateTime timestamp;
   final String? description;
+  final String floorPlanPath; // 新增：記錄照片所屬的平面圖路徑
 
   PhotoRecord({
     this.id,
@@ -17,6 +18,7 @@ class PhotoRecord {
     required this.imagePath,
     required this.point,
     required this.timestamp,
+    required this.floorPlanPath,
     this.description,
     this.isLocal = false,
   });
@@ -31,6 +33,7 @@ class PhotoRecord {
       point: Offset(json['x_coordinate'].toDouble(), json['y_coordinate'].toDouble()),
       timestamp: DateTime.parse(json['created_at']),
       description: json['description'],
+      floorPlanPath: json['floor_plan_path'],
       isLocal: false,
     );
   }
@@ -45,6 +48,7 @@ class PhotoRecord {
       'created_at': timestamp.toIso8601String(),
       'description': description,
       'username': username,
+      'floor_plan_path': floorPlanPath,
     };
   }
 }

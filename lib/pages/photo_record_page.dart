@@ -119,6 +119,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         imagePath: photo.path,
         point: point,
         timestamp: DateTime.now(),
+        floorPlanPath: _currentFloorPlan,
         isLocal: true,
       );
       
@@ -144,6 +145,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         photoBytes: compressedBytes,
         x: point.dx,
         y: point.dy,
+        floorPlanPath: _currentFloorPlan,
       );
       
       if (mounted) {
@@ -287,6 +289,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                           records: records,
                           selectedPoint: selectedPoint,
                           selectedRecord: selectedRecord,
+                          currentFloorPlan: _currentFloorPlan,
                         ),
                       ),
                     ),

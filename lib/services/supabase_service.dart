@@ -73,6 +73,7 @@ class SupabaseService {
     required Uint8List photoBytes,
     required double x,
     required double y,
+    required String floorPlanPath,
   }) async {
     final currentUser = client.auth.currentUser;
     if (currentUser == null) {
@@ -107,6 +108,7 @@ class SupabaseService {
       'x_coordinate': x,
       'y_coordinate': y,
       'created_at': timestamp.toIso8601String(),
+      'floor_plan_path': floorPlanPath,
     };
 
     final response = await client
