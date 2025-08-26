@@ -58,11 +58,42 @@ class _NameInputDialogState extends State<_NameInputDialog> {
 
 class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
   final ImagePicker _picker = ImagePicker();
-  List<Map<String, String>> floorPlans = [
-    {'name': '1樓平面圖', 'asset': 'assets/floorplan.png', 'isLocal': 'false'},
-    {'name': '2樓平面圖', 'asset': 'assets/floorplan2.png', 'isLocal': 'false'},
-    {'name': '3樓平面圖', 'asset': 'assets/floorplan3.png', 'isLocal': 'false'},
-  ];
+  List<Map<String, String>> floorPlans = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFloorPlans();
+  }
+
+  Future<void> _loadFloorPlans() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final plans = await widget.supabaseService.loadFloorPlans();
+
+      setState(() {
+        floorPlans = plans
+            .map(
+              (plan) => {
+                'name': plan['name'] as String,
+                'asset': plan['image_url'] as String,
+                'isLocal': 'false',
+              },
+            )
+            .toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入設計圖失敗：${e.toString()}')));
+      }
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _addNewFloorPlan() async {
     final XFile? image = await _picker.pickImage(
@@ -132,59 +163,86 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
           ),
         ],
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemCount: floorPlans.length,
-        itemBuilder: (context, index) {
-          final floorPlan = floorPlans[index];
-          final isLocal = floorPlan['isLocal'] == 'true';
-
-          return InkWell(
-            onTap: () => widget.onFloorPlanSelected(floorPlan['asset']!),
-            child: Card(
-              clipBehavior: Clip.antiAlias,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : floorPlans.isEmpty
+          ? Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: floorPlan['asset']!.startsWith('http')
-                        ? Image.network(
-                            floorPlan['asset']!,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value:
-                                      loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                      : null,
-                                ),
-                              );
-                            },
-                          )
-                        : Image.asset(floorPlan['asset']!, fit: BoxFit.cover),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      floorPlans[index]['name']!,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                  const Text('尚未有任何設計圖'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _addNewFloorPlan,
+                    child: const Text('新增設計圖'),
                   ),
                 ],
               ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadFloorPlans,
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: floorPlans.length,
+                itemBuilder: (context, index) {
+                  final floorPlan = floorPlans[index];
+                  return InkWell(
+                    onTap: () =>
+                        widget.onFloorPlanSelected(floorPlan['asset']!),
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: floorPlan['asset']!.startsWith('http')
+                                ? Image.network(
+                                    floorPlan['asset']!,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null)
+                                            return child;
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value:
+                                                  loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          );
+                                        },
+                                  )
+                                : Image.asset(
+                                    floorPlan['asset']!,
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              floorPlans[index]['name']!,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
-      ),
     );
   }
 }

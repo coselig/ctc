@@ -33,7 +33,24 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   bool _isRecordMode = false;
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
-  String _currentFloorPlan = 'assets/floorplan.png';
+  String? _currentFloorPlan;
+
+  Future<void> _loadDefaultFloorPlan() async {
+    try {
+      final plans = await _supabaseService.loadFloorPlans();
+      if (plans.isNotEmpty) {
+        setState(() {
+          _currentFloorPlan = plans.first['image_url'] as String;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入設計圖失敗: ${e.toString()}')));
+      }
+    }
+  }
 
   void _openFloorPlanSelector() {
     Navigator.push(
@@ -57,12 +74,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     super.initState();
     _supabaseService = SupabaseService(supabase);
     _loadRecords();
+    _loadDefaultFloorPlan();
   }
 
   Future<void> _loadRecords() async {
     try {
       setState(() => _isLoading = true);
-      
+
       final newRecords = await _supabaseService.loadRecords();
 
       setState(() {
@@ -72,9 +90,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入記錄失敗: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入記錄失敗: ${e.toString()}')));
       }
       setState(() => _isLoading = false);
     }
@@ -98,19 +116,23 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         throw Exception('請先登入');
       }
 
+      if (_currentFloorPlan == null) {
+        throw Exception('請先選擇設計圖');
+      }
+
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1920,
         maxHeight: 1080,
         imageQuality: 85,
       );
-      
+
       if (photo == null) return;
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('正在處理圖片...')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('正在處理圖片...')));
 
       // 先在本地顯示圖片
       final tempRecord = PhotoRecord(
@@ -119,10 +141,10 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         imagePath: photo.path,
         point: point,
         timestamp: DateTime.now(),
-        floorPlanPath: _currentFloorPlan,
+        floorPlanPath: _currentFloorPlan!,
         isLocal: true,
       );
-      
+
       setState(() {
         records.add(tempRecord);
         selectedRecord = tempRecord;
@@ -136,7 +158,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         minWidth: 1024,
         minHeight: 1024,
       );
-      
+
       if (compressedBytes == null) throw Exception('圖片壓縮失敗');
 
       // 上傳圖片並創建記錄
@@ -145,9 +167,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         photoBytes: compressedBytes,
         x: point.dx,
         y: point.dy,
-        floorPlanPath: _currentFloorPlan,
+        floorPlanPath: _currentFloorPlan!,
       );
-      
+
       if (mounted) {
         setState(() {
           final index = records.indexOf(tempRecord);
@@ -159,16 +181,15 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('上傳完成')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('上傳完成')));
       }
-
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('上傳失敗: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('上傳失敗: ${e.toString()}')));
       }
     }
   }
@@ -191,7 +212,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
   void _handleTapUp(TapUpDetails details) {
     final nearest = _findNearestRecord(details.localPosition);
-    
+
     setState(() {
       if (nearest != null) {
         selectedRecord = nearest;
@@ -207,13 +228,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -225,7 +242,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             tooltip: '選擇設計圖',
           ),
           IconButton(
-            icon: Icon(_isRecordMode ? Icons.camera_alt : Icons.camera_alt_outlined),
+            icon: Icon(
+              _isRecordMode ? Icons.camera_alt : Icons.camera_alt_outlined,
+            ),
             onPressed: () {
               setState(() {
                 _isRecordMode = !_isRecordMode;
@@ -260,27 +279,32 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   fit: StackFit.expand,
                   children: [
                     Center(
-                      child: _currentFloorPlan.startsWith('http')
-                          ? Image.network(
-                              _currentFloorPlan,
+                      child: _currentFloorPlan == null
+                          ? const Center(child: Text('請選擇設計圖'))
+                          : Image.network(
+                              _currentFloorPlan!,
                               fit: BoxFit.contain,
                               width: double.infinity,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                );
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value:
+                                            loadingProgress
+                                                    .expectedTotalBytes !=
+                                                null
+                                            ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(child: Text('載入設計圖失敗'));
                               },
-                            )
-                          : Image.asset(
-                              _currentFloorPlan,
-                              fit: BoxFit.contain,
-                              width: double.infinity,
                             ),
                     ),
                     SizedBox.expand(
@@ -289,7 +313,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                           records: records,
                           selectedPoint: selectedPoint,
                           selectedRecord: selectedRecord,
-                          currentFloorPlan: _currentFloorPlan,
+                          currentFloorPlan: _currentFloorPlan ?? '',
                         ),
                       ),
                     ),
@@ -298,52 +322,53 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               ),
             ),
           ),
-          if (selectedRecord != null) SizedBox(
-            height: 200,
-            child: Card(
-              margin: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: selectedRecord!.isLocal
-                        ? Image.file(
-                            File(selectedRecord!.imagePath),
-                            fit: BoxFit.cover,
-                          )
-                        : Image.network(
-                            selectedRecord!.imagePath,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            },
-                          ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '拍攝時間: ${selectedRecord!.timestamp.toString()}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        Text(
-                          '拍攝者: ${selectedRecord!.username}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
+          if (selectedRecord != null)
+            SizedBox(
+              height: 200,
+              child: Card(
+                margin: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: selectedRecord!.isLocal
+                          ? Image.file(
+                              File(selectedRecord!.imagePath),
+                              fit: BoxFit.cover,
+                            )
+                          : Image.network(
+                              selectedRecord!.imagePath,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  },
+                            ),
                     ),
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '拍攝時間: ${selectedRecord!.timestamp.toString()}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          Text(
+                            '拍攝者: ${selectedRecord!.username}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
-
   }
 }
