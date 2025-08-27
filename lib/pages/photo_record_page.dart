@@ -140,10 +140,10 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       // 先在本地顯示圖片
       String tempImagePath;
       if (kIsWeb) {
-        // Web 平台：創建一個臨時的 data URL
+        // Web 平台：將圖片轉換為 data URL
         final bytes = await photo.readAsBytes();
-        final base64Image = base64Encode(bytes);
-        tempImagePath = 'data:image/jpeg;base64,$base64Image';
+        final base64 = base64Encode(bytes);
+        tempImagePath = 'data:image/jpeg;base64,$base64';
       } else {
         tempImagePath = photo.path;
       }

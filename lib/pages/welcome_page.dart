@@ -166,7 +166,7 @@ class _WelcomePageState extends State<WelcomePage> {
                 clipBehavior: Clip.none,
                 child: Transform.scale(
                   scale: 1.2,
-                  child: Container(
+                  child: SizedBox(
                     width: double.infinity,
                     child: Stack(
                       fit: StackFit.expand,

@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  js: ^0.7.1
+  flutter_web_plugins:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -40,9 +43,6 @@ dependencies:
   
   # Supabase for authentication and database
   supabase_flutter: ^2.9.1
-  
-  # Location services
-  geolocator: ^10.1.0
   
   # Camera
   camera: ^0.10.5+9
