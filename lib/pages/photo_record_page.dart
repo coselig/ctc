@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';
 import '../models/photo_record.dart';
 import '../services/supabase_service.dart';
 import '../widgets/marker_painter.dart';
@@ -135,10 +138,20 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       ).showSnackBar(const SnackBar(content: Text('正在處理圖片...')));
 
       // 先在本地顯示圖片
+      String tempImagePath;
+      if (kIsWeb) {
+        // Web 平台：創建一個臨時的 data URL
+        final bytes = await photo.readAsBytes();
+        final base64Image = base64Encode(bytes);
+        tempImagePath = 'data:image/jpeg;base64,$base64Image';
+      } else {
+        tempImagePath = photo.path;
+      }
+
       final tempRecord = PhotoRecord(
         userId: currentUser.id,
         username: currentUser.email ?? '未知用戶',
-        imagePath: photo.path,
+        imagePath: tempImagePath,
         point: point,
         timestamp: DateTime.now(),
         floorPlanPath: _currentFloorPlan!,
@@ -150,14 +163,21 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         selectedRecord = tempRecord;
       });
 
-      // 壓縮圖片
-      final File file = File(photo.path);
-      final compressedBytes = await FlutterImageCompress.compressWithFile(
-        file.absolute.path,
-        quality: 85,
-        minWidth: 1024,
-        minHeight: 1024,
-      );
+      // 獲取並壓縮圖片
+      Uint8List? compressedBytes;
+      if (kIsWeb) {
+        // Web 平台：直接讀取圖片數據
+        compressedBytes = await photo.readAsBytes();
+      } else {
+        // 其他平台：使用 FlutterImageCompress
+        final file = File(photo.path);
+        compressedBytes = await FlutterImageCompress.compressWithFile(
+          file.absolute.path,
+          quality: 85,
+          minWidth: 1024,
+          minHeight: 1024,
+        );
+      }
 
       if (compressedBytes == null) throw Exception('圖片壓縮失敗');
 
@@ -217,12 +237,102 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       if (nearest != null) {
         selectedRecord = nearest;
         selectedPoint = nearest.point;
+        _showPhotoDialog(); // 顯示照片對話框
       } else if (_isRecordMode) {
         selectedPoint = details.localPosition;
         selectedRecord = null;
         _takePicture(details.localPosition);
       }
     });
+  }
+
+  void _showPhotoDialog() {
+    if (selectedRecord == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppBar(
+                title: Text('現場照片'),
+                automaticallyImplyLeading: false,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      selectedRecord!.isLocal &&
+                              selectedRecord!.imagePath.startsWith('data:image')
+                          ? Image.network(
+                              selectedRecord!.imagePath,
+                              fit: BoxFit.contain,
+                            )
+                          : selectedRecord!.isLocal
+                          ? Image.file(
+                              File(selectedRecord!.imagePath),
+                              fit: BoxFit.contain,
+                            )
+                          : Image.network(
+                              selectedRecord!.imagePath,
+                              fit: BoxFit.contain,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value:
+                                            loadingProgress
+                                                    .expectedTotalBytes !=
+                                                null
+                                            ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    );
+                                  },
+                            ),
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Text(
+                              '拍攝時間: ${selectedRecord!.timestamp.toString()}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '拍攝者: ${selectedRecord!.username}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -322,51 +432,6 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               ),
             ),
           ),
-          if (selectedRecord != null)
-            SizedBox(
-              height: 200,
-              child: Card(
-                margin: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: selectedRecord!.isLocal
-                          ? Image.file(
-                              File(selectedRecord!.imagePath),
-                              fit: BoxFit.cover,
-                            )
-                          : Image.network(
-                              selectedRecord!.imagePath,
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
-                                    );
-                                  },
-                            ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '拍攝時間: ${selectedRecord!.timestamp.toString()}',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          Text(
-                            '拍攝者: ${selectedRecord!.username}',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );

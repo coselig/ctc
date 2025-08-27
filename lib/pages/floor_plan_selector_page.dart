@@ -67,6 +67,55 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
     _loadFloorPlans();
   }
 
+  Future<void> _showDeleteDialog(Map<String, String> floorPlan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('確認刪除'),
+        content: Text(
+          '確定要刪除「${floorPlan['name']}」嗎？\n\n注意：這會同時刪除與此設計圖相關的所有照片記錄。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('刪除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        setState(() => _isLoading = true);
+
+        await widget.supabaseService.deleteFloorPlan(floorPlan['asset']!);
+
+        setState(() {
+          floorPlans.removeWhere((plan) => plan['asset'] == floorPlan['asset']);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已刪除設計圖：${floorPlan['name']}')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('刪除設計圖失敗：${e.toString()}')));
+        }
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _loadFloorPlans() async {
     try {
       setState(() => _isLoading = true);
@@ -194,6 +243,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                   return InkWell(
                     onTap: () =>
                         widget.onFloorPlanSelected(floorPlan['asset']!),
+                    onLongPress: () => _showDeleteDialog(floorPlan),
                     child: Card(
                       clipBehavior: Clip.antiAlias,
                       child: Column(
@@ -206,8 +256,9 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                                     fit: BoxFit.cover,
                                     loadingBuilder:
                                         (context, child, loadingProgress) {
-                                          if (loadingProgress == null)
+                                          if (loadingProgress == null) {
                                             return child;
+                                          }
                                           return Center(
                                             child: CircularProgressIndicator(
                                               value:
