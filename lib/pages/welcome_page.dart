@@ -318,6 +318,58 @@ class _WelcomePageState extends State<WelcomePage> {
                       ),
                     ],
                   ),
+                  ProductCard(
+                    imageName: 'customize_service.jpg',
+                    title: '客製化服務',
+                    subtitle: '專屬於你的智慧家居解決方案',
+                  ),
+                  ProductCard(
+                    imageName: 'handshake.jpg',
+                    title: '加入光悅',
+                    subtitle: '不一樣的工作體驗',
+                  ),
+
+                  const SizedBox(height: 32),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.75,
+                    children: const [
+                      ProductCard(
+                        imageName: 'feasible.png',
+                        title: '務實',
+                        subtitle: 'Feasible',
+                      ),
+                      ProductCard(
+                        imageName: 'stable.png',
+                        title: '穩定',
+                        subtitle: 'Stable',
+                      ),
+                      ProductCard(
+                        imageName: 'affordable.png',
+                        title: '實惠',
+                        subtitle: 'Affordable',
+                      ),
+                      ProductCard(
+                        imageName: 'durable.png',
+                        title: '耐用',
+                        subtitle: 'Durable',
+                      ),
+                      ProductCard(
+                        imageName: 'Sustainable.png',
+                        title: '永續',
+                        subtitle: 'Sustainable',
+                      ),
+                      ProductCard(
+                        imageName: 'comfortable.png',
+                        title: '舒適',
+                        subtitle: 'Comfortable',
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
