@@ -43,8 +43,8 @@ class ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 背景圖片
-            SizedBox(
-              height: 200,
+            AspectRatio(
+              aspectRatio: 1,
               child: invertColors
                   ? ColorFiltered(
                       colorFilter: ColorFilter.matrix(
