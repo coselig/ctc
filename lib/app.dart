@@ -1,8 +1,6 @@
-import 'package:ctc/pages/photo_record_page.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import 'pages/login_page.dart';
+import 'pages/welcome_page.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -13,34 +11,18 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
-  final supabase = Supabase.instance.client;
-  bool _isAuthenticated = false;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _checkInitialAuthState();
-    _setupAuthListener();
-  }
-
-  Future<void> _checkInitialAuthState() async {
-    final session = supabase.auth.currentSession;
-    if (mounted) {
-      setState(() {
-        _isAuthenticated = session != null;
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _setupAuthListener() {
-    supabase.auth.onAuthStateChange.listen((data) {
-      if (!mounted) return;
-
-      setState(() {
-        _isAuthenticated = data.session != null;
-      });
+    // 短暫延遲以確保應用程式初始化完成
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -49,15 +31,10 @@ class _MyAppState extends State<MyApp> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_isAuthenticated) {
-      return PhotoRecordPage(
-        title: '工地照片記錄',
-        onThemeToggle: toggleTheme,
-        currentThemeMode: _themeMode,
-      );
-    } else {
-      return const LoginPage();
-    }
+    return WelcomePage(
+      onThemeToggle: toggleTheme,
+      currentThemeMode: _themeMode,
+    );
   }
 
   void toggleTheme() {
