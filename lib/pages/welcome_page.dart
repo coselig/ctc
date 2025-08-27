@@ -110,8 +110,9 @@ class _WelcomePageState extends State<WelcomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('工地照片記錄系統'),
+        backgroundColor: Theme.of(context).colorScheme.background,
+        title: const Text('CoseligLite'),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(_getThemeIcon()),
@@ -156,7 +157,7 @@ class _WelcomePageState extends State<WelcomePage> {
               Image.asset('assets/sqare_ctc_icon.png', width: 200, height: 200),
             ] else ...[
               Container(
-                height: 200,
+                height: 300,
                 width: double.infinity,
                 color: Colors.black,
                 child: Stack(
@@ -166,13 +167,37 @@ class _WelcomePageState extends State<WelcomePage> {
                       child: OverflowBox(
                         maxHeight: 1000,
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          child: Image.network(
-                            _imageUrls[_currentImageIndex],
+                          duration: const Duration(milliseconds: 800),
+                          transitionBuilder:
+                              (Widget child, Animation<double> animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                );
+                              },
+                          child: CachedNetworkImage(
                             key: ValueKey(_currentImageIndex),
+                            imageUrl: _imageUrls[_currentImageIndex],
                             fit: BoxFit.cover,
                             alignment: Alignment.center,
-                            height: 400,
+                            height: 600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 添加漸層遮罩
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.6),
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.8),
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
                           ),
                         ),
                       ),
@@ -202,16 +227,24 @@ class _WelcomePageState extends State<WelcomePage> {
                 ),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
             Text(
-              '工地照片記錄系統',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+              'CoseligLite',
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
-            Text('輕鬆記錄和管理工地照片', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 32),
+            Text(
+              '智慧家居 輕鬆入門',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onBackground.withOpacity(0.9),
+              ),
+            ),
+            const SizedBox(height: 40),
             if (user == null) ...[
               ElevatedButton.icon(
                 icon: const Icon(Icons.login),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'pages/welcome_page.dart';
+import 'theme/app_theme.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -51,25 +52,10 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    const lightPrimaryColor = Colors.deepPurple;
-    const darkPrimaryColor = Colors.purple;
-
     return MaterialApp(
       title: '工地照片記錄',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: lightPrimaryColor,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: darkPrimaryColor,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: _themeMode,
       home: _buildHomeWidget(),
     );
