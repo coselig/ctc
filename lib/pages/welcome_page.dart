@@ -1,4 +1,5 @@
 import 'package:ctc/widgets/product_card.dart';
+import 'package:ctc/widgets/mission_card.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -341,45 +342,52 @@ class _WelcomePageState extends State<WelcomePage> {
                   ),
 
                   const SizedBox(height: 32),
+                  Text(
+                    '價值理念 Our Mission',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   GridView.count(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 3,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
                     childAspectRatio: 0.85,
-                    children: const [
-                      ProductCard(
+                    children: [
+                      MissionCard(
                         imageName: 'feasible.png',
                         title: '務實',
                         subtitle: 'Feasible',
                         invertColors: true,
                       ),
-                      ProductCard(
+                      MissionCard(
                         imageName: 'stable.png',
                         title: '穩定',
                         subtitle: 'Stable',
                         invertColors: true,
                       ),
-                      ProductCard(
+                      MissionCard(
                         imageName: 'affordable.png',
                         title: '實惠',
                         subtitle: 'Affordable',
                         invertColors: true,
                       ),
-                      ProductCard(
+                      MissionCard(
                         imageName: 'durable.png',
                         title: '耐用',
                         subtitle: 'Durable',
                         invertColors: true,
                       ),
-                      ProductCard(
+                      MissionCard(
                         imageName: 'sustainable.png',
                         title: '永續',
                         subtitle: 'Sustainable',
                         invertColors: true,
                       ),
-                      ProductCard(
+                      MissionCard(
                         imageName: 'comfortable.png',
                         title: '舒適',
                         subtitle: 'Comfortable',
