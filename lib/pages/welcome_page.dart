@@ -353,9 +353,10 @@ class _WelcomePageState extends State<WelcomePage> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 3,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
                     childAspectRatio: 0.85,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     children: [
                       MissionCard(
                         imageName: 'feasible.png',
