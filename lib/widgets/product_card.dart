@@ -17,14 +17,17 @@ class ProductCard extends StatelessWidget {
   });
 
   Widget _buildImage(String imageUrl, ThemeData theme) {
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: double.infinity,
-      fit: BoxFit.contain,
-      placeholder: (context, url) =>
-          const Center(child: CircularProgressIndicator()),
-      errorWidget: (context, url, error) =>
-          const Center(child: Icon(Icons.error)),
+    return Container(
+      alignment: Alignment.center,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        placeholder: (context, url) =>
+            const Center(child: CircularProgressIndicator()),
+        errorWidget: (context, url, error) =>
+            const Center(child: Icon(Icons.error)),
+      ),
     );
   }
 
@@ -36,15 +39,16 @@ class ProductCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.antiAliasWithSaveLayer,
       child: InkWell(
         onTap: () {},
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             // 背景圖片
             AspectRatio(
-              aspectRatio: 1,
+              aspectRatio: 4 / 3,
               child: invertColors
                   ? ColorFiltered(
                       colorFilter: ColorFilter.matrix(
@@ -99,62 +103,80 @@ class ProductCard extends StatelessWidget {
                   : _buildImage(imageUrl, theme),
             ),
             // 標題和內容
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final titleSize = width * 0.08; // 8% of width
+                final subtitleSize = width * 0.06; // 6% of width
+                final buttonTextSize = width * 0.05; // 5% of width
+
+                return Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: width * 0.04, // 4% of width
+                    vertical: width * 0.02, // 2% of width
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withOpacity(0.5),
-                          ),
-                          borderRadius: BorderRadius.circular(4),
+                      Text(
+                        title,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: titleSize,
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
-                        ),
-                        child: Text(
-                          '瞭解更多',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontSize: 10,
-                          ),
-                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      Icon(
-                        Icons.arrow_forward,
-                        color: theme.colorScheme.primary,
-                        size: 14,
+                      SizedBox(height: width * 0.01),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: subtitleSize,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: width * 0.02),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: theme.colorScheme.primary.withOpacity(
+                                  0.5,
+                                ),
+                              ),
+                              borderRadius: BorderRadius.circular(width * 0.02),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: width * 0.02,
+                              vertical: width * 0.01,
+                            ),
+                            child: Text(
+                              '瞭解更多',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontSize: buttonTextSize,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward,
+                            color: theme.colorScheme.primary,
+                            size: width * 0.08,
+                          ),
+
+                          SizedBox(height: width * 0.04),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ],
         ),

@@ -245,41 +245,41 @@ class _WelcomePageState extends State<WelcomePage> {
               ),
             ),
             const SizedBox(height: 40),
-            if (user == null) ...[
-              ElevatedButton.icon(
-                icon: const Icon(Icons.login),
-                label: const Text('立即開始使用'),
-                onPressed: _handleLoginTap,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-            ] else ...[
-              ElevatedButton.icon(
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('進入系統'),
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => PhotoRecordPage(
-                        title: '工地照片記錄系統',
-                        onThemeToggle: widget.onThemeToggle,
-                        currentThemeMode: widget.currentThemeMode,
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-            ],
+            // if (user == null) ...[
+            //   ElevatedButton.icon(
+            //     icon: const Icon(Icons.login),
+            //     label: const Text('立即開始使用'),
+            //     onPressed: _handleLoginTap,
+            //     style: ElevatedButton.styleFrom(
+            //       padding: const EdgeInsets.symmetric(
+            //         horizontal: 32,
+            //         vertical: 16,
+            //       ),
+            //     ),
+            //   ),
+            // ] else ...[
+            //   ElevatedButton.icon(
+            //     icon: const Icon(Icons.arrow_forward),
+            //     label: const Text('進入系統'),
+            //     onPressed: () {
+            //       Navigator.of(context).pushReplacement(
+            //         MaterialPageRoute(
+            //           builder: (context) => PhotoRecordPage(
+            //             title: '工地照片記錄系統',
+            //             onThemeToggle: widget.onThemeToggle,
+            //             currentThemeMode: widget.currentThemeMode,
+            //           ),
+            //         ),
+            //       );
+            //     },
+            //     style: ElevatedButton.styleFrom(
+            //       padding: const EdgeInsets.symmetric(
+            //         horizontal: 32,
+            //         vertical: 16,
+            //       ),
+            //     ),
+            //   ),
+            // ],
             const SizedBox(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
