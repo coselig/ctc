@@ -6,13 +6,31 @@ class ProductCard extends StatelessWidget {
   final String imageName;
   final String title;
   final String subtitle;
+  final bool invertColors;
 
   const ProductCard({
     super.key,
     required this.imageName,
     required this.title,
     required this.subtitle,
+    this.invertColors = false,
   });
+
+  Widget _buildImage(String imageUrl, ThemeData theme) {
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        color: theme.colorScheme.surface,
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (context, url, error) => Container(
+        color: theme.colorScheme.surface,
+        child: const Icon(Icons.error),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,99 +46,120 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Stack(
-              children: [
-                // 背景圖片
-                CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: theme.colorScheme.surface,
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: theme.colorScheme.surface,
-                    child: const Icon(Icons.error),
-                  ),
-                ),
-                // 漸層遮罩
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                        stops: const [0.6, 1.0],
+            // 背景圖片
+            SizedBox(
+              height: 120,
+              child: invertColors
+                  ? ColorFiltered(
+                      colorFilter: ColorFilter.matrix(
+                        theme.brightness == Brightness.dark
+                            ? [
+                                -1,
+                                0,
+                                0,
+                                0,
+                                255,
+                                0,
+                                -1,
+                                0,
+                                0,
+                                255,
+                                0,
+                                0,
+                                -1,
+                                0,
+                                255,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                              ]
+                            : [
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                              ],
                       ),
+                      child: _buildImage(imageUrl, theme),
+                    )
+                  : _buildImage(imageUrl, theme),
+            ),
+            // 標題和內容
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                // 標題和內容
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: theme.textTheme.titleLarge?.copyWith(
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withOpacity(0.5),
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        child: Text(
+                          '瞭解更多',
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: theme.colorScheme.primary.withOpacity(
-                                    0.5,
-                                  ),
-                                ),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              child: Text(
-                                '瞭解更多',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward,
-                              color: theme.colorScheme.primary,
-                              size: 20,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward,
+                        color: theme.colorScheme.primary,
+                        size: 14,
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

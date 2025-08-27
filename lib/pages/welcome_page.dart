@@ -297,7 +297,7 @@ class _WelcomePageState extends State<WelcomePage> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 2,
-                    mainAxisSpacing: 16,
+                    mainAxisSpacing: 10,
                     crossAxisSpacing: 16,
                     childAspectRatio: 0.75,
                     children: const [
@@ -318,15 +318,26 @@ class _WelcomePageState extends State<WelcomePage> {
                       ),
                     ],
                   ),
-                  ProductCard(
-                    imageName: 'customize_service.jpg',
-                    title: '客製化服務',
-                    subtitle: '專屬於你的智慧家居解決方案',
-                  ),
-                  ProductCard(
-                    imageName: 'handshake.jpg',
-                    title: '加入光悅',
-                    subtitle: '不一樣的工作體驗',
+
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.7,
+                    children: const [
+                      ProductCard(
+                        imageName: 'customize_service.jpg',
+                        title: '客製化服務',
+                        subtitle: '專屬於你的智慧家居解決方案',
+                      ),
+                      ProductCard(
+                        imageName: 'handshake.jpg',
+                        title: '加入光悅',
+                        subtitle: '不一樣的工作體驗',
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 32),
@@ -334,39 +345,45 @@ class _WelcomePageState extends State<WelcomePage> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 3,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.75,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.7,
                     children: const [
                       ProductCard(
                         imageName: 'feasible.png',
                         title: '務實',
                         subtitle: 'Feasible',
+                        invertColors: true,
                       ),
                       ProductCard(
                         imageName: 'stable.png',
                         title: '穩定',
                         subtitle: 'Stable',
+                        invertColors: true,
                       ),
                       ProductCard(
                         imageName: 'affordable.png',
                         title: '實惠',
                         subtitle: 'Affordable',
+                        invertColors: true,
                       ),
                       ProductCard(
                         imageName: 'durable.png',
                         title: '耐用',
                         subtitle: 'Durable',
+                        invertColors: true,
                       ),
                       ProductCard(
-                        imageName: 'Sustainable.png',
+                        imageName: 'sustainable.png',
                         title: '永續',
                         subtitle: 'Sustainable',
+                        invertColors: true,
                       ),
                       ProductCard(
                         imageName: 'comfortable.png',
                         title: '舒適',
                         subtitle: 'Comfortable',
+                        invertColors: true,
                       ),
                     ],
                   ),
