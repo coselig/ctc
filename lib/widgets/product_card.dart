@@ -20,15 +20,11 @@ class ProductCard extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: imageUrl,
       width: double.infinity,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => Container(
-        color: theme.colorScheme.surface,
-        child: const Center(child: CircularProgressIndicator()),
-      ),
-      errorWidget: (context, url, error) => Container(
-        color: theme.colorScheme.surface,
-        child: const Icon(Icons.error),
-      ),
+      fit: BoxFit.contain,
+      placeholder: (context, url) =>
+          const Center(child: CircularProgressIndicator()),
+      errorWidget: (context, url, error) =>
+          const Center(child: Icon(Icons.error)),
     );
   }
 
@@ -39,7 +35,7 @@ class ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {},
@@ -48,7 +44,7 @@ class ProductCard extends StatelessWidget {
           children: [
             // 背景圖片
             SizedBox(
-              height: 120,
+              height: 200,
               child: invertColors
                   ? ColorFiltered(
                       colorFilter: ColorFilter.matrix(
@@ -104,31 +100,30 @@ class ProductCard extends StatelessWidget {
             ),
             // 標題和內容
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    style: theme.textTheme.labelLarge?.copyWith(
                       color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

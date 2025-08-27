@@ -345,9 +345,9 @@ class _WelcomePageState extends State<WelcomePage> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 3,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 0.7,
+                    mainAxisSpacing: 4,
+                    crossAxisSpacing: 4,
+                    childAspectRatio: 0.85,
                     children: const [
                       ProductCard(
                         imageName: 'feasible.png',
