@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'auth_page.dart';
 import 'photo_record_page.dart';
+import 'package:ctc/services/image_service.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({
@@ -43,35 +44,21 @@ class _WelcomePageState extends State<WelcomePage> {
 
   void _loadImages() async {
     try {
-      debugPrint('Attempting to access Supabase storage...');
-      final storage = supabase.storage;
-
+      debugPrint('Loading carousel images...');
+      final imageService = ImageService();
       final List<String> fileNames = ['bedroom.jpg', 'living-room.jpg'];
-      final List<String> urls = [];
 
-      for (var fileName in fileNames) {
-        try {
-          debugPrint('Attempting to get URL for $fileName');
-          final url = storage
-              .from('assets')
-              .createSignedUrl(fileName, 3600); // 1小時有效期的簽名URL
-          debugPrint('Successfully generated signed URL for $fileName: $url');
-          urls.add(await url);
-        } catch (e) {
-          debugPrint('Error getting URL for $fileName: $e');
-        }
-      }
+      final urls = await imageService.getImageUrls(fileNames);
 
       if (mounted) {
         setState(() {
           _imageUrls.clear();
           _imageUrls.addAll(urls);
-          debugPrint('Set storage URLs: $_imageUrls');
+          debugPrint('Set carousel URLs: $_imageUrls');
         });
       }
     } catch (error) {
-      debugPrint('Error loading images: $error');
-      debugPrint('Error details: ${error.toString()}');
+      debugPrint('Error loading carousel images: $error');
     }
   }
 
@@ -253,7 +240,7 @@ class _WelcomePageState extends State<WelcomePage> {
                 children: [
                   const SizedBox(height: 40),
                   Text(
-                    'CoseligLite',
+                    'Coselig',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.bold,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ctc/services/image_service.dart';
 
 class MissionCard extends StatelessWidget {
   final String imageName;
@@ -41,26 +41,45 @@ class MissionCard extends StatelessWidget {
                           Expanded(
                             child: AspectRatio(
                               aspectRatio: 1,
-                              child: CachedNetworkImage(
-                                imageUrl: Supabase.instance.client.storage
-                                    .from('assets')
-                                    .getPublicUrl(imageName),
-                                color:
-                                    invertColors &&
-                                        theme.brightness == Brightness.dark
-                                    ? Colors.white
-                                    : theme.colorScheme.primary,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => Container(
-                                  color: theme.colorScheme.surface,
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                ),
-                                errorWidget: (context, url, error) => Container(
-                                  color: theme.colorScheme.surface,
-                                  child: const Icon(Icons.error),
-                                ),
+                              child: FutureBuilder<String>(
+                                future: ImageService().getImageUrl(imageName),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Container(
+                                      color: theme.colorScheme.surface,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  }
+                                  if (snapshot.hasError) {
+                                    return Container(
+                                      color: theme.colorScheme.surface,
+                                      child: const Icon(Icons.error),
+                                    );
+                                  }
+                                  return CachedNetworkImage(
+                                    imageUrl: snapshot.data!,
+                                    color:
+                                        invertColors &&
+                                            theme.brightness == Brightness.dark
+                                        ? Colors.white
+                                        : theme.colorScheme.primary,
+                                    fit: BoxFit.contain,
+                                    placeholder: (context, url) => Container(
+                                      color: theme.colorScheme.surface,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        Container(
+                                          color: theme.colorScheme.surface,
+                                          child: const Icon(Icons.error),
+                                        ),
+                                  );
+                                },
                               ),
                             ),
                           ),

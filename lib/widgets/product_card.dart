@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:ctc/services/image_service.dart';
 
 class ProductCard extends StatelessWidget {
   final String imageName;
@@ -16,25 +16,34 @@ class ProductCard extends StatelessWidget {
     this.invertColors = false,
   });
 
-  Widget _buildImage(String imageUrl, ThemeData theme) {
-    return Container(
-      alignment: Alignment.center,
-      child: CachedNetworkImage(
-        imageUrl: imageUrl,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        placeholder: (context, url) =>
-            const Center(child: CircularProgressIndicator()),
-        errorWidget: (context, url, error) =>
-            const Center(child: Icon(Icons.error)),
-      ),
+  Widget _buildImage(BuildContext context, String imageName, ThemeData theme) {
+    return FutureBuilder<String>(
+      future: ImageService().getImageUrl(imageName),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Icon(Icons.error));
+        }
+        return Container(
+          alignment: Alignment.center,
+          child: CachedNetworkImage(
+            imageUrl: snapshot.data!,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator()),
+            errorWidget: (context, url, error) =>
+                const Center(child: Icon(Icons.error)),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final storage = Supabase.instance.client.storage;
-    final imageUrl = storage.from('assets').getPublicUrl(imageName);
     final theme = Theme.of(context);
 
     return Card(
@@ -46,7 +55,6 @@ class ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            // 背景圖片
             AspectRatio(
               aspectRatio: 4 / 3,
               child: invertColors
@@ -98,9 +106,9 @@ class ProductCard extends StatelessWidget {
                                 0,
                               ],
                       ),
-                      child: _buildImage(imageUrl, theme),
+                      child: _buildImage(context, imageName, theme),
                     )
-                  : _buildImage(imageUrl, theme),
+                  : _buildImage(context, imageName, theme),
             ),
             // 標題和內容
             LayoutBuilder(
