@@ -8,7 +8,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import '../models/photo_record.dart';
 import '../services/supabase_service.dart';
-import '../widgets/marker_painter.dart';
+import '../widgets/floor_plan_view.dart';
 import 'floor_plan_selector_page.dart';
 
 class PhotoRecordPage extends StatefulWidget {
@@ -220,6 +220,8 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     double minDistance = double.infinity;
 
     for (var record in records) {
+      if (record.floorPlanPath != _currentFloorPlan) continue;
+
       final distance = (record.point - point).distance;
       if (distance < threshold && distance < minDistance) {
         minDistance = distance;
@@ -231,7 +233,8 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   }
 
   void _handleTapUp(TapUpDetails details) {
-    final nearest = _findNearestRecord(details.localPosition);
+    final point = details.globalPosition;
+    final nearest = _findNearestRecord(point);
 
     setState(() {
       if (nearest != null) {
@@ -239,9 +242,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         selectedPoint = nearest.point;
         _showPhotoDialog(); // 顯示照片對話框
       } else if (_isRecordMode) {
-        selectedPoint = details.localPosition;
+        selectedPoint = point;
         selectedRecord = null;
-        _takePicture(details.localPosition);
+        _takePicture(point);
       }
     });
   }
@@ -398,53 +401,18 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               constrained: true,
               minScale: 0.5,
               maxScale: 4.0,
-              child: GestureDetector(
-                onTapUp: _handleTapUp,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Center(
-                      child: _currentFloorPlan == null
-                          ? const Center(child: Text('請選擇設計圖'))
-                          : Image.network(
-                              _currentFloorPlan!,
-                              fit: BoxFit.contain,
-                              width: double.infinity,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Center(
-                                      child: CircularProgressIndicator(
-                                        value:
-                                            loadingProgress
-                                                    .expectedTotalBytes !=
-                                                null
-                                            ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                            : null,
-                                      ),
-                                    );
-                                  },
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(child: Text('載入設計圖失敗'));
-                              },
-                            ),
+              child: _currentFloorPlan == null
+                  ? const Center(child: Text('請選擇設計圖'))
+                  : FloorPlanView(
+                      imageUrl: _currentFloorPlan!,
+                      records: records
+                          .where((r) => r.floorPlanPath == _currentFloorPlan)
+                          .toList(),
+                      onTapUp: _handleTapUp,
+                      selectedRecord: selectedRecord,
+                      selectedPoint: selectedPoint,
+                      isRecordMode: _isRecordMode,
                     ),
-                    SizedBox.expand(
-                      child: CustomPaint(
-                        painter: MarkerPainter(
-                          records: records,
-                          selectedPoint: selectedPoint,
-                          selectedRecord: selectedRecord,
-                          currentFloorPlan: _currentFloorPlan ?? '',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
