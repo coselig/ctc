@@ -232,15 +232,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     return nearest;
   }
 
-  void _handleTapUp(TapUpDetails details) {
-    final point = details.globalPosition;
+  void _handleTapUp(Offset point) {
     final nearest = _findNearestRecord(point);
 
     setState(() {
       if (nearest != null) {
         selectedRecord = nearest;
         selectedPoint = nearest.point;
-        _showPhotoDialog(); // 顯示照片對話框
       } else if (_isRecordMode) {
         selectedPoint = point;
         selectedRecord = null;
@@ -412,6 +410,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                       selectedRecord: selectedRecord,
                       selectedPoint: selectedPoint,
                       isRecordMode: _isRecordMode,
+                      onRecordTap: (record) {
+                        setState(() {
+                          selectedRecord = record;
+                          selectedPoint = record.point;
+                        });
+                        _showPhotoDialog();
+                      },
                     ),
             ),
           ),

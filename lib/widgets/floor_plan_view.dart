@@ -8,8 +8,9 @@ class FloorPlanView extends StatelessWidget {
   final List<PhotoRecord> records;
   final PhotoRecord? selectedRecord;
   final Offset? selectedPoint;
-  final Function(TapUpDetails) onTapUp;
+  final Function(Offset) onTapUp;
   final bool isRecordMode;
+  final Function(PhotoRecord)? onRecordTap;
 
   const FloorPlanView({
     super.key,
@@ -19,6 +20,7 @@ class FloorPlanView extends StatelessWidget {
     this.selectedRecord,
     this.selectedPoint,
     this.isRecordMode = false,
+    this.onRecordTap,
   });
 
   Future<Size> _getImageSize(String imageUrl) async {
@@ -101,11 +103,7 @@ class FloorPlanView extends StatelessWidget {
                               originalX <= imageSize.width &&
                               originalY >= 0 &&
                               originalY <= imageSize.height) {
-                            final newDetails = TapUpDetails(
-                              kind: PointerDeviceKind.touch,
-                              globalPosition: Offset(originalX, originalY),
-                            );
-                            onTapUp(newDetails);
+                            onTapUp(Offset(originalX, originalY));
                           }
                         },
                         child: Image.network(
@@ -141,22 +139,29 @@ class FloorPlanView extends StatelessWidget {
                       return Positioned(
                         left: screenX - 8, // 8 是標記點寬度的一半
                         top: screenY - 8, // 8 是標記點高度的一半
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: record == selectedRecord
-                                ? Colors.red
-                                : Colors.blue,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                        child: GestureDetector(
+                          onTap: () {
+                            if (onRecordTap != null) {
+                              onRecordTap!(record);
+                            }
+                          },
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: record == selectedRecord
+                                  ? Colors.red
+                                  : Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
