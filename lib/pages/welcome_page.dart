@@ -297,10 +297,18 @@ class _WelcomePageState extends State<WelcomePage> {
                               );
                             },
                           ),
-                          const ProductCard(
+                          ProductCard(
                             imageName: 'HA.jpg',
                             title: '開源整合平台',
                             subtitle: '啟動智慧生活\nHome Assistant',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProductPage(),
+                                ),
+                              );
+                            },
                           ),
                           const ProductCard(
                             imageName: 'LIGHT.jpeg',

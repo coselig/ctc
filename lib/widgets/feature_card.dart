@@ -17,7 +17,8 @@ class FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final imageWidth = screenWidth * 0.5; // 螢幕寬度的一半
+    // 計算螢幕寬度的一半，但限制最大寬度為 300
+    final imageWidth = (screenWidth * 0.5).clamp(0.0, 400.0);
     final imageHeight = imageWidth * 0.75; // 寬度的 3/4，產生 4:3 的比例
 
     return Card(
