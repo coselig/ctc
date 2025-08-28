@@ -137,7 +137,7 @@ class _WelcomePageState extends State<WelcomePage> {
                 ),
               ),
               onPressed: () {
-                Navigator.of(context).pushReplacement(
+                Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => PhotoRecordPage(
                       title: '工地照片記錄系統',
