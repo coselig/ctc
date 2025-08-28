@@ -112,17 +112,30 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           if (user == null)
             TextButton.icon(
-              icon: const Icon(Icons.login),
-              label: const Text('登入'),
-              onPressed: _handleLoginTap,
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              icon: Icon(
+                Icons.login,
+                color: Theme.of(context).colorScheme.onBackground,
               ),
+              label: Text(
+                '登入',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
+              ),
+              onPressed: _handleLoginTap,
             )
           else
             TextButton.icon(
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('進入系統'),
+              icon: Icon(
+                Icons.arrow_forward,
+                color: Theme.of(context).colorScheme.onBackground,
+              ),
+              label: Text(
+                '進入系統',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
@@ -134,9 +147,6 @@ class _WelcomePageState extends State<WelcomePage> {
                   ),
                 );
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              ),
             ),
         ],
       ),

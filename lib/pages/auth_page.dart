@@ -83,8 +83,14 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(_isSignUp ? '註冊' : '登入'),
+        backgroundColor: Theme.of(context).colorScheme.background,
+        title: Text(
+          _isSignUp ? '註冊' : '登入',
+          style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+        ),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onBackground,
+        ),
         actions: [
           IconButton(
             icon: Icon(_getThemeIcon()),
@@ -100,8 +106,12 @@ class _AuthPageState extends State<AuthPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(24.0),
                   child: Form(
                     key: _formKey,
                     child: AutofillGroup(
@@ -110,10 +120,29 @@ class _AuthPageState extends State<AuthPage> {
                         children: [
                           TextFormField(
                             controller: _emailController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '電子郵件',
                               hintText: '請輸入您的電子郵件',
-                              prefixIcon: Icon(Icons.email),
+                              prefixIcon: Icon(
+                                Icons.email,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 2,
+                                ),
+                              ),
                             ),
                             keyboardType: TextInputType.emailAddress,
                             autofillHints: const [AutofillHints.email],
@@ -130,10 +159,29 @@ class _AuthPageState extends State<AuthPage> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '密碼',
                               hintText: '請輸入您的密碼',
-                              prefixIcon: Icon(Icons.lock),
+                              prefixIcon: Icon(
+                                Icons.lock,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 2,
+                                ),
+                              ),
                             ),
                             obscureText: true,
                             autofillHints: const [AutofillHints.password],
@@ -152,15 +200,41 @@ class _AuthPageState extends State<AuthPage> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _handleSubmit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onPrimary,
+                                            ),
                                       ),
                                     )
-                                  : Text(_isSignUp ? '註冊' : '登入'),
+                                  : Text(
+                                      _isSignUp ? '註冊' : '登入',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -172,7 +246,17 @@ class _AuthPageState extends State<AuthPage> {
                                       _isSignUp = !_isSignUp;
                                     });
                                   },
-                            child: Text(_isSignUp ? '已有帳號？登入' : '沒有帳號？註冊'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                            ),
+                            child: Text(
+                              _isSignUp ? '已有帳號？登入' : '沒有帳號？註冊',
+                              style: TextStyle(
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
                           ),
                         ],
                       ),
