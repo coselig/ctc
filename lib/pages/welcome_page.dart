@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'auth_page.dart';
 import 'photo_record_page.dart';
+import 'product_page.dart';
 import 'package:ctc/services/image_service.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -282,18 +283,26 @@ class _WelcomePageState extends State<WelcomePage> {
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
                         childAspectRatio: 0.75,
-                        children: const [
+                        children: [
                           ProductCard(
                             imageName: 'DI.jpg',
                             title: '高規元件',
                             subtitle: '台灣製造\n調光控制器',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProductPage(),
+                                ),
+                              );
+                            },
                           ),
-                          ProductCard(
+                          const ProductCard(
                             imageName: 'HA.jpg',
                             title: '開源整合平台',
                             subtitle: '啟動智慧生活\nHome Assistant',
                           ),
-                          ProductCard(
+                          const ProductCard(
                             imageName: 'LIGHT.jpeg',
                             title: '快時尚照明',
                             subtitle: '裝修新高度\n輕量複和金屬板',

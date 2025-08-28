@@ -7,6 +7,7 @@ class ProductCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool invertColors;
+  final VoidCallback? onTap;
 
   const ProductCard({
     super.key,
@@ -14,6 +15,7 @@ class ProductCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.invertColors = false,
+    this.onTap,
   });
 
   Widget _buildImage(BuildContext context, String imageName, ThemeData theme) {
@@ -50,7 +52,7 @@ class ProductCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       clipBehavior: Clip.antiAliasWithSaveLayer,
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.spaceAround,
