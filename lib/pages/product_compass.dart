@@ -228,23 +228,20 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF8B6914)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: CompassBackground(
         child: SafeArea(
           child: Column(
             children: [
-              // 頂部導航
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.brown),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-              ),
+              // 移除原來的頂部導航 Padding，因為現在有 AppBar 了
               // 主要內容區域
               Expanded(
                 child: Column(

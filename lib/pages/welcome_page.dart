@@ -102,41 +102,42 @@ class _WelcomePageState extends State<WelcomePage> {
     final user = supabase.auth.currentUser;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('CoseligLite'),
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF8B6914)), // 統一圖標顏色
         actions: [
           IconButton(
-            icon: Icon(_getThemeIcon()),
+            icon: Icon(_getThemeIcon(), color: const Color(0xFF8B6914)),
             onPressed: widget.onThemeToggle,
             tooltip: '切換主題',
           ),
           if (user == null)
             TextButton.icon(
-              icon: Icon(
+              icon: const Icon(
                 Icons.login,
-                color: Theme.of(context).colorScheme.onBackground,
+                color: Color(0xFF8B6914), // 金棕色
               ),
-              label: Text(
+              label: const Text(
                 '登入',
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onBackground,
+                  color: Color(0xFF8B6914), // 金棕色
                 ),
               ),
               onPressed: _handleLoginTap,
             )
           else
             TextButton.icon(
-              icon: Icon(
+              icon: const Icon(
                 Icons.arrow_forward,
-                color: Theme.of(context).colorScheme.onBackground,
+                color: Color(0xFF8B6914), // 金棕色
               ),
-              label: Text(
+              label: const Text(
                 '進入系統',
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onBackground,
+                  color: Color(0xFF8B6914), // 金棕色
                 ),
               ),
               onPressed: () {
