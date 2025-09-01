@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/supabase_service.dart';
+import '../widgets/compass_background.dart';
 
 class FloorPlanSelectorPage extends StatefulWidget {
   const FloorPlanSelectorPage({
@@ -203,7 +204,8 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('選擇設計圖'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -212,88 +214,90 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : floorPlans.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('尚未有任何設計圖'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _addNewFloorPlan,
-                    child: const Text('新增設計圖'),
-                  ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: _loadFloorPlans,
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: floorPlans.length,
-                itemBuilder: (context, index) {
-                  final floorPlan = floorPlans[index];
-                  return InkWell(
-                    onTap: () =>
-                        widget.onFloorPlanSelected(floorPlan['asset']!),
-                    onLongPress: () => _showDeleteDialog(floorPlan),
-                    child: Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: floorPlan['asset']!.startsWith('http')
-                                ? Image.network(
-                                    floorPlan['asset']!,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder:
-                                        (context, child, loadingProgress) {
-                                          if (loadingProgress == null) {
-                                            return child;
-                                          }
-                                          return Center(
-                                            child: CircularProgressIndicator(
-                                              value:
-                                                  loadingProgress
-                                                          .expectedTotalBytes !=
-                                                      null
-                                                  ? loadingProgress
-                                                            .cumulativeBytesLoaded /
-                                                        loadingProgress
-                                                            .expectedTotalBytes!
-                                                  : null,
-                                            ),
-                                          );
-                                        },
-                                  )
-                                : Image.asset(
-                                    floorPlan['asset']!,
-                                    fit: BoxFit.cover,
-                                  ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              floorPlans[index]['name']!,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                        ],
-                      ),
+      body: CompassBackground(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : floorPlans.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('尚未有任何設計圖'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _addNewFloorPlan,
+                      child: const Text('新增設計圖'),
                     ),
-                  );
-                },
+                  ],
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _loadFloorPlans,
+                child: GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: floorPlans.length,
+                  itemBuilder: (context, index) {
+                    final floorPlan = floorPlans[index];
+                    return InkWell(
+                      onTap: () =>
+                          widget.onFloorPlanSelected(floorPlan['asset']!),
+                      onLongPress: () => _showDeleteDialog(floorPlan),
+                      child: Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: floorPlan['asset']!.startsWith('http')
+                                  ? Image.network(
+                                      floorPlan['asset']!,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder:
+                                          (context, child, loadingProgress) {
+                                            if (loadingProgress == null) {
+                                              return child;
+                                            }
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                value:
+                                                    loadingProgress
+                                                            .expectedTotalBytes !=
+                                                        null
+                                                    ? loadingProgress
+                                                              .cumulativeBytesLoaded /
+                                                          loadingProgress
+                                                              .expectedTotalBytes!
+                                                    : null,
+                                              ),
+                                            );
+                                          },
+                                    )
+                                  : Image.asset(
+                                      floorPlan['asset']!,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                floorPlans[index]['name']!,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
+      ),
     );
   }
 }

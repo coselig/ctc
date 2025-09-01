@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/compass_background.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -122,64 +123,67 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('登入'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: '電子郵件',
-                      border: OutlineInputBorder(),
+      body: CompassBackground(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: '電子郵件',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: '密碼',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(
+                        labelText: '密碼',
+                        border: OutlineInputBorder(),
+                      ),
+                      obscureText: true,
                     ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _rememberMe,
-                        onChanged: (value) {
-                          setState(() {
-                            _rememberMe = value ?? true;
-                          });
-                        },
-                      ),
-                      const Text('記住帳號'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _signIn,
-                        child: const Text('登入'),
-                      ),
-                      ElevatedButton(
-                        onPressed: _signUp,
-                        child: const Text('註冊'),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value ?? true;
+                            });
+                          },
+                        ),
+                        const Text('記住帳號'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _signIn,
+                          child: const Text('登入'),
+                        ),
+                        ElevatedButton(
+                          onPressed: _signUp,
+                          child: const Text('註冊'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

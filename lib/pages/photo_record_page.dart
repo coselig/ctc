@@ -9,6 +9,7 @@ import 'dart:convert';
 import '../models/photo_record.dart';
 import '../services/supabase_service.dart';
 import '../widgets/floor_plan_view.dart';
+import '../widgets/compass_background.dart';
 import 'floor_plan_selector_page.dart';
 
 class PhotoRecordPage extends StatefulWidget {
@@ -353,7 +354,8 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: Text(
           widget.title,
           style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
@@ -392,35 +394,37 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: InteractiveViewer(
-              constrained: true,
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: _currentFloorPlan == null
-                  ? const Center(child: Text('請選擇設計圖'))
-                  : FloorPlanView(
-                      imageUrl: _currentFloorPlan!,
-                      records: records
-                          .where((r) => r.floorPlanPath == _currentFloorPlan)
-                          .toList(),
-                      onTapUp: _handleTapUp,
-                      selectedRecord: selectedRecord,
-                      selectedPoint: selectedPoint,
-                      isRecordMode: _isRecordMode,
-                      onRecordTap: (record) {
-                        setState(() {
-                          selectedRecord = record;
-                          selectedPoint = record.point;
-                        });
-                        _showPhotoDialog();
-                      },
-                    ),
+      body: CompassBackground(
+        child: Column(
+          children: [
+            Expanded(
+              child: InteractiveViewer(
+                constrained: true,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: _currentFloorPlan == null
+                    ? const Center(child: Text('請選擇設計圖'))
+                    : FloorPlanView(
+                        imageUrl: _currentFloorPlan!,
+                        records: records
+                            .where((r) => r.floorPlanPath == _currentFloorPlan)
+                            .toList(),
+                        onTapUp: _handleTapUp,
+                        selectedRecord: selectedRecord,
+                        selectedPoint: selectedPoint,
+                        isRecordMode: _isRecordMode,
+                        onRecordTap: (record) {
+                          setState(() {
+                            selectedRecord = record;
+                            selectedPoint = record.point;
+                          });
+                          _showPhotoDialog();
+                        },
+                      ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

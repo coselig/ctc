@@ -1,6 +1,8 @@
+import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/widgets/product_card.dart';
 import 'package:ctc/widgets/mission_card.dart';
 import 'package:ctc/widgets/responsive_container.dart';
+import 'package:ctc/widgets/compass_background.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -100,9 +102,9 @@ class _WelcomePageState extends State<WelcomePage> {
     final user = supabase.auth.currentUser;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: const Text('CoseligLite'),
         centerTitle: true,
         actions: [
@@ -151,253 +153,273 @@ class _WelcomePageState extends State<WelcomePage> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        clipBehavior: Clip.none,
-        child: Column(
-          children: [
-            if (_imageUrls.isEmpty) ...[
-              const SizedBox(height: 32),
-              Image.asset('assets/sqare_ctc_icon.png', width: 200, height: 200),
-            ] else ...[
-              Container(
-                height: 300,
-                clipBehavior: Clip.none,
-                child: Transform.scale(
-                  scale: 1.2,
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      clipBehavior: Clip.none,
-                      children: [
-                        ClipRect(
-                          child: OverflowBox(
-                            maxHeight: double.infinity,
-                            maxWidth: double.infinity,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 800),
-                              transitionBuilder:
-                                  (Widget child, Animation<double> animation) {
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: child,
+      body: CompassBackground(
+        child: SingleChildScrollView(
+          clipBehavior: Clip.none,
+          child: Column(
+            children: [
+              if (_imageUrls.isEmpty) ...[
+                const SizedBox(height: 32),
+                Image.asset(
+                  'assets/sqare_ctc_icon.png',
+                  width: 200,
+                  height: 200,
+                ),
+              ] else ...[
+                Container(
+                  height: 300,
+                  clipBehavior: Clip.none,
+                  child: Transform.scale(
+                    scale: 1.2,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        clipBehavior: Clip.none,
+                        children: [
+                          ClipRect(
+                            child: OverflowBox(
+                              maxHeight: double.infinity,
+                              maxWidth: double.infinity,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 800),
+                                transitionBuilder:
+                                    (
+                                      Widget child,
+                                      Animation<double> animation,
+                                    ) {
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      );
+                                    },
+                                child: CachedNetworkImage(
+                                  key: ValueKey(_currentImageIndex),
+                                  imageUrl: _imageUrls[_currentImageIndex],
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  width: MediaQuery.of(context).size.width,
+                                  height: 600,
+                                  errorWidget: (context, url, error) {
+                                    debugPrint('Image load error: $error');
+                                    return const Center(
+                                      child: Icon(Icons.error),
                                     );
                                   },
-                              child: CachedNetworkImage(
-                                key: ValueKey(_currentImageIndex),
-                                imageUrl: _imageUrls[_currentImageIndex],
-                                fit: BoxFit.cover,
-                                alignment: Alignment.center,
-                                width: MediaQuery.of(context).size.width,
-                                height: 600,
-                                errorWidget: (context, url, error) {
-                                  debugPrint('Image load error: $error');
-                                  return const Center(child: Icon(Icons.error));
-                                },
-                                placeholder: (context, url) => const Center(
-                                  child: CircularProgressIndicator(),
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.6),
-                                  Colors.transparent,
-                                  Colors.black.withOpacity(0.8),
-                                ],
-                                stops: const [0.0, 0.5, 1.0],
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.6),
+                                    Colors.transparent,
+                                    Colors.black.withOpacity(0.8),
+                                  ],
+                                  stops: const [0.0, 0.5, 1.0],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          bottom: 16,
-                          left: 0,
-                          right: 0,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: _imageUrls.asMap().entries.map((entry) {
-                              return Container(
-                                width: 8,
-                                height: 8,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _currentImageIndex == entry.key
-                                      ? Colors.white
-                                      : Colors.white.withAlpha(127),
-                                ),
-                              );
-                            }).toList(),
+                          Positioned(
+                            bottom: 16,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: _imageUrls.asMap().entries.map((entry) {
+                                return Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _currentImageIndex == entry.key
+                                        ? Colors.white
+                                        : Colors.white.withAlpha(127),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
+              ],
+              ResponsiveContainer(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 40),
+                    Text(
+                      'Coselig',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '智慧家居 輕鬆入門',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onBackground.withOpacity(0.9),
+                          ),
+                    ),
+                    const SizedBox(height: 40),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '服務項目',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.75,
+                          children: [
+                            ProductCard(
+                              imageName: 'DI.jpg',
+                              title: '高規元件',
+                              subtitle: '台灣製造\n調光控制器',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ProductPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            ProductCard(
+                              imageName: 'HA.jpg',
+                              title: '開源整合平台',
+                              subtitle: '啟動智慧生活\nHome Assistant',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            ProductCard(
+                              imageName: 'LIGHT.jpeg',
+                              title: '快時尚照明',
+                              subtitle: '裝修新高度\n輕量複和金屬板',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductCompassPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.7,
+                          children: const [
+                            ProductCard(
+                              imageName: 'customize_service.jpg',
+                              title: '客製化服務',
+                              subtitle: '專屬於你的智慧家居解決方案',
+                            ),
+                            ProductCard(
+                              imageName: 'handshake.jpg',
+                              title: '加入光悅',
+                              subtitle: '不一樣的工作體驗',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          '價值理念 Our Mission',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.85,
+                          children: [
+                            MissionCard(
+                              imageName: 'feasible.png',
+                              title: '務實',
+                              subtitle: 'Feasible',
+                              invertColors: true,
+                            ),
+                            MissionCard(
+                              imageName: 'stable.png',
+                              title: '穩定',
+                              subtitle: 'Stable',
+                              invertColors: true,
+                            ),
+                            MissionCard(
+                              imageName: 'affordable.png',
+                              title: '實惠',
+                              subtitle: 'Affordable',
+                              invertColors: true,
+                            ),
+                            MissionCard(
+                              imageName: 'durable.png',
+                              title: '耐用',
+                              subtitle: 'Durable',
+                              invertColors: true,
+                            ),
+                            MissionCard(
+                              imageName: 'sustainable.png',
+                              title: '永續',
+                              subtitle: 'Sustainable',
+                              invertColors: true,
+                            ),
+                            MissionCard(
+                              imageName: 'comfortable.png',
+                              title: '舒適',
+                              subtitle: 'Comfortable',
+                              invertColors: true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ],
-            ResponsiveContainer(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-                  Text(
-                    'Coselig',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '智慧家居 輕鬆入門',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onBackground.withOpacity(0.9),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '服務項目',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.75,
-                        children: [
-                          ProductCard(
-                            imageName: 'DI.jpg',
-                            title: '高規元件',
-                            subtitle: '台灣製造\n調光控制器',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ProductPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          ProductCard(
-                            imageName: 'HA.jpg',
-                            title: '開源整合平台',
-                            subtitle: '啟動智慧生活\nHome Assistant',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ProductPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          const ProductCard(
-                            imageName: 'LIGHT.jpeg',
-                            title: '快時尚照明',
-                            subtitle: '裝修新高度\n輕量複和金屬板',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.7,
-                        children: const [
-                          ProductCard(
-                            imageName: 'customize_service.jpg',
-                            title: '客製化服務',
-                            subtitle: '專屬於你的智慧家居解決方案',
-                          ),
-                          ProductCard(
-                            imageName: 'handshake.jpg',
-                            title: '加入光悅',
-                            subtitle: '不一樣的工作體驗',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        '價值理念 Our Mission',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.85,
-                        children: [
-                          MissionCard(
-                            imageName: 'feasible.png',
-                            title: '務實',
-                            subtitle: 'Feasible',
-                            invertColors: true,
-                          ),
-                          MissionCard(
-                            imageName: 'stable.png',
-                            title: '穩定',
-                            subtitle: 'Stable',
-                            invertColors: true,
-                          ),
-                          MissionCard(
-                            imageName: 'affordable.png',
-                            title: '實惠',
-                            subtitle: 'Affordable',
-                            invertColors: true,
-                          ),
-                          MissionCard(
-                            imageName: 'durable.png',
-                            title: '耐用',
-                            subtitle: 'Durable',
-                            invertColors: true,
-                          ),
-                          MissionCard(
-                            imageName: 'sustainable.png',
-                            title: '永續',
-                            subtitle: 'Sustainable',
-                            invertColors: true,
-                          ),
-                          MissionCard(
-                            imageName: 'comfortable.png',
-                            title: '舒適',
-                            subtitle: 'Comfortable',
-                            invertColors: true,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

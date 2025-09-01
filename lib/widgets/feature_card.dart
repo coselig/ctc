@@ -23,53 +23,75 @@ class FeatureCard extends StatelessWidget {
 
     return Card(
       elevation: 4,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          children: [
-            FutureBuilder<String>(
-              future: _imageService.getImageUrl(imageName),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return Image.network(
-                    snapshot.data!,
-                    width: imageWidth,
-                    height: imageHeight,
-                    fit: BoxFit.cover,
-                  );
-                } else if (snapshot.hasError) {
+      color: const Color(0xFFF5E6D3), // 米色背景
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF5E6D3), // 淺米色
+              Color(0xFFE8D5C4), // 中等米色
+            ],
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              FutureBuilder<String>(
+                future: _imageService.getImageUrl(imageName),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Image.network(
+                      snapshot.data!,
+                      width: imageWidth,
+                      height: imageHeight,
+                      fit: BoxFit.cover,
+                    );
+                  } else if (snapshot.hasError) {
+                    return Container(
+                      width: imageWidth,
+                      height: imageHeight,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.error),
+                    );
+                  }
                   return Container(
                     width: imageWidth,
                     height: imageHeight,
                     color: Colors.grey[300],
-                    child: const Icon(Icons.error),
+                    child: const Center(child: CircularProgressIndicator()),
                   );
-                }
-                return Container(
-                  width: imageWidth,
-                  height: imageHeight,
-                  color: Colors.grey[300],
-                  child: const Center(child: CircularProgressIndicator()),
-                );
-              },
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ],
+                },
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: const Color(0xFF8B6914), // 金棕色
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: const Color(0xFFB8956F), // 深棕色
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

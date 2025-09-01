@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/compass_background.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({
@@ -83,7 +84,8 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: Text(
           _isSignUp ? '註冊' : '登入',
           style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
@@ -99,172 +101,182 @@ class _AuthPageState extends State<AuthPage> {
           ),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Form(
-                    key: _formKey,
-                    child: AutofillGroup(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextFormField(
-                            controller: _emailController,
-                            decoration: InputDecoration(
-                              labelText: '電子郵件',
-                              hintText: '請輸入您的電子郵件',
-                              prefixIcon: Icon(
-                                Icons.email,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
+      body: CompassBackground(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: _formKey,
+                      child: AutofillGroup(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextFormField(
+                              controller: _emailController,
+                              decoration: InputDecoration(
+                                labelText: '電子郵件',
+                                hintText: '請輸入您的電子郵件',
+                                prefixIcon: Icon(
+                                  Icons.email,
                                   color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
                                 ),
-                              ),
-                            ),
-                            keyboardType: TextInputType.emailAddress,
-                            autofillHints: const [AutofillHints.email],
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return '請輸入電子郵件';
-                              }
-                              if (!value.contains('@')) {
-                                return '請輸入有效的電子郵件';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _passwordController,
-                            decoration: InputDecoration(
-                              labelText: '密碼',
-                              hintText: '請輸入您的密碼',
-                              prefixIcon: Icon(
-                                Icons.lock,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            obscureText: true,
-                            autofillHints: const [AutofillHints.password],
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return '請輸入密碼';
-                              }
-                              if (value.length < 6) {
-                                return '密碼長度至少為6個字符';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleSubmit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
+                                border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
-                              child: _isLoading
-                                  ? SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.onPrimary,
-                                            ),
-                                      ),
-                                    )
-                                  : Text(
-                                      _isSignUp ? '註冊' : '登入',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [AutofillHints.email],
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return '請輸入電子郵件';
+                                }
+                                if (!value.contains('@')) {
+                                  return '請輸入有效的電子郵件';
+                                }
+                                return null;
+                              },
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _isSignUp = !_isSignUp;
-                                    });
-                                  },
-                            style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              decoration: InputDecoration(
+                                labelText: '密碼',
+                                hintText: '請輸入您的密碼',
+                                prefixIcon: Icon(
+                                  Icons.lock,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              obscureText: true,
+                              autofillHints: const [AutofillHints.password],
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return '請輸入密碼';
+                                }
+                                if (value.length < 6) {
+                                  return '密碼長度至少為6個字符';
+                                }
+                                return null;
+                              },
                             ),
-                            child: Text(
-                              _isSignUp ? '已有帳號？登入' : '沒有帳號？註冊',
-                              style: TextStyle(
-                                decoration: TextDecoration.underline,
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _handleSubmit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.onPrimary,
+                                              ),
+                                        ),
+                                      )
+                                    : Text(
+                                        _isSignUp ? '註冊' : '登入',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _isSignUp = !_isSignUp;
+                                      });
+                                    },
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                              ),
+                              child: Text(
+                                _isSignUp ? '已有帳號？登入' : '沒有帳號？註冊',
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

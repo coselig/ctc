@@ -17,7 +17,8 @@ class MarkerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final dotPaint = Paint()
-      ..color = Colors.red
+      ..color =
+          const Color(0xFFD17A3A) // 橘棕色
       ..strokeWidth = 10
       ..style = PaintingStyle.fill;
 
@@ -25,11 +26,11 @@ class MarkerPainter extends CustomPainter {
       // 只繪製當前平面圖的標記點
       if (record.floorPlanPath == currentFloorPlan) {
         if (record == selectedRecord) {
-          dotPaint.color = Colors.green;
+          dotPaint.color = const Color(0xFF8B6914); // 金棕色（選中）
         } else if (record.isLocal) {
-          dotPaint.color = Colors.orange;
+          dotPaint.color = const Color(0xFFB8956F); // 深棕色（本地）
         } else {
-          dotPaint.color = Colors.red;
+          dotPaint.color = const Color(0xFFD17A3A); // 橘棕色（預設）
         }
         canvas.drawCircle(record.point, 8, dotPaint);
       }
@@ -37,7 +38,8 @@ class MarkerPainter extends CustomPainter {
 
     if (selectedPoint != null) {
       final selectedPaint = Paint()
-        ..color = Colors.green
+        ..color =
+            const Color(0xFF8B6914) // 金棕色（選中點）
         ..strokeWidth = 10
         ..style = PaintingStyle.fill;
       canvas.drawCircle(selectedPoint!, 8, selectedPaint);

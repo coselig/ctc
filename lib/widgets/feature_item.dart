@@ -13,11 +13,17 @@ class FeatureItem extends StatelessWidget {
         children: [
           Icon(
             Icons.check_circle,
-            color: Theme.of(context).colorScheme.primary,
+            color: const Color(0xFFD17A3A), // 橘棕色圖標
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: const Color(0xFF8B6914), // 金棕色文字
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
