@@ -1,3 +1,35 @@
 {
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    // Git commit message 相關設定
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    "git.autofetch": true,
+    // GitHub Copilot commit message 設定
+    "github.copilot.enable": {
+        "*": true,
+        "git-commit": true
+    },
+    // 設定 commit message 語言為中文
+    "scm.inputFontFamily": "Microsoft YaHei, Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+    "git.useIntegratedTerminal": false,
+    // Conventional Commits 設定 - 中文化
+    "conventionalCommits.scopes": [
+        "UI介面",
+        "API接口",
+        "資料庫",
+        "測試",
+        "文檔",
+        "配置",
+        "組件",
+        "頁面"
+    ],
+    "conventionalCommits.gitmoji": true,
+    "conventionalCommits.promptBody": true,
+    "conventionalCommits.promptFooter": false,
+    "conventionalCommits.emojiFormat": "emoji",
+    // 如果使用 Git Lens 擴展
+    "gitlens.codeLens.enabled": true,
+    "gitlens.currentLine.enabled": true,
+    // GitHub Copilot 語言設定
+    "github.copilot.chat.localeOverride": "zh-TW"
 }
