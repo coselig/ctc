@@ -107,10 +107,10 @@ class _WelcomePageState extends State<WelcomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Color(0xFF8B6914)), // 統一圖標顏色
+        iconTheme: const IconThemeData(color: Color(0xFFD17A3A)), // 更鮮豔的橙棕色
         actions: [
           IconButton(
-            icon: Icon(_getThemeIcon(), color: const Color(0xFF8B6914)),
+            icon: Icon(_getThemeIcon(), color: const Color(0xFFD17A3A)),
             onPressed: widget.onThemeToggle,
             tooltip: '切換主題',
           ),
@@ -118,12 +118,12 @@ class _WelcomePageState extends State<WelcomePage> {
             TextButton.icon(
               icon: const Icon(
                 Icons.login,
-                color: Color(0xFF8B6914), // 金棕色
+                color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
               ),
               label: const Text(
                 '登入',
                 style: TextStyle(
-                  color: Color(0xFF8B6914), // 金棕色
+                  color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
                 ),
               ),
               onPressed: _handleLoginTap,
@@ -132,12 +132,12 @@ class _WelcomePageState extends State<WelcomePage> {
             TextButton.icon(
               icon: const Icon(
                 Icons.arrow_forward,
-                color: Color(0xFF8B6914), // 金棕色
+                color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
               ),
               label: const Text(
                 '進入系統',
                 style: TextStyle(
-                  color: Color(0xFF8B6914), // 金棕色
+                  color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
                 ),
               ),
               onPressed: () {
@@ -210,22 +210,6 @@ class _WelcomePageState extends State<WelcomePage> {
                                   placeholder: (context, url) => const Center(
                                     child: CircularProgressIndicator(),
                                   ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withOpacity(0.6),
-                                    Colors.transparent,
-                                    Colors.black.withOpacity(0.8),
-                                  ],
-                                  stops: const [0.0, 0.5, 1.0],
                                 ),
                               ),
                             ),

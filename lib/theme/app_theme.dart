@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const primaryColor = Color(0xFFD4AF37); // 金色
+  static const primaryColor = Color(0xFFD17A3A); // 更鮮豔的橙棕色
   static const backgroundColor = Color(0xFF121212); // 深色背景
   static const surfaceColor = Color(0xFF1E1E1E); // 卡片背景色
   static const textColor = Colors.white;

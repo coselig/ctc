@@ -17,9 +17,8 @@ class FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    // 計算螢幕寬度的一半，但限制最大寬度為 300
-    final imageWidth = (screenWidth * 0.5).clamp(0.0, 400.0);
-    final imageHeight = imageWidth * 0.75; // 寬度的 3/4，產生 4:3 的比例
+    // 計算螢幕寬度的一半，但限制最大寬度為 400
+    final maxImageWidth = (screenWidth * 0.5).clamp(0.0, 400.0);
 
     return Card(
       elevation: 4,
@@ -40,26 +39,69 @@ class FeatureCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: Row(
             children: [
-              FutureBuilder<String>(
-                future: _imageService.getImageUrl(imageName),
+              FutureBuilder<({int width, int height})>(
+                future: _imageService.getImageDimensions(imageName),
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
-                    return Image.network(
-                      snapshot.data!,
-                      width: imageWidth,
-                      height: imageHeight,
-                      fit: BoxFit.cover,
+                    final dimensions = snapshot.data!;
+                    final aspectRatio = dimensions.width / dimensions.height;
+                    final imageHeight = maxImageWidth / aspectRatio;
+
+                    return FutureBuilder<String>(
+                      future: _imageService.getImageUrl(imageName),
+                      builder: (context, urlSnapshot) {
+                        if (urlSnapshot.hasData) {
+                          return Image.network(
+                            urlSnapshot.data!,
+                            width: maxImageWidth,
+                            height: imageHeight,
+                            fit: BoxFit.cover,
+                          );
+                        } else if (urlSnapshot.hasError) {
+                          return Container(
+                            width: maxImageWidth,
+                            height: imageHeight,
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.error),
+                          );
+                        }
+                        return Container(
+                          width: maxImageWidth,
+                          height: imageHeight,
+                          color: Colors.grey[300],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      },
                     );
                   } else if (snapshot.hasError) {
-                    return Container(
-                      width: imageWidth,
-                      height: imageHeight,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.error),
+                    // 如果無法獲取尺寸，使用預設的 4:3 比例
+                    final imageHeight = maxImageWidth * 0.75;
+                    return FutureBuilder<String>(
+                      future: _imageService.getImageUrl(imageName),
+                      builder: (context, urlSnapshot) {
+                        if (urlSnapshot.hasData) {
+                          return Image.network(
+                            urlSnapshot.data!,
+                            width: maxImageWidth,
+                            height: imageHeight,
+                            fit: BoxFit.cover,
+                          );
+                        }
+                        return Container(
+                          width: maxImageWidth,
+                          height: imageHeight,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.error),
+                        );
+                      },
                     );
                   }
+                  // 加載中，使用預設比例
+                  final imageHeight = maxImageWidth * 0.75;
                   return Container(
-                    width: imageWidth,
+                    width: maxImageWidth,
                     height: imageHeight,
                     color: Colors.grey[300],
                     child: const Center(child: CircularProgressIndicator()),
