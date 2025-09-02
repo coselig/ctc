@@ -10,6 +10,7 @@ import '../models/photo_record.dart';
 import '../services/supabase_service.dart';
 import '../widgets/floor_plan_view.dart';
 import '../widgets/compass_background.dart';
+import '../widgets/photo_dialog.dart';
 import 'floor_plan_selector_page.dart';
 
 class PhotoRecordPage extends StatefulWidget {
@@ -251,96 +252,53 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   void _showPhotoDialog() {
     if (selectedRecord == null) return;
 
-    showDialog(
+    PhotoDialog.show(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppBar(
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                title: Text(
-                  '現場照片',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
+      title: '現場照片',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            selectedRecord!.isLocal &&
+                    selectedRecord!.imagePath.startsWith('data:image')
+                ? Image.network(selectedRecord!.imagePath, fit: BoxFit.contain)
+                : selectedRecord!.isLocal
+                ? Image.file(
+                    File(selectedRecord!.imagePath),
+                    fit: BoxFit.contain,
+                  )
+                : Image.network(
+                    selectedRecord!.imagePath,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      );
+                    },
                   ),
-                ),
-                automaticallyImplyLeading: false,
-                iconTheme: IconThemeData(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text(
+                    '拍攝時間: ${selectedRecord!.timestamp.toString()}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '拍攝者: ${selectedRecord!.username}',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      selectedRecord!.isLocal &&
-                              selectedRecord!.imagePath.startsWith('data:image')
-                          ? Image.network(
-                              selectedRecord!.imagePath,
-                              fit: BoxFit.contain,
-                            )
-                          : selectedRecord!.isLocal
-                          ? Image.file(
-                              File(selectedRecord!.imagePath),
-                              fit: BoxFit.contain,
-                            )
-                          : Image.network(
-                              selectedRecord!.imagePath,
-                              fit: BoxFit.contain,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Center(
-                                      child: CircularProgressIndicator(
-                                        value:
-                                            loadingProgress
-                                                    .expectedTotalBytes !=
-                                                null
-                                            ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                            : null,
-                                      ),
-                                    );
-                                  },
-                            ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            Text(
-                              '拍攝時間: ${selectedRecord!.timestamp.toString()}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '拍攝者: ${selectedRecord!.username}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

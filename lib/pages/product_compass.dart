@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/image_service.dart';
 import '../widgets/compass_background.dart';
+import '../widgets/category_section.dart';
+import '../widgets/product_section.dart';
 
 class ProductCompassPage extends StatefulWidget {
   const ProductCompassPage({super.key});
@@ -183,46 +185,7 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
   }
 
   Widget _buildSection(String title, List<String> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF8B6914),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...items
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '• ',
-                      style: TextStyle(color: Color(0xFFD17A3A), fontSize: 16),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF8B6914),
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ],
-    );
+    return ProductSection(title: title, items: items);
   }
 
   Widget _buildProductList() {
@@ -292,106 +255,15 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
     String subtitle,
     List<String> products,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 大分類標題
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFFD17A3A), Color(0xFFB8956F)],
-            ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.white70,
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // 產品項目
-        ...products
-            .map(
-              (product) => GestureDetector(
-                onTap: () {
-                  if (product.contains('Home Assistant')) {
-                    _showHomeAssistantDialog();
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFFF5E6D3), // 淺米色
-                        Color(0xFFE8D5C4), // 中等米色
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    product,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: product.contains('Home Assistant')
-                          ? const Color(0xFFD17A3A) // 可點擊的顏色
-                          : const Color(0xFF8B6914),
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ],
+    return CategorySection(
+      title: title,
+      subtitle: subtitle,
+      products: products,
+      onProductTap: (product) {
+        if (product.contains('Home Assistant')) {
+          _showHomeAssistantDialog();
+        }
+      },
     );
   }
 

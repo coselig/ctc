@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
+import '../widgets/name_input_dialog.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class FloorPlanSelectorPage extends StatefulWidget {
   const FloorPlanSelectorPage({
@@ -15,46 +17,6 @@ class FloorPlanSelectorPage extends StatefulWidget {
 
   @override
   State<FloorPlanSelectorPage> createState() => _FloorPlanSelectorPageState();
-}
-
-class _NameInputDialog extends StatefulWidget {
-  @override
-  _NameInputDialogState createState() => _NameInputDialogState();
-}
-
-class _NameInputDialogState extends State<_NameInputDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('輸入設計圖名稱'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(
-          labelText: '名稱',
-          hintText: '例如：4樓平面圖',
-        ),
-        autofocus: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('確定'),
-        ),
-      ],
-    );
-  }
 }
 
 class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
@@ -71,22 +33,11 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
   Future<void> _showDeleteDialog(Map<String, String> floorPlan) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('確認刪除'),
-        content: Text(
-          '確定要刪除「${floorPlan['name']}」嗎？\n\n注意：這會同時刪除與此設計圖相關的所有照片記錄。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('刪除'),
-          ),
-        ],
+      builder: (context) => ConfirmationDialog(
+        title: '確認刪除',
+        content: '確定要刪除「${floorPlan['name']}」嗎？\n\n注意：這會同時刪除與此設計圖相關的所有照片記錄。',
+        confirmText: '刪除',
+        isDestructive: true,
       ),
     );
 
@@ -157,7 +108,11 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
     // Show dialog to get the name for the new floor plan
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => _NameInputDialog(),
+      builder: (context) => const NameInputDialog(
+        title: '輸入設計圖名稱',
+        labelText: '名稱',
+        hintText: '例如：4樓平面圖',
+      ),
     );
 
     if (name == null || name.isEmpty) return;
