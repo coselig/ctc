@@ -274,54 +274,74 @@ class _WelcomePageState extends State<WelcomePage> {
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.75,
-                          children: [
-                            ProductCard(
-                              imageName: 'DI.jpg',
-                              title: '高規元件',
-                              subtitle: '台灣製造\n調光控制器',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ProductPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                            ProductCard(
-                              imageName: 'HA.jpg',
-                              title: '開源整合平台',
-                              subtitle: '啟動智慧生活\nHome Assistant',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ProductPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                            ProductCard(
-                              imageName: 'LIGHT.jpeg',
-                              title: '快時尚照明',
-                              subtitle: '裝修新高度\n輕量複和金屬板',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ProductCompassPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            // 根據螢幕寬度決定列數
+                            int crossAxisCount;
+                            double childAspectRatio;
+
+                            if (constraints.maxWidth > 600) {
+                              // 寬螢幕：三列
+                              crossAxisCount = 3;
+                              childAspectRatio = 0.6; // 更高的比例，確保有足夠空間顯示文字
+                            } else {
+                              // 窄螢幕：一列，使用更高的比例來確保文字可見
+                              crossAxisCount = 1;
+                              childAspectRatio = 0.7; // 調整為更合適的比例，給文字更多空間
+                            }
+
+                            return GridView.count(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisCount: crossAxisCount,
+                              mainAxisSpacing: 16,
+                              crossAxisSpacing: 16,
+                              childAspectRatio: childAspectRatio,
+                              children: [
+                                ProductCard(
+                                  imageName: 'DI.jpg',
+                                  title: '高規元件',
+                                  subtitle: '台灣製造\n調光控制器',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const ProductPage(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                ProductCard(
+                                  imageName: 'HA.jpg',
+                                  title: '開源整合平台',
+                                  subtitle: '啟動智慧生活\nHome Assistant',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ProductPage(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                ProductCard(
+                                  imageName: 'LIGHT.jpeg',
+                                  title: '快時尚照明',
+                                  subtitle: '裝修新高度\n輕量複和金屬板',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ProductCompassPage(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         GridView.count(

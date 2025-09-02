@@ -69,139 +69,179 @@ class ProductCard extends StatelessWidget {
           onTap: onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: invertColors
-                    ? ColorFiltered(
-                        colorFilter: ColorFilter.matrix(
-                          theme.brightness == Brightness.dark
-                              ? [
-                                  -1,
-                                  0,
-                                  0,
-                                  0,
-                                  255,
-                                  0,
-                                  -1,
-                                  0,
-                                  0,
-                                  255,
-                                  0,
-                                  0,
-                                  -1,
-                                  0,
-                                  255,
-                                  0,
-                                  0,
-                                  0,
-                                  1,
-                                  0,
-                                ]
-                              : [
-                                  1,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  1,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  1,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  1,
-                                  0,
-                                ],
-                        ),
-                        child: _buildImage(context, imageName, theme),
-                      )
-                    : _buildImage(context, imageName, theme),
+              // 圖片區域 - 固定佔用一部分空間
+              Expanded(
+                flex: 3, // 圖片佔 3/5 的空間
+                child: AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: invertColors
+                      ? ColorFiltered(
+                          colorFilter: ColorFilter.matrix(
+                            theme.brightness == Brightness.dark
+                                ? [
+                                    -1,
+                                    0,
+                                    0,
+                                    0,
+                                    255,
+                                    0,
+                                    -1,
+                                    0,
+                                    0,
+                                    255,
+                                    0,
+                                    0,
+                                    -1,
+                                    0,
+                                    255,
+                                    0,
+                                    0,
+                                    0,
+                                    1,
+                                    0,
+                                  ]
+                                : [
+                                    1,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    1,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    1,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    1,
+                                    0,
+                                  ],
+                          ),
+                          child: _buildImage(context, imageName, theme),
+                        )
+                      : _buildImage(context, imageName, theme),
+                ),
               ),
-              // 標題和內容
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  final titleSize = width * 0.08; // 8% of width
-                  final subtitleSize = width * 0.06; // 6% of width
-                  final buttonTextSize = width * 0.05; // 5% of width
+              // 文字區域 - 佔用剩餘空間並確保文字完整顯示
+              Expanded(
+                flex: 2, // 文字區域佔 2/5 的空間
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 根據可用寬度動態計算字體大小
+                    final width = constraints.maxWidth;
+                    final height = constraints.maxHeight;
 
-                  return Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: width * 0.04, // 4% of width
-                      vertical: width * 0.02, // 2% of width
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: const Color(0xFF8B6914), // 金棕色
-                            fontWeight: FontWeight.bold,
-                            fontSize: titleSize,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: width * 0.01),
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFFB8956F), // 深棕色
-                            fontSize: subtitleSize,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: width * 0.02),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: const Color(0xFFD17A3A), // 橘棕色邊框
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  width * 0.02,
-                                ),
-                                color: Colors.white.withOpacity(0.8),
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: width * 0.02,
-                                vertical: width * 0.01,
-                              ),
-                              child: Text(
-                                '瞭解更多',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: const Color(0xFFD17A3A), // 橘棕色文字
-                                  fontSize: buttonTextSize,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward,
-                              color: const Color(0xFFD17A3A), // 橘棕色圖標
-                              size: width * 0.08,
-                            ),
+                    // 基於寬度和高度的動態字體大小計算
+                    final titleFontSize = (width * 0.06 + height * 0.08).clamp(
+                      14.0,
+                      24.0,
+                    );
+                    final subtitleFontSize = (width * 0.04 + height * 0.06)
+                        .clamp(12.0, 18.0);
+                    final buttonFontSize = (width * 0.035 + height * 0.05)
+                        .clamp(11.0, 16.0);
+                    final iconSize = (width * 0.04 + height * 0.06).clamp(
+                      12.0,
+                      20.0,
+                    );
 
-                            SizedBox(height: width * 0.04),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                    // 動態計算 padding
+                    final horizontalPadding = (width * 0.03).clamp(6.0, 12.0);
+                    final verticalPadding = (height * 0.02).clamp(2.0, 8.0);
+
+                    return Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: verticalPadding,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            title,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: const Color(0xFF8B6914), // 金棕色
+                              fontWeight: FontWeight.bold,
+                              fontSize: titleFontSize,
+                            ),
+                            maxLines: 2, // 允許標題換行
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(
+                            height: (height * 0.02).clamp(2.0, 8.0),
+                          ), // 動態間距
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFFB8956F), // 深棕色
+                                fontSize: subtitleFontSize,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 3, // 允許副標題多行顯示
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          SizedBox(
+                            height: (height * 0.03).clamp(4.0, 12.0),
+                          ), // 動態間距
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: (width * 0.04).clamp(
+                                8.0,
+                                20.0,
+                              ), // 動態按鈕內邊距
+                              vertical: (height * 0.02).clamp(4.0, 10.0),
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFFD17A3A), // 橘棕色邊框
+                                width: (width * 0.005).clamp(
+                                  1.0,
+                                  3.0,
+                                ), // 動態邊框寬度
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                (width * 0.015).clamp(4.0, 8.0),
+                              ),
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '瞭解更多',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: const Color(0xFFD17A3A), // 橘棕色文字
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: buttonFontSize,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: (width * 0.015).clamp(3.0, 8.0),
+                                ), // 動態間距
+                                Icon(
+                                  Icons.arrow_forward,
+                                  color: const Color(0xFFD17A3A), // 橘棕色圖標
+                                  size: iconSize,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
