@@ -63,7 +63,7 @@ class PhotoDialog extends StatelessWidget {
     return showDialog<T>(
       context: context,
       builder: (context) =>
-          PhotoDialog(title: title, child: child, actions: actions),
+          PhotoDialog(title: title, actions: actions, child: child),
     );
   }
 }

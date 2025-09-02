@@ -128,8 +128,9 @@ class FloorPlanView extends StatelessWidget {
                     ),
                     // 標記點層
                     ...records.map((record) {
-                      if (record.floorPlanPath != imageUrl)
+                      if (record.floorPlanPath != imageUrl) {
                         return const SizedBox();
+                      }
 
                       // 計算標記點在螢幕上的位置
                       double screenX = (record.point.dx * scale) + offsetX;
@@ -155,7 +156,7 @@ class FloorPlanView extends StatelessWidget {
                               border: Border.all(color: Colors.white, width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -164,7 +165,7 @@ class FloorPlanView extends StatelessWidget {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
 
                     // 臨時選擇點
                     if (selectedPoint != null && isRecordMode)
@@ -180,7 +181,7 @@ class FloorPlanView extends StatelessWidget {
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),

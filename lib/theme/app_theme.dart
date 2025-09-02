@@ -28,7 +28,7 @@ class AppTheme {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: primaryColor.withOpacity(0.5), width: 1),
+        side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1),
       ),
     ),
     textTheme: const TextTheme(

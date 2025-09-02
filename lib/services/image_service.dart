@@ -95,7 +95,9 @@ class ImageService {
       try {
         final url = await getImageUrl(fileName);
         urls.add(url);
-      } catch (ignore) {}
+      } catch (ignore) {
+        // 忽略無法載入的圖片
+      }
     }
     return urls;
   }

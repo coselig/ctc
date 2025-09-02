@@ -106,6 +106,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
     if (image == null) return;
 
     // Show dialog to get the name for the new floor plan
+    if (!mounted) return;
     final name = await showDialog<String>(
       context: context,
       builder: (context) => const NameInputDialog(

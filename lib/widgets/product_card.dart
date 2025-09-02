@@ -213,7 +213,7 @@ class ProductCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(
                                 (width * 0.015).clamp(4.0, 8.0),
                               ),
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

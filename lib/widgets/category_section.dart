@@ -36,7 +36,7 @@ class CategorySection extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -68,55 +68,48 @@ class CategorySection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         // 產品列表
-        ...products
-            .map(
-              (product) => GestureDetector(
-                onTap: onProductTap != null
-                    ? () => onProductTap!(product)
-                    : null,
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
+        ...products.map(
+          (product) => GestureDetector(
+            onTap: onProductTap != null ? () => onProductTap!(product) : null,
+            child: Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF5E6D3), // 淺米色
+                    Color(0xFFE8D5C4), // 中等米色
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFFF5E6D3), // 淺米色
-                        Color(0xFFE8D5C4), // 中等米色
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    product,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color:
-                          (onProductTap != null &&
-                              product.contains('Home Assistant'))
-                          ? const Color(0xFFD17A3A) // 可點擊的顏色
-                          : const Color(0xFF8B6914),
-                      height: 1.3,
-                    ),
-                  ),
+                ],
+              ),
+              child: Text(
+                product,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color:
+                      (onProductTap != null &&
+                          product.contains('Home Assistant'))
+                      ? const Color(0xFFD17A3A) // 可點擊的顏色
+                      : const Color(0xFF8B6914),
+                  height: 1.3,
                 ),
               ),
-            )
-            .toList(),
+            ),
+          ),
+        ),
         const SizedBox(height: 24),
       ],
     );

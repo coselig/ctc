@@ -73,7 +73,7 @@ class CompassBackgroundPainter extends CustomPainter {
 
     // 添加一些裝飾性的線條
     paint.shader = null;
-    paint.color = Colors.white.withOpacity(0.3);
+    paint.color = Colors.white.withValues(alpha: 0.3);
     paint.strokeWidth = 1;
     paint.style = PaintingStyle.stroke;
 
