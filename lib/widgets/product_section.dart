@@ -20,6 +20,17 @@ class ProductSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final effectiveTitleColor = isDarkMode
+        ? Theme.of(context).colorScheme.primary
+        : titleColor;
+    final effectiveItemColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.9)
+        : itemColor;
+    final effectiveBulletColor = isDarkMode
+        ? Theme.of(context).colorScheme.primary
+        : bulletColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -28,7 +39,7 @@ class ProductSection extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: titleColor,
+            color: effectiveTitleColor,
           ),
         ),
         const SizedBox(height: 12),
@@ -38,13 +49,20 @@ class ProductSection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('• ', style: TextStyle(color: bulletColor, fontSize: 16)),
+                Text(
+                  '• ',
+                  style: TextStyle(
+                    color: effectiveBulletColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 Expanded(
                   child: Text(
                     item,
                     style: TextStyle(
                       fontSize: 14,
-                      color: itemColor,
+                      color: effectiveItemColor,
                       height: 1.4,
                     ),
                   ),

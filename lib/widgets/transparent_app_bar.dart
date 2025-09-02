@@ -22,6 +22,10 @@ class TransparentAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveIconColor = iconColor == const Color(0xFFD17A3A)
+        ? Theme.of(context).colorScheme.primary
+        : iconColor;
+
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -31,11 +35,14 @@ class TransparentAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? DefaultTextStyle(
               style:
                   titleStyle ??
-                  TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                  TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
               child: title!,
             )
           : null,
-      iconTheme: IconThemeData(color: iconColor),
+      iconTheme: IconThemeData(color: effectiveIconColor),
       actions: actions,
     );
   }

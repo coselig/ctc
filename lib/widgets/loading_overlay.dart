@@ -18,21 +18,35 @@ class LoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Stack(
       children: [
         child,
         if (isLoading)
           Container(
-            color: backgroundColor ?? Colors.black.withValues(alpha: 0.5),
+            color:
+                backgroundColor ??
+                (isDarkMode
+                    ? Colors.black.withValues(alpha: 0.7)
+                    : Colors.black.withValues(alpha: 0.5)),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(),
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     message,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -59,10 +73,19 @@ class SimpleLoading extends StatelessWidget {
           SizedBox(
             width: size,
             height: size,
-            child: const CircularProgressIndicator(),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).colorScheme.primary,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
-          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

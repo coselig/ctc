@@ -23,6 +23,14 @@ class InfoDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final effectiveGradientColors = isDarkMode
+        ? [
+            const Color(0xFF2A2A2A), // 深灰色
+            const Color(0xFF1F1F1F), // 更深的灰色
+          ]
+        : gradientColors;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -32,16 +40,26 @@ class InfoDialog extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: gradientColors,
+            colors: effectiveGradientColors,
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: isDarkMode
+                  ? Colors.black.withValues(alpha: 0.6)
+                  : Colors.black.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
           ],
+          border: isDarkMode
+              ? Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.3),
+                  width: 1,
+                )
+              : null,
         ),
         child: Column(
           children: [
@@ -75,15 +93,28 @@ class InfoDialog extends StatelessWidget {
             ),
             // 內容區域
             Expanded(
-              child: Padding(padding: const EdgeInsets.all(16), child: content),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: DefaultTextStyle(
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                  child: content,
+                ),
+              ),
             ),
             // 動作按鈕區域
             if (actions != null) ...[
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: Colors.black12, width: 1),
+                    top: BorderSide(
+                      color: isDarkMode
+                          ? Colors.white.withValues(alpha: 0.2)
+                          : Colors.black.withValues(alpha: 0.12),
+                      width: 1,
+                    ),
                   ),
                 ),
                 child: Row(
@@ -107,6 +138,8 @@ class InfoDialog extends StatelessWidget {
     List<Color>? gradientColors,
     List<Color>? headerGradientColors,
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return showDialog<T>(
       context: context,
       builder: (context) => InfoDialog(
@@ -114,7 +147,10 @@ class InfoDialog extends StatelessWidget {
         content: content,
         actions: actions,
         gradientColors:
-            gradientColors ?? const [Color(0xFFF5E6D3), Color(0xFFE8D5C4)],
+            gradientColors ??
+            (isDarkMode
+                ? const [Color(0xFF2A2A2A), Color(0xFF1F1F1F)]
+                : const [Color(0xFFF5E6D3), Color(0xFFE8D5C4)]),
         headerGradientColors:
             headerGradientColors ??
             const [Color(0xFFD17A3A), Color(0xFFB8956F)],

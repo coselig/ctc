@@ -20,6 +20,8 @@ class CategorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -36,7 +38,9 @@ class CategorySection extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
+                color: isDarkMode
+                    ? Colors.black.withValues(alpha: 0.4)
+                    : Colors.black.withValues(alpha: 0.15),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -76,22 +80,37 @@ class CategorySection extends StatelessWidget {
               margin: const EdgeInsets.symmetric(vertical: 6),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFF5E6D3), // 淺米色
-                    Color(0xFFE8D5C4), // 中等米色
-                  ],
+                  colors: isDarkMode
+                      ? [
+                          const Color(0xFF2A2A2A), // 深灰色
+                          const Color(0xFF1F1F1F), // 更深的灰色
+                        ]
+                      : [
+                          const Color(0xFFF5E6D3), // 淺米色
+                          const Color(0xFFE8D5C4), // 中等米色
+                        ],
                 ),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: isDarkMode
+                        ? Colors.black.withValues(alpha: 0.3)
+                        : Colors.black.withValues(alpha: 0.08),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
                 ],
+                border: isDarkMode
+                    ? Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
+                        width: 1,
+                      )
+                    : null,
               ),
               child: Text(
                 product,
@@ -102,7 +121,9 @@ class CategorySection extends StatelessWidget {
                   color:
                       (onProductTap != null &&
                           product.contains('Home Assistant'))
-                      ? const Color(0xFFD17A3A) // 可點擊的顏色
+                      ? Theme.of(context).colorScheme.primary
+                      : isDarkMode
+                      ? Colors.white.withValues(alpha: 0.9)
                       : const Color(0xFF8B6914),
                   height: 1.3,
                 ),

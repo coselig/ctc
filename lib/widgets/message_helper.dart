@@ -7,22 +7,22 @@ class MessageHelper {
 
   /// 顯示成功訊息
   static void showSuccess(BuildContext context, String message) {
-    _showMessage(context, message, Colors.green);
+    _showMessage(context, message, Colors.green.shade600);
   }
 
   /// 顯示錯誤訊息
   static void showError(BuildContext context, String message) {
-    _showMessage(context, message, Colors.red);
+    _showMessage(context, message, Colors.red.shade600);
   }
 
   /// 顯示資訊訊息
   static void showInfo(BuildContext context, String message) {
-    _showMessage(context, message, Colors.blue);
+    _showMessage(context, message, Theme.of(context).colorScheme.primary);
   }
 
   /// 顯示警告訊息
   static void showWarning(BuildContext context, String message) {
-    _showMessage(context, message, Colors.orange);
+    _showMessage(context, message, Colors.orange.shade600);
   }
 
   /// 顯示載入訊息
@@ -30,13 +30,13 @@ class MessageHelper {
     _showMessage(
       context,
       message,
-      Colors.grey,
-      icon: const SizedBox(
+      Theme.of(context).colorScheme.secondary,
+      icon: SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
         ),
       ),
     );
