@@ -277,7 +277,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           ?.copyWith(
                             color: Theme.of(
                               context,
-                            ).colorScheme.onBackground.withOpacity(0.9),
+                            ).colorScheme.onSurface.withOpacity(0.9),
                           ),
                     ),
                     const SizedBox(height: 40),

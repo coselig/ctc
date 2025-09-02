@@ -264,16 +264,16 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppBar(
-                backgroundColor: Theme.of(context).colorScheme.background,
+                backgroundColor: Theme.of(context).colorScheme.surface,
                 title: Text(
                   '現場照片',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onBackground,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 automaticallyImplyLeading: false,
                 iconTheme: IconThemeData(
-                  color: Theme.of(context).colorScheme.onBackground,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 actions: [
                   IconButton(
@@ -358,10 +358,10 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         elevation: 0,
         title: Text(
           widget.title,
-          style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onBackground,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         actions: [
           IconButton(

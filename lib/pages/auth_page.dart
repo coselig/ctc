@@ -88,10 +88,10 @@ class _AuthPageState extends State<AuthPage> {
         elevation: 0,
         title: Text(
           _isSignUp ? '註冊' : '登入',
-          style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onBackground,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         actions: [
           IconButton(
