@@ -1,3 +1,4 @@
+import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/widgets/product_card.dart';
 import 'package:ctc/widgets/mission_card.dart';
 import 'package:ctc/widgets/responsive_container.dart';
