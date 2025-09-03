@@ -1,3 +1,4 @@
+import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/widgets/product_card.dart';
 import 'package:ctc/widgets/mission_card.dart';
@@ -320,7 +321,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => ProductPage(),
+                                        builder: (context) => HAPage(),
                                       ),
                                     );
                                   },
