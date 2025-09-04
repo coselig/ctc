@@ -18,10 +18,10 @@ class HaPageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    // 計算螢幕寬度的一半，但限制最大寬度為 300
+
     _imageService.getImageUrl(imageName);
-    final imageWidth = (screenWidth).clamp(0.0, 400.0);
-    final imageHeight = (screenHeight); // 寬度的 3/4，產生 4:3 的比例
+    final imageWidth = (screenWidth);
+    final imageHeight = (screenHeight); 
 
     return Card(
       elevation: 4,
