@@ -43,3 +43,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sqare_ctc_icon.png
+  fonts:
+    - family: Iansui
+      fonts:
+        - asset: assets/fonts/Iansui-Regular.ttf

@@ -17,6 +17,7 @@ class AppTheme {
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
+    fontFamily: 'Iansui',
     brightness: Brightness.light,
     colorScheme: ColorScheme.light(
       primary: lightPrimaryColor,
@@ -107,6 +108,7 @@ class AppTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    fontFamily: 'Iansui',
     colorScheme: ColorScheme.dark(
       primary: darkPrimaryColor,
       onPrimary: Colors.black,
