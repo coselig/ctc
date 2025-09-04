@@ -19,7 +19,7 @@ class SupabaseService {
 
     final timestamp = DateTime.now();
     final fileName = 'floorplan_${timestamp.millisecondsSinceEpoch}.jpg';
-    const bucketName = 'floor_plans';
+    const bucketName = 'floor-plans-file';
 
     // 上傳設計圖到 Storage
     await client.storage
@@ -36,12 +36,29 @@ class SupabaseService {
     final publicUrl = client.storage.from(bucketName).getPublicUrl(fileName);
 
     // 儲存設計圖記錄到資料庫
-    await client.from('floor_plans').insert({
-      'name': name,
-      'image_url': publicUrl,
-      'user_id': currentUser.id,
-      'created_at': timestamp.toIso8601String(),
-    });
+    try {
+      final insertData = {
+        'name': name,
+        'image_url': publicUrl,
+        'user_id': currentUser.id,
+        'created_at': timestamp.toIso8601String(),
+      };
+
+      print('嘗試插入資料: $insertData');
+      print('當前用戶: ${currentUser.id}, ${currentUser.email}');
+
+      final response = await client.from('floor_plans').insert(insertData);
+      print('插入成功: $response');
+    } catch (e) {
+      print('插入失敗: $e');
+      // 如果資料庫插入失敗，清理已上傳的檔案
+      try {
+        await client.storage.from(bucketName).remove([fileName]);
+      } catch (cleanupError) {
+        print('清理檔案失敗: $cleanupError');
+      }
+      rethrow;
+    }
 
     return publicUrl;
   }
@@ -84,7 +101,7 @@ class SupabaseService {
 
     // 5. 從 Storage 刪除平面圖
     final floorPlanPath = Uri.parse(imageUrl).pathSegments.last;
-    await client.storage.from('floor_plans').remove([floorPlanPath]);
+    await client.storage.from('floor-plans-file').remove([floorPlanPath]);
   }
 
   Future<List<PhotoRecord>> loadRecords() async {

@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "ctc (Flutter release mode)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
