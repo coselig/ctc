@@ -64,12 +64,17 @@ class SupabaseService {
   }
 
   Future<List<Map<String, dynamic>>> loadFloorPlans() async {
-    final response = await client
-        .from('floor_plans')
-        .select()
-        .order('created_at');
+    try {
+      final response = await client
+          .from('floor_plans')
+          .select()
+          .order('created_at');
 
-    return (response as List<dynamic>).cast<Map<String, dynamic>>();
+      return (response as List<dynamic>).cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('載入設計圖失敗: $e');
+      rethrow;
+    }
   }
 
   Future<void> deleteFloorPlan(String imageUrl) async {
@@ -88,7 +93,7 @@ class SupabaseService {
     for (final record in records as List<dynamic>) {
       final photoUrl = record['image_url'] as String;
       final photoPath = Uri.parse(photoUrl).pathSegments.last;
-      await client.storage.from('site_photos').remove([
+      await client.storage.from('site-photos').remove([
         'user_${currentUser.id}/$photoPath',
       ]);
     }
@@ -105,14 +110,24 @@ class SupabaseService {
   }
 
   Future<List<PhotoRecord>> loadRecords() async {
-    final response = await client
-        .from('photo_records')
-        .select()
-        .order('created_at');
+    try {
+      final response = await client
+          .from('photo_records')
+          .select()
+          .order('created_at');
 
-    return (response as List<dynamic>)
-        .map((record) => PhotoRecord.fromJson(record))
-        .toList();
+      return (response as List<dynamic>).map((record) {
+        try {
+          return PhotoRecord.fromJson(record);
+        } catch (e) {
+          print('轉換 PhotoRecord 失敗: $e, 數據: $record');
+          rethrow;
+        }
+      }).toList();
+    } catch (e) {
+      print('載入記錄失敗: $e');
+      rethrow;
+    }
   }
 
   Future<PhotoRecord> uploadPhotoAndCreateRecord({
@@ -133,7 +148,7 @@ class SupabaseService {
 
     // 上傳圖片到 Storage
     await client.storage
-        .from('site_photos')
+        .from('site-photos')
         .uploadBinary(
           userFilePath,
           photoBytes,
@@ -144,7 +159,7 @@ class SupabaseService {
         );
 
     final publicUrl = client.storage
-        .from('site_photos')
+        .from('site-photos')
         .getPublicUrl(userFilePath);
 
     // 儲存記錄到資料庫
@@ -164,6 +179,11 @@ class SupabaseService {
         .select()
         .single();
 
-    return PhotoRecord.fromJson(response);
+    try {
+      return PhotoRecord.fromJson(response);
+    } catch (e) {
+      print('轉換上傳響應失敗: $e, 響應數據: $response');
+      rethrow;
+    }
   }
 }

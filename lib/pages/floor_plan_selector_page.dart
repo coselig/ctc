@@ -78,8 +78,8 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
         floorPlans = plans
             .map(
               (plan) => {
-                'name': plan['name'] as String,
-                'asset': plan['image_url'] as String,
+                'name': plan['name']?.toString() ?? '未命名',
+                'asset': plan['image_url']?.toString() ?? '',
                 'isLocal': 'false',
               },
             )
@@ -105,10 +105,14 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
 
     if (image == null) return;
 
+    // 添加短暫延遲以確保圖片選擇器完全關閉
+    await Future.delayed(const Duration(milliseconds: 300));
+
     // Show dialog to get the name for the new floor plan
     if (!mounted) return;
     final name = await showDialog<String>(
       context: context,
+      barrierDismissible: false, // 防止意外關閉
       builder: (context) => const NameInputDialog(
         title: '輸入設計圖名稱',
         labelText: '名稱',

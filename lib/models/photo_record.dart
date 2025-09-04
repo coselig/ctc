@@ -26,14 +26,19 @@ class PhotoRecord {
   // 從 Supabase 數據轉換為 PhotoRecord
   factory PhotoRecord.fromJson(Map<String, dynamic> json) {
     return PhotoRecord(
-      id: json['id'],
-      userId: json['user_id'],
-      username: json['username'] ?? '未知用戶',
-      imagePath: json['image_url'],
-      point: Offset(json['x_coordinate'].toDouble(), json['y_coordinate'].toDouble()),
-      timestamp: DateTime.parse(json['created_at']),
-      description: json['description'],
-      floorPlanPath: json['floor_plan_path'],
+      id: json['id']?.toString(),
+      userId: json['user_id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '未知用戶',
+      imagePath: json['image_url']?.toString() ?? '',
+      point: Offset(
+        (json['x_coordinate'] as num?)?.toDouble() ?? 0.0,
+        (json['y_coordinate'] as num?)?.toDouble() ?? 0.0,
+      ),
+      timestamp: DateTime.parse(
+        json['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+      ),
+      description: json['description']?.toString(),
+      floorPlanPath: json['floor_plan_path']?.toString() ?? '',
       isLocal: false,
     );
   }
