@@ -269,6 +269,64 @@ class _AuthPageState extends State<AuthPage> {
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 24),
+                            // Google 登入按鈕
+                            OutlinedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () async {
+                                      setState(() => _isLoading = true);
+                                      try {
+                                        final supabase = Supabase.instance.client;
+                                        await supabase.auth.signInWithOAuth(
+                                          OAuthProvider.google,
+                                          redirectTo:
+                                              'com.coselig.ctc://login-callback/',
+                                        );
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content:
+                                                  Text('Google 登入失敗: ${e.toString()}'),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                      if (mounted) {
+                                        setState(() => _isLoading = false);
+                                      }
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.network(
+                                    'https://www.google.com/favicon.ico',
+                                    height: 24,
+                                    width: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    '使用 Google 帳號登入',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
