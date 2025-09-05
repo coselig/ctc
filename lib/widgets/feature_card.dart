@@ -16,24 +16,38 @@ class FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     // 計算螢幕寬度的一半，但限制最大寬度為 400
     final maxImageWidth = (screenWidth * 0.5).clamp(0.0, 400.0);
 
+    // 根據主題模式選擇背景顏色和漸變
+    final cardColor = isDarkMode
+        ? theme.colorScheme.surface
+        : const Color(0xFFF5E6D3);
+
+    final gradientColors = isDarkMode
+        ? [
+            theme.colorScheme.surface,
+            theme.colorScheme.surface.withValues(alpha: 0.8),
+          ]
+        : [
+            const Color(0xFFF5E6D3), // 淺米色
+            const Color(0xFFE8D5C4), // 中等米色
+          ];
+
     return Card(
       elevation: 4,
-      color: const Color(0xFFF5E6D3), // 米色背景
+      color: cardColor,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF5E6D3), // 淺米色
-              Color(0xFFE8D5C4), // 中等米色
-            ],
+            colors: gradientColors,
           ),
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
@@ -61,16 +75,23 @@ class FeatureCard extends StatelessWidget {
                           return Container(
                             width: maxImageWidth,
                             height: imageHeight,
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.error),
+                            color: theme.colorScheme.surface,
+                            child: Icon(
+                              Icons.error,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
                           );
                         }
                         return Container(
                           width: maxImageWidth,
                           height: imageHeight,
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: CircularProgressIndicator(),
+                          color: theme.colorScheme.surface,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
                         );
                       },
@@ -92,8 +113,13 @@ class FeatureCard extends StatelessWidget {
                         return Container(
                           width: maxImageWidth,
                           height: imageHeight,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.error),
+                          color: theme.colorScheme.surface,
+                          child: Icon(
+                            Icons.error,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
                         );
                       },
                     );
@@ -103,8 +129,12 @@ class FeatureCard extends StatelessWidget {
                   return Container(
                     width: maxImageWidth,
                     height: imageHeight,
-                    color: Colors.grey[300],
-                    child: const Center(child: CircularProgressIndicator()),
+                    color: theme.colorScheme.surface,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                   );
                 },
               ),
@@ -117,7 +147,9 @@ class FeatureCard extends StatelessWidget {
                       Text(
                         title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFF8B6914), // 金棕色
+                          color: isDarkMode
+                              ? theme.colorScheme.primary
+                              : const Color(0xFF8B6914), // 金棕色
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -125,7 +157,11 @@ class FeatureCard extends StatelessWidget {
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: const Color(0xFFB8956F), // 深棕色
+                          color: isDarkMode
+                              ? theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.8,
+                                )
+                              : const Color(0xFFB8956F), // 深棕色
                         ),
                       ),
                     ],

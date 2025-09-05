@@ -46,6 +46,10 @@ class FloorPlanView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Stack(
@@ -150,10 +154,25 @@ class FloorPlanView extends StatelessWidget {
                             height: 16,
                             decoration: BoxDecoration(
                               color: record == selectedRecord
-                                  ? Colors.red
-                                  : Colors.blue,
+                                  ? (isDarkMode
+                                        ? primaryColor.withValues(alpha: 0.8)
+                                        : const Color(0xFF8B6914)) // 金棕色（選中）
+                                  : (record.isLocal
+                                        ? (isDarkMode
+                                              ? primaryColor.withValues(
+                                                  alpha: 0.6,
+                                                )
+                                              : const Color(
+                                                  0xFFB8956F,
+                                                )) // 深棕色（本地）
+                                        : primaryColor), // 主題主色
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? Colors.grey.shade600
+                                    : Colors.white,
+                                width: 2,
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.3),
@@ -176,9 +195,16 @@ class FloorPlanView extends StatelessWidget {
                           width: 16,
                           height: 16,
                           decoration: BoxDecoration(
-                            color: Colors.green,
+                            color: isDarkMode
+                                ? primaryColor.withValues(alpha: 0.9)
+                                : const Color(0xFF4CAF50), // 綠色（選擇點）
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.grey.shade600
+                                  : Colors.white,
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.3),

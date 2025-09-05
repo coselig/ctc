@@ -6,10 +6,14 @@ class MarkerPainter extends CustomPainter {
   final Offset? selectedPoint;
   final PhotoRecord? selectedRecord;
   final String currentFloorPlan;
+  final bool isDarkMode;
+  final Color primaryColor;
 
   MarkerPainter({
     required this.records,
     required this.currentFloorPlan,
+    required this.isDarkMode,
+    required this.primaryColor,
     this.selectedPoint,
     this.selectedRecord,
   });
@@ -18,7 +22,7 @@ class MarkerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final dotPaint = Paint()
       ..color =
-          const Color(0xFFD17A3A) // 橘棕色
+          primaryColor // 使用主題主色
       ..strokeWidth = 10
       ..style = PaintingStyle.fill;
 
@@ -26,11 +30,18 @@ class MarkerPainter extends CustomPainter {
       // 只繪製當前平面圖的標記點
       if (record.floorPlanPath == currentFloorPlan) {
         if (record == selectedRecord) {
-          dotPaint.color = const Color(0xFF8B6914); // 金棕色（選中）
+          // 選中狀態使用更亮的色彩
+          dotPaint.color = isDarkMode
+              ? primaryColor.withValues(alpha: 0.8)
+              : const Color(0xFF8B6914); // 金棕色（選中）
         } else if (record.isLocal) {
-          dotPaint.color = const Color(0xFFB8956F); // 深棕色（本地）
+          // 本地記錄使用稍暗的色彩
+          dotPaint.color = isDarkMode
+              ? primaryColor.withValues(alpha: 0.6)
+              : const Color(0xFFB8956F); // 深棕色（本地）
         } else {
-          dotPaint.color = const Color(0xFFD17A3A); // 橘棕色（預設）
+          // 預設使用主題主色
+          dotPaint.color = primaryColor;
         }
         canvas.drawCircle(record.point, 8, dotPaint);
       }
@@ -38,8 +49,9 @@ class MarkerPainter extends CustomPainter {
 
     if (selectedPoint != null) {
       final selectedPaint = Paint()
-        ..color =
-            const Color(0xFF8B6914) // 金棕色（選中點）
+        ..color = isDarkMode
+            ? primaryColor.withValues(alpha: 0.9)
+            : const Color(0xFF8B6914) // 金棕色（選中點）
         ..strokeWidth = 10
         ..style = PaintingStyle.fill;
       canvas.drawCircle(selectedPoint!, 8, selectedPaint);
@@ -50,6 +62,8 @@ class MarkerPainter extends CustomPainter {
   bool shouldRepaint(covariant MarkerPainter oldDelegate) {
     return oldDelegate.records != records ||
         oldDelegate.selectedPoint != selectedPoint ||
-        oldDelegate.selectedRecord != selectedRecord;
+        oldDelegate.selectedRecord != selectedRecord ||
+        oldDelegate.isDarkMode != isDarkMode ||
+        oldDelegate.primaryColor != primaryColor;
   }
 }

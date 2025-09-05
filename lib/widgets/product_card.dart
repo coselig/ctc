@@ -47,21 +47,34 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    // 根據主題模式選擇背景顏色和漸變
+    final cardColor = isDarkMode
+        ? theme.colorScheme.surface
+        : const Color(0xFFF5E6D3);
+
+    final gradientColors = isDarkMode
+        ? [
+            theme.colorScheme.surface,
+            theme.colorScheme.surface.withValues(alpha: 0.8),
+          ]
+        : [
+            const Color(0xFFF5E6D3), // 淺米色
+            const Color(0xFFE8D5C4), // 中等米色
+          ];
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      color: const Color(0xFFF5E6D3), // 米色背景
+      color: cardColor,
       elevation: 4,
       clipBehavior: Clip.antiAliasWithSaveLayer,
       child: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF5E6D3), // 淺米色
-              Color(0xFFE8D5C4), // 中等米色
-            ],
+            colors: gradientColors,
           ),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -168,7 +181,9 @@ class ProductCard extends StatelessWidget {
                           Text(
                             title,
                             style: theme.textTheme.titleLarge?.copyWith(
-                              color: const Color(0xFF8B6914), // 金棕色
+                              color: isDarkMode
+                                  ? theme.colorScheme.primary
+                                  : const Color(0xFF8B6914), // 金棕色
                               fontWeight: FontWeight.bold,
                               fontSize: titleFontSize,
                             ),
@@ -183,7 +198,11 @@ class ProductCard extends StatelessWidget {
                             child: Text(
                               subtitle,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFFB8956F), // 深棕色
+                                color: isDarkMode
+                                    ? theme.colorScheme.onSurface.withValues(
+                                        alpha: 0.8,
+                                      )
+                                    : const Color(0xFFB8956F), // 深棕色
                                 fontSize: subtitleFontSize,
                               ),
                               textAlign: TextAlign.center,
@@ -204,7 +223,9 @@ class ProductCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: const Color(0xFFD17A3A), // 橘棕色邊框
+                                color: isDarkMode
+                                    ? theme.colorScheme.primary
+                                    : const Color(0xFFD17A3A), // 橘棕色邊框
                                 width: (width * 0.005).clamp(
                                   1.0,
                                   3.0,
@@ -213,7 +234,11 @@ class ProductCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(
                                 (width * 0.015).clamp(4.0, 8.0),
                               ),
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: isDarkMode
+                                  ? theme.colorScheme.surface.withValues(
+                                      alpha: 0.9,
+                                    )
+                                  : Colors.white.withValues(alpha: 0.9),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -221,7 +246,9 @@ class ProductCard extends StatelessWidget {
                                 Text(
                                   '瞭解更多',
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: const Color(0xFFD17A3A), // 橘棕色文字
+                                    color: isDarkMode
+                                        ? theme.colorScheme.primary
+                                        : const Color(0xFFD17A3A), // 橘棕色文字
                                     fontWeight: FontWeight.w600,
                                     fontSize: buttonFontSize,
                                   ),
@@ -231,7 +258,9 @@ class ProductCard extends StatelessWidget {
                                 ), // 動態間距
                                 Icon(
                                   Icons.arrow_forward,
-                                  color: const Color(0xFFD17A3A), // 橘棕色圖標
+                                  color: isDarkMode
+                                      ? theme.colorScheme.primary
+                                      : const Color(0xFFD17A3A), // 橘棕色圖標
                                   size: iconSize,
                                 ),
                               ],

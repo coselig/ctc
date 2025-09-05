@@ -16,12 +16,13 @@ class HaPageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
     _imageService.getImageUrl(imageName);
     final imageWidth = (screenWidth);
-    final imageHeight = (screenHeight); 
+    final imageHeight = (screenHeight);
 
     return Card(
       elevation: 4,
@@ -43,15 +44,22 @@ class HaPageCard extends StatelessWidget {
                   return Container(
                     width: imageWidth,
                     height: imageHeight,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.error),
+                    color: theme.colorScheme.surface,
+                    child: Icon(
+                      Icons.error,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
                   );
                 }
                 return Container(
                   width: imageWidth,
                   height: imageHeight,
-                  color: Colors.grey[300],
-                  child: const Center(child: CircularProgressIndicator()),
+                  color: theme.colorScheme.surface,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
                 );
               },
             ),

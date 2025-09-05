@@ -19,22 +19,35 @@ class MissionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    // 根據主題模式選擇背景顏色和漸變
+    final cardColor = isDarkMode
+        ? theme.colorScheme.surface
+        : const Color(0xFFF5E6D3);
+
+    final gradientColors = isDarkMode
+        ? [
+            theme.colorScheme.surface,
+            theme.colorScheme.surface.withValues(alpha: 0.8),
+          ]
+        : [
+            const Color(0xFFF5E6D3), // 淺米色
+            const Color(0xFFE8D5C4), // 中等米色
+          ];
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Card(
         elevation: 4,
         clipBehavior: Clip.antiAlias,
-        color: const Color(0xFFF5E6D3), // 米色背景
+        color: cardColor,
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF5E6D3), // 淺米色
-                Color(0xFFE8D5C4), // 中等米色
-              ],
+              colors: gradientColors,
             ),
           ),
           child: InkWell(
@@ -108,9 +121,11 @@ class MissionCard extends StatelessWidget {
                                       title,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
-                                            color: const Color(
-                                              0xFF8B6914,
-                                            ), // 金棕色
+                                            color: isDarkMode
+                                                ? theme.colorScheme.primary
+                                                : const Color(
+                                                    0xFF8B6914,
+                                                  ), // 金棕色
                                             fontWeight: FontWeight.bold,
                                             fontSize: width * 0.15,
                                           ),
@@ -123,9 +138,12 @@ class MissionCard extends StatelessWidget {
                                       subtitle,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                            color: const Color(
-                                              0xFFB8956F,
-                                            ), // 深棕色
+                                            color: isDarkMode
+                                                ? theme.colorScheme.onSurface
+                                                      .withValues(alpha: 0.8)
+                                                : const Color(
+                                                    0xFFB8956F,
+                                                  ), // 深棕色
                                             fontSize: width * 0.12,
                                           ),
                                       textAlign: TextAlign.center,

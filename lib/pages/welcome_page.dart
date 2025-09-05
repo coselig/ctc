@@ -101,6 +101,8 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -108,39 +110,23 @@ class _WelcomePageState extends State<WelcomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Color(0xFFD17A3A)), // 更鮮豔的橙棕色
+        iconTheme: IconThemeData(color: primaryColor),
         actions: [
           IconButton(
-            icon: Icon(_getThemeIcon(), color: const Color(0xFFD17A3A)),
+            icon: Icon(_getThemeIcon(), color: primaryColor),
             onPressed: widget.onThemeToggle,
             tooltip: '切換主題',
           ),
           if (user == null)
             TextButton.icon(
-              icon: const Icon(
-                Icons.login,
-                color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
-              ),
-              label: const Text(
-                '登入',
-                style: TextStyle(
-                  color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
-                ),
-              ),
+              icon: Icon(Icons.login, color: primaryColor),
+              label: Text('登入', style: TextStyle(color: primaryColor)),
               onPressed: _handleLoginTap,
             )
           else
             TextButton.icon(
-              icon: const Icon(
-                Icons.arrow_forward,
-                color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
-              ),
-              label: const Text(
-                '進入系統',
-                style: TextStyle(
-                  color: Color(0xFFD17A3A), // 更鮮豔的橙棕色
-                ),
-              ),
+              icon: Icon(Icons.arrow_forward, color: primaryColor),
+              label: Text('進入系統', style: TextStyle(color: primaryColor)),
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(

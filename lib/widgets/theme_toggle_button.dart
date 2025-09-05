@@ -16,8 +16,12 @@ class ThemeToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color == const Color(0xFFD17A3A)
+        ? Theme.of(context).colorScheme.primary
+        : color;
+
     return IconButton(
-      icon: Icon(_getThemeIcon(), color: color),
+      icon: Icon(_getThemeIcon(), color: effectiveColor),
       onPressed: onToggle,
       tooltip: '切換主題',
     );

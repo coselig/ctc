@@ -15,6 +15,9 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
   final _imageService = ImageService();
 
   void _showHomeAssistantDialog() {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -24,33 +27,49 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
             width: MediaQuery.of(context).size.width * 0.9,
             height: MediaQuery.of(context).size.height * 0.8,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFF5E6D3), // 淺米色
-                  Color(0xFFE8D5C4), // 中等米色
-                ],
+                colors: isDarkMode
+                    ? [
+                        const Color(0xFF2A2A2A), // 深灰色
+                        const Color(0xFF1F1F1F), // 更深的灰色
+                      ]
+                    : [
+                        const Color(0xFFF5E6D3), // 淺米色
+                        const Color(0xFFE8D5C4), // 中等米色
+                      ],
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
+                  color: isDarkMode
+                      ? Colors.black.withValues(alpha: 0.6)
+                      : Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
               ],
+              border: isDarkMode
+                  ? Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      width: 1,
+                    )
+                  : null,
             ),
             child: Column(
               children: [
                 // 標題欄
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFFD17A3A), Color(0xFFB8956F)],
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.secondary,
+                      ],
                     ),
-                    borderRadius: BorderRadius.vertical(
+                    borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
                   ),
@@ -107,21 +126,22 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
                                     );
                                   } else if (snapshot.hasError) {
                                     return Container(
-                                      color: Colors.grey[200],
-                                      child: const Center(
+                                      color: theme.colorScheme.surface,
+                                      child: Center(
                                         child: Icon(
                                           Icons.error,
                                           size: 50,
-                                          color: Colors.grey,
+                                          color: theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.6),
                                         ),
                                       ),
                                     );
                                   }
                                   return Container(
-                                    color: Colors.grey[200],
-                                    child: const Center(
+                                    color: theme.colorScheme.surface,
+                                    child: Center(
                                       child: CircularProgressIndicator(
-                                        color: Color(0xFF8B6914),
+                                        color: theme.colorScheme.primary,
                                       ),
                                     ),
                                   );
@@ -269,13 +289,15 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFFD17A3A)),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -357,8 +379,8 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFD17A3A),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
@@ -374,7 +396,7 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
                       ),
                       const SizedBox(width: 12),
                       // 公司名稱
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -382,14 +404,18 @@ class _ProductCompassPageState extends State<ProductCompassPage> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFFD17A3A),
+                              color: theme.colorScheme.primary,
                             ),
                           ),
                           Text(
                             'COSELIO TECH.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF8B6914),
+                              color: theme.brightness == Brightness.dark
+                                  ? theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.8,
+                                    )
+                                  : const Color(0xFF8B6914),
                               letterSpacing: 1,
                             ),
                           ),
