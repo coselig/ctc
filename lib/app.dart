@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'pages/welcome_page.dart';
 import 'theme/app_theme.dart';
@@ -15,11 +16,38 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    _setupGlobalAuthListener();
+  }
+
+  void _setupGlobalAuthListener() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
+      final AuthChangeEvent event = data.event;
+      final Session? session = data.session;
+
+      debugPrint('Global auth state changed: $event');
+
+      // 這裡可以處理全域的認證狀態變化
+      // 例如：如果用戶登出，可以清理快取、重置狀態等
+      if (event == AuthChangeEvent.signedOut) {
+        debugPrint('User signed out globally');
+      } else if (event == AuthChangeEvent.signedIn) {
+        debugPrint('User signed in globally: ${session?.user.email}');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeApp() async {

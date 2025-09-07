@@ -34,17 +34,38 @@ class _WelcomePageState extends State<WelcomePage> {
   int _currentImageIndex = 0;
   final List<String> _imageUrls = [];
   Timer? _timer;
+  StreamSubscription<AuthState>? _authSubscription;
+  User? _currentUser;
 
   @override
   void initState() {
     super.initState();
+    _currentUser = supabase.auth.currentUser;
+    _setupAuthListener();
     _loadImages();
     _startImageTimer();
+  }
+
+  void _setupAuthListener() {
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      final Session? session = data.session;
+
+      if (mounted) {
+        setState(() {
+          _currentUser = session?.user;
+        });
+      }
+
+      // 可選：添加日誌以便調試
+      debugPrint('Auth state changed: $event, User: ${_currentUser?.email}');
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 
@@ -97,8 +118,8 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
-  void _handleLoginTap() {
-    Navigator.of(context).push(
+  void _handleLoginTap() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => AuthPage(
           onThemeToggle: widget.onThemeToggle,
@@ -106,11 +127,18 @@ class _WelcomePageState extends State<WelcomePage> {
         ),
       ),
     );
+
+    // 登入頁面返回後，強制刷新狀態
+    if (mounted) {
+      setState(() {
+        _currentUser = supabase.auth.currentUser;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = supabase.auth.currentUser;
+    final user = _currentUser; // 使用 _currentUser 而不是即時查詢
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 

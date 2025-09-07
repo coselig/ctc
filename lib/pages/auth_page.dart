@@ -53,7 +53,13 @@ class _AuthPageState extends State<AuthPage> {
           password: password,
         );
         if (mounted) {
-          Navigator.of(context).pop();
+          // 顯示成功訊息
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('登入成功！')));
+          // 等待一下讓用戶看到成功訊息，然後返回
+          await Future.delayed(const Duration(milliseconds: 500));
+          Navigator.of(context).pop(true); // 傳回 true 表示登入成功
         }
       }
     } catch (e) {
@@ -277,7 +283,8 @@ class _AuthPageState extends State<AuthPage> {
                                   : () async {
                                       setState(() => _isLoading = true);
                                       try {
-                                        final supabase = Supabase.instance.client;
+                                        final supabase =
+                                            Supabase.instance.client;
                                         await supabase.auth.signInWithOAuth(
                                           OAuthProvider.google,
                                           redirectTo:
@@ -285,11 +292,13 @@ class _AuthPageState extends State<AuthPage> {
                                         );
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             SnackBar(
-                                              content:
-                                                  Text('Google 登入失敗: ${e.toString()}'),
+                                              content: Text(
+                                                'Google 登入失敗: ${e.toString()}',
+                                              ),
                                             ),
                                           );
                                         }
@@ -299,8 +308,9 @@ class _AuthPageState extends State<AuthPage> {
                                       }
                                     },
                               style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 side: BorderSide(
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
