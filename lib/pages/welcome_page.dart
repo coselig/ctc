@@ -1,17 +1,19 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/product_compass.dart';
-import 'package:ctc/widgets/product_card.dart';
-import 'package:ctc/widgets/mission_card.dart';
-import 'package:ctc/widgets/responsive_container.dart';
+import 'package:ctc/services/image_service.dart';
 import 'package:ctc/widgets/compass_background.dart';
+import 'package:ctc/widgets/mission_card.dart';
+import 'package:ctc/widgets/product_card.dart';
+import 'package:ctc/widgets/responsive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:async';
+
 import 'auth_page.dart';
 import 'photo_record_page.dart';
 import 'product_page.dart';
-import 'package:ctc/services/image_service.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({

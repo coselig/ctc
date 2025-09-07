@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
+
 import 'pages/welcome_page.dart';
 import 'theme/app_theme.dart';
 
@@ -53,7 +55,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '工地照片記錄',
+      title: '光悅科技',
       debugShowCheckedModeBanner: false, // 關閉 debug 標籤
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

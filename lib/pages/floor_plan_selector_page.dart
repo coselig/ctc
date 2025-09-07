@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
-import '../widgets/name_input_dialog.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../widgets/name_input_dialog.dart';
 
 class FloorPlanSelectorPage extends StatefulWidget {
   const FloorPlanSelectorPage({

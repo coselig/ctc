@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
+
 import '../models/photo_record.dart';
 
 class FloorPlanView extends StatelessWidget {

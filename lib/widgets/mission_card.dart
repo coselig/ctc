@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/services/image_service.dart';
+import 'package:flutter/material.dart';
 
 class MissionCard extends StatelessWidget {
   final String imageName;

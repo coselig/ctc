@@ -1,7 +1,8 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:ui' as ui;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ImageService {
   static final ImageService _instance = ImageService._internal();

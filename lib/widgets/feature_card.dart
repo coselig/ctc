@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:ctc/services/image_service.dart';
+import 'package:flutter/material.dart';
 
 class FeatureCard extends StatelessWidget {
   final String title;

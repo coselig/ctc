@@ -1,15 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/photo_record.dart';
 import '../services/supabase_service.dart';
-import '../widgets/floor_plan_view.dart';
 import '../widgets/compass_background.dart';
+import '../widgets/floor_plan_view.dart';
 import '../widgets/photo_dialog.dart';
 import 'floor_plan_selector_page.dart';
 

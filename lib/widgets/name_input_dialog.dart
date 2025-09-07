@@ -65,22 +65,4 @@ class _NameInputDialogState extends State<NameInputDialog> {
     Navigator.of(context).pop(text.isEmpty ? null : text);
   }
 
-  /// 顯示名稱輸入對話框的快捷方法
-  static Future<String?> show({
-    required BuildContext context,
-    required String title,
-    required String labelText,
-    required String hintText,
-    String? initialValue,
-  }) {
-    return showDialog<String>(
-      context: context,
-      builder: (context) => NameInputDialog(
-        title: title,
-        labelText: labelText,
-        hintText: hintText,
-        initialValue: initialValue,
-      ),
-    );
-  }
 }
