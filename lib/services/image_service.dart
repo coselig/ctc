@@ -14,8 +14,6 @@ class ImageService {
   final _widthCache = <String, int>{};
   final _heightCache = <String, int>{};
 
-  
-
   Future<String> getImageUrl(String fileName) async {
     if (_cache.containsKey(fileName)) {
       return _cache[fileName]!;
@@ -23,11 +21,13 @@ class ImageService {
     try {
       final url = await _supabase.storage
           .from('assets')
-          .createSignedUrl(fileName, 3600);
+          .createSignedUrl(fileName, 3600)
+          .timeout(const Duration(seconds: 10));
       _cache[fileName] = url;
       return url;
     } catch (e) {
-      rethrow;
+      // 提供備用的本地圖片或占位圖
+      throw Exception('Failed to load image $fileName: $e');
     }
   }
 

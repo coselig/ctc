@@ -19,19 +19,54 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // 短暫延遲以確保應用程式初始化完成
-    Future.delayed(const Duration(milliseconds: 500), () {
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      // 等待 Supabase 確實可用
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // 預載入關鍵資源
+      await _preloadCriticalResources();
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    });
+    } catch (e) {
+      // 即使預載入失敗，也讓應用繼續
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _preloadCriticalResources() async {
+    // 這裡可以預載入關鍵圖片或資源
+    // 但不阻塞主要界面的顯示
+    return Future.delayed(const Duration(milliseconds: 200));
   }
 
   Widget _buildHomeWidget() {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/sqare_ctc_icon.png', width: 120, height: 120),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('正在載入應用程式...', style: Theme.of(context).textTheme.bodyLarge),
+            ],
+          ),
+        ),
+      );
     }
 
     return WelcomePage(

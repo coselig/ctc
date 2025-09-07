@@ -54,14 +54,22 @@ class _WelcomePageState extends State<WelcomePage> {
       final imageService = ImageService();
       final List<String> fileNames = ['bedroom.jpg', 'living-room.jpg'];
 
-      final urls = await imageService.getImageUrls(fileNames);
+      // 分批載入，避免同時載入太多圖片
+      for (String fileName in fileNames) {
+        try {
+          final url = await imageService
+              .getImageUrl(fileName)
+              .timeout(const Duration(seconds: 5));
 
-      if (mounted) {
-        setState(() {
-          _imageUrls.clear();
-          _imageUrls.addAll(urls);
-          debugPrint('Set carousel URLs: $_imageUrls');
-        });
+          if (mounted) {
+            setState(() {
+              _imageUrls.add(url);
+              debugPrint('Added carousel URL: $url');
+            });
+          }
+        } catch (e) {
+          debugPrint('Failed to load image $fileName: $e');
+        }
       }
     } catch (error) {
       debugPrint('Error loading carousel images: $error');
