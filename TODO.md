@@ -2,54 +2,49 @@
 
 ## flutter
 
+- ✅ 產品介紹頁面
+- ✅ 登入系統
+- ✅ 工地照片紀錄系統
+- ✅ flutter 字體更改  Iansui
+- ✅ google 登入頁面
+- ✅ 權限管理
 - 產品型錄&設計圖
 - 產品成本計算
-- flutter 字體更改  Iansui
+- ERP 系統
 
-    1. [Iansui-Regular.ttf](https://github.com/ButTaiwan/iansui?utm_source=chatgpt.com)
-    2. /assets/fonts/Iansui-Regular.ttf
-    3. 打開 pubspec.yaml，加入字體設定
+    1. 專案進度
 
-        ```yaml
-        flutter:
-        fonts:
-            - family: Iansui
-            fonts:
-            - asset: assets/fonts/Iansui-Regular.ttf
-        ```
+        - 子任務 工時
+        - 任務進度:
 
-    4. 在 Flutter 中使用字體
+            - 業務洽談
+            - 確認專案內容
+            - 進場施工
+            - 等待其他施工
+            - 配電盤
+            - 開發客製化功能
+            - UI介面製作
+    2. 庫存保存
 
-        ```dart
-        import 'package:flutter/material.dart';
+        - 產品名稱
+        - 數量
+        - 單位
+        - 成本
+        - 廠家
+        - 瓦數
+        - 單/雙色
+        - 色溫
+        - 瓦數
+        - 貨品類型(有單再買/提前庫存)
+        - 日期
 
-        void main() {
-        runApp(const MyApp());
-        }
+    3. 進貨資訊
 
-        class MyApp extends StatelessWidget {
-        const MyApp({super.key});
-
-        @override
-        Widget build(BuildContext context) {
-            return MaterialApp(
-            theme: ThemeData(
-                fontFamily: 'Iansui', // 全局使用 Iansui
-            ),
-            home: const Scaffold(
-                body: Center(
-                child: Text(
-                    '哈囉！Iansui 字體測試',
-                    style: TextStyle(fontSize: 30),
-                ),
-                ),
-            ),
-            );
-        }
-        }
-        ```
-
--------
+        - 廠家
+        - 單位
+        - 成本
+        - 數量
+        - 日期
 
 ## 其他
 

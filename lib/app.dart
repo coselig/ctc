@@ -6,14 +6,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pages/welcome_page.dart';
 import 'theme/app_theme.dart';
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class AppRoot extends StatefulWidget {
+  const AppRoot({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<AppRoot> createState() => _AppRootState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _AppRootState extends State<AppRoot> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
   StreamSubscription<AuthState>? _authSubscription;
