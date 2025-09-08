@@ -404,7 +404,7 @@ class _WelcomePageState extends State<WelcomePage> {
                         GridView.count(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 3,
+                          crossAxisCount: 6, // 改為6個一排
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.85,
