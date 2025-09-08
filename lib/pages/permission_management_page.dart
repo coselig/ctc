@@ -38,14 +38,20 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
         errorMessage = null;
       });
 
+      print('權限管理頁面 - 設計圖 URL: ${widget.floorPlanUrl}');
+      print('權限管理頁面 - 設計圖名稱: ${widget.floorPlanName}');
+
       final loadedPermissions = await widget.permissionService
           .getFloorPlanPermissions(widget.floorPlanUrl);
+
+      print('權限管理頁面 - 載入的權限數量: ${loadedPermissions.length}');
 
       setState(() {
         permissions = loadedPermissions;
         isLoading = false;
       });
     } catch (e) {
+      print('權限管理頁面 - 載入權限失敗: $e');
       setState(() {
         errorMessage = e.toString();
         isLoading = false;

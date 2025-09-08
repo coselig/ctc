@@ -348,7 +348,42 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await supabase.auth.signOut();
+              // 顯示確認對話框
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('確認登出'),
+                  content: const Text('您確定要登出嗎？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('登出'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldLogout == true) {
+                try {
+                  // 先清除所有頁面到根級別
+                  if (mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+
+                  // 執行登出 - 全域認證監聽器會處理 UI 更新
+                  await supabase.auth.signOut();
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('登出失敗: $e')));
+                  }
+                }
+              }
             },
             tooltip: '登出',
           ),

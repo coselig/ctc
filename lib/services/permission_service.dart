@@ -100,26 +100,27 @@ class PermissionService {
   }
 
   /// 添加用戶權限
+  /// 添加用戶權限 (使用 RPC 函數避免 RLS 遞迴問題)
   Future<void> addUserPermission({
     required String floorPlanUrl,
     required String floorPlanName,
     required String userEmail,
     required PermissionLevel permissionLevel,
   }) async {
+    print('DEBUG: 開始添加用戶權限 (使用 RPC)...');
+    print('DEBUG: 設計圖 URL: $floorPlanUrl');
+    print('DEBUG: 目標用戶: $userEmail');
+    print('DEBUG: 權限等級: ${permissionLevel.displayName}');
+
     final currentUser = client.auth.currentUser;
     if (currentUser == null) {
+      print('ERROR: 用戶未登入');
       throw Exception('未登入');
     }
+    print('DEBUG: 當前用戶: ${currentUser.email}');
 
-    // 檢查當前用戶是否為設計圖擁有者
-    final currentUserPermission = await getUserPermission(
-      floorPlanUrl: floorPlanUrl,
-    );
-    if (currentUserPermission?.isOwner != true) {
-      throw Exception('只有擁有者可以添加權限');
-    }
-
-    // 查找目標用戶 - 使用我們的 getAllUsers 方法而不是 admin API
+    // 查找目標用戶
+    print('DEBUG: 查找目標用戶...');
     final allUsers = await getAllUsers();
     final targetUserData = allUsers.firstWhere(
       (user) => user['email'] == userEmail,
@@ -127,29 +128,36 @@ class PermissionService {
     );
 
     final targetUserId = targetUserData['id'] as String;
+    print('DEBUG: 找到目標用戶 ID: $targetUserId');
 
-    // 檢查是否已有權限
-    final existingPermission = await getUserPermission(
-      floorPlanUrl: floorPlanUrl,
-      userId: targetUserId,
-    );
-    if (existingPermission != null) {
-      throw Exception('用戶已有此設計圖的權限');
+    try {
+      print('DEBUG: 調用 RPC 函數添加權限...');
+      final result = await client.rpc(
+        'add_user_permission',
+        params: {
+          'p_floor_plan_url': floorPlanUrl,
+          'p_floor_plan_name': floorPlanName,
+          'p_target_user_id': targetUserId,
+          'p_target_user_email': userEmail,
+          'p_permission_level': permissionLevel.value,
+        },
+      );
+
+      print('DEBUG: RPC 回應: $result');
+
+      if (result is Map && result['success'] == true) {
+        print('SUCCESS: 權限添加成功');
+      } else if (result is Map && result['error'] != null) {
+        print('ERROR: 權限添加失敗: ${result['error']}');
+        throw Exception(result['error']);
+      } else {
+        print('ERROR: 未知的 RPC 回應格式: $result');
+        throw Exception('未知的回應格式');
+      }
+    } catch (e) {
+      print('ERROR: RPC 調用失敗: $e');
+      rethrow;
     }
-
-    final permission = {
-      'floor_plan_id': floorPlanUrl.split('/').last.split('.').first,
-      'floor_plan_url': floorPlanUrl,
-      'floor_plan_name': floorPlanName,
-      'user_id': targetUserId,
-      'user_email': userEmail,
-      'permission_level': permissionLevel.value,
-      'is_owner': false,
-      'created_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
-    };
-
-    await client.from('floor_plan_permissions').insert(permission);
   }
 
   /// 更新用戶權限
