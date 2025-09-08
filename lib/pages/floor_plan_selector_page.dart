@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../pages/permission_management_page.dart';
 import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
 import '../widgets/confirmation_dialog.dart';
@@ -67,6 +68,24 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _showFloorPlanOptions(Map<String, String> floorPlan) async {
+    // 簡單的長按顯示刪除對話框，保持原有行為
+    await _showDeleteDialog(floorPlan);
+  }
+
+  Future<void> _openPermissionManagement(Map<String, String> floorPlan) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PermissionManagementPage(
+          floorPlanUrl: floorPlan['asset']!,
+          floorPlanName: floorPlan['name']!,
+          permissionService: widget.supabaseService.permissionService,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadFloorPlans() async {
@@ -207,19 +226,20 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                     return InkWell(
                       onTap: () =>
                           widget.onFloorPlanSelected(floorPlan['asset']!),
-                      onLongPress: () => _showDeleteDialog(floorPlan),
+                      onLongPress: () => _showFloorPlanOptions(floorPlan),
                       child: Card(
                         clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        child: Stack(
                           children: [
-                            Expanded(
-                              child: floorPlan['asset']!.startsWith('http')
-                                  ? Image.network(
-                                      floorPlan['asset']!,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder:
-                                          (context, child, loadingProgress) {
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: floorPlan['asset']!.startsWith('http')
+                                      ? Image.network(
+                                          floorPlan['asset']!,
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (context, child, loadingProgress) {
                                             if (loadingProgress == null) {
                                               return child;
                                             }
@@ -237,18 +257,77 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                                               ),
                                             );
                                           },
-                                    )
-                                  : Image.asset(
-                                      floorPlan['asset']!,
-                                      fit: BoxFit.cover,
-                                    ),
+                                        )
+                                      : Image.asset(
+                                          floorPlan['asset']!,
+                                          fit: BoxFit.cover,
+                                        ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(
+                                    floorPlans[index]['name']!,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                floorPlans[index]['name']!,
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.titleMedium,
+                            // 權限管理按鈕
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: PopupMenuButton<String>(
+                                icon: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.more_vert,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'permissions':
+                                      _openPermissionManagement(floorPlan);
+                                      break;
+                                    case 'delete':
+                                      _showDeleteDialog(floorPlan);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'permissions',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.people),
+                                        SizedBox(width: 8),
+                                        Text('權限管理'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuDivider(),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          '刪除設計圖',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
