@@ -64,6 +64,7 @@ CREATE TABLE public.profiles (
     email text,
     full_name text,
     avatar_url text,
+    theme_preference text DEFAULT 'system' CHECK (theme_preference IN ('light', 'dark', 'system')),
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -243,7 +244,50 @@ CREATE TRIGGER update_photo_records_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ================================================
--- 6. 創建 RPC 函數
+-- 6. 自動創建用戶資料的觸發器函數
+-- ================================================
+-- 確保所有登入用戶都有 profile 記錄的觸發器函數
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  -- 使用 INSERT ... ON CONFLICT DO NOTHING 來避免重複插入
+  INSERT INTO public.profiles (id, email, full_name, theme_preference, created_at, updated_at)
+  VALUES (
+    NEW.id, 
+    NEW.email, 
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''), 
+    'system',
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT (id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 創建或替換觸發器
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 為當前所有已存在但沒有 profile 的用戶創建 profile
+INSERT INTO public.profiles (id, email, full_name, theme_preference, created_at, updated_at)
+SELECT 
+  au.id,
+  au.email,
+  COALESCE(au.raw_user_meta_data->>'full_name', ''),
+  'system',
+  NOW(),
+  NOW()
+FROM auth.users au
+LEFT JOIN public.profiles p ON au.id = p.id
+WHERE p.id IS NULL
+ON CONFLICT (id) DO NOTHING;
+
+-- ================================================
+-- 7. 創建 RPC 函數
 -- ================================================
 
 -- 獲取當前用戶 ID 的輔助函數
@@ -415,7 +459,7 @@ END;
 $$;
 
 -- ================================================
--- 7. 設置函數權限
+-- 8. 設置函數權限
 -- ================================================
 GRANT EXECUTE ON FUNCTION get_current_user_id() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_all_users() TO authenticated;
@@ -424,7 +468,7 @@ GRANT EXECUTE ON FUNCTION add_user_permission(text, text, uuid, text, integer) T
 GRANT EXECUTE ON FUNCTION transfer_floor_plan_ownership(text, uuid, uuid) TO authenticated;
 
 -- ================================================
--- 8. 創建視圖 (可選，便於查詢)
+-- 9. 創建視圖 (可選，便於查詢)
 -- ================================================
 
 -- 用戶權限摘要視圖
@@ -464,7 +508,7 @@ GROUP BY fp.floor_plan_url, fp.floor_plan_name, fp.created_at, fp.updated_at
 ORDER BY fp.created_at DESC;
 
 -- ================================================
--- 9. 完成設置
+-- 10. 完成設置
 -- ================================================
 
 -- 顯示設置完成訊息
@@ -473,12 +517,13 @@ BEGIN
     RAISE NOTICE '🎉 資料庫設置完成！';
     RAISE NOTICE '';
     RAISE NOTICE '已創建的表格：';
-    RAISE NOTICE '- profiles (用戶資料)';
+    RAISE NOTICE '- profiles (用戶資料，包含主題偏好)';
     RAISE NOTICE '- floor_plans (設計圖)';
     RAISE NOTICE '- floor_plan_permissions (權限管理)';
     RAISE NOTICE '- photo_records (照片記錄)';
     RAISE NOTICE '';
     RAISE NOTICE '已創建的函數：';
+    RAISE NOTICE '- handle_new_user() (自動創建用戶資料)';
     RAISE NOTICE '- get_current_user_id()';
     RAISE NOTICE '- get_all_users()';
     RAISE NOTICE '- list_users()';
@@ -487,8 +532,9 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '已啟用 RLS 安全策略';
     RAISE NOTICE '已創建必要的索引和觸發器';
+    RAISE NOTICE '已啟用自動用戶資料創建功能';
     RAISE NOTICE '';
-    RAISE NOTICE '✅ 系統已準備就緒，可以開始使用 Flutter 應用程式！';
+    RAISE NOTICE '✅ 系統已準備就緒，包含主題偏好功能！';
 END $$;
 
 -- 最終檢查：列出所有創建的對象

@@ -1,36 +1,73 @@
-# 🎯 解決設計圖新增問題
+# 🗄️ 資料庫設置與功能
 
-## ❌ 問題描述
+## 📋 系統功能
 
-```
-新增設計圖失敗:PostgrestException(message: null value in column "id" of relation "floor_plans" violates not-null constraint, code: 23502, details: Bad Request, hint: null)
-```
+### 核心功能
 
-## ✅ 解決方案
+- **用戶管理系統**: 完整的用戶註冊、登入功能
+- **主題偏好設置**: 支援亮色/暗色/系統自動主題切換
+- **設計圖管理**: 上傳、瀏覽、分享設計圖
+- **權限控制系統**: 多層級權限管理（瀏覽/編輯/管理）
+- **照片記錄功能**: 在設計圖上標記和記錄照片
 
-### 1. 重新執行資料庫設置
+### 新功能 ✨
 
-在 Supabase SQL Editor 中執行 `complete_database_setup.sql`：
+- **自動用戶資料創建**: 新用戶註冊時自動創建 profile 記錄
+- **主題偏好持久化**: 用戶主題設置會保存到資料庫
+- **增強錯誤處理**: 防止新用戶遇到 PostgrestException 錯誤
 
-- 已修正 `floor_plans` 表格的 `id` 欄位為自動生成
-- 所有表格、策略、函數都會先刪除再重新創建
-- 可以安全重複執行
+## 🚀 資料庫設置
 
-### 2. Flutter 程式碼已自動修正
+### 一次性完整設置
 
-- 修正了 `supabase_service.dart` 中的插入邏輯
-- 現在會自動獲取生成的 `id` 來建立權限
+在 Supabase SQL Editor 中執行 `complete_database_setup_v2.sql`：
 
-## 🚀 執行步驟
+- **包含所有功能**: 用戶管理、主題偏好、設計圖、權限、照片記錄
+- **自動清理**: 先刪除舊物件再重新創建
+- **安全執行**: 可以重複執行而不會出錯
+- **完整功能**: 包含觸發器、RLS 策略、索引等
+
+### 執行步驟
 
 1. **打開 Supabase 控制台** → SQL Editor
-2. **複製整個 `complete_database_setup.sql` 內容**
+2. **複製整個 `complete_database_setup_v2.sql` 內容**
 3. **貼上並執行**
 4. **重啟 Flutter 應用程式**
 
-執行成功後就可以正常新增設計圖了！
+執行成功後系統就完全準備就緒了！
+
+## 📊 資料庫結構
+
+### 主要表格
+
+- **`profiles`**: 用戶資料（包含主題偏好）
+- **`floor_plans`**: 設計圖資料
+- **`floor_plan_permissions`**: 權限管理
+- **`photo_records`**: 照片記錄
+
+### 主要函數
+
+- **`handle_new_user()`**: 自動創建用戶資料
+- **`get_current_user_id()`**: 獲取當前用戶 ID
+- **`add_user_permission()`**: 新增用戶權限
+- **`transfer_floor_plan_ownership()`**: 轉移擁有者權限
+
+## 🔧 最近更新
+
+### v2.0 功能 (2025-09-08)
+
+- ✅ 新增主題偏好功能
+- ✅ 自動用戶資料創建
+- ✅ 增強錯誤處理
+- ✅ 簡化資料庫設置
+
+### 已解決問題
+
+- ❌ **PostgrestException PGRST116**: 新用戶缺少 profile 記錄
+- ❌ **設計圖新增失敗**: `floor_plans.id` 欄位問題
+- ✅ **主題設置不持久**: 現在會保存到資料庫
 
 ---
-**修正時間**: 2024-12-19  
-**問題**: `floor_plans.id` 欄位缺少默認值  
-**狀態**: ✅ 已修正
+**最新更新**: 2025-09-08  
+**版本**: v2.0 - 包含主題偏好功能  
+**狀態**: ✅ 生產就緒
