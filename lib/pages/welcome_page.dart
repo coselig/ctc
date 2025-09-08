@@ -5,6 +5,7 @@ import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/services/image_service.dart';
 import 'package:ctc/widgets/compass_background.dart';
+import 'package:ctc/widgets/company_info_footer.dart';
 import 'package:ctc/widgets/mission_card.dart';
 import 'package:ctc/widgets/product_card.dart';
 import 'package:ctc/widgets/responsive_container.dart';
@@ -445,6 +446,8 @@ class _WelcomePageState extends State<WelcomePage> {
                       ],
                     ),
                     const SizedBox(height: 32),
+                    // 使用統一的公司資訊 Widget
+                    const CompanyInfoFooter(),
                   ],
                 ),
               ),
