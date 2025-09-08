@@ -216,7 +216,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                 child: GridView.builder(
                   padding: const EdgeInsets.all(16),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                    crossAxisCount: 3, // 每排3個
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
@@ -229,6 +229,8 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                       onLongPress: () => _showFloorPlanOptions(floorPlan),
                       child: Card(
                         clipBehavior: Clip.antiAlias,
+                        color: Colors.transparent, // 改為透明背景
+                        elevation: 0, // 移除陰影讓它更透明
                         child: Stack(
                           children: [
                             Column(
@@ -238,7 +240,8 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                                   child: floorPlan['asset']!.startsWith('http')
                                       ? Image.network(
                                           floorPlan['asset']!,
-                                          fit: BoxFit.cover,
+                                          fit: BoxFit
+                                              .contain, // 改為 contain，顯示完整圖片
                                           loadingBuilder: (context, child, loadingProgress) {
                                             if (loadingProgress == null) {
                                               return child;
@@ -260,7 +263,8 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                                         )
                                       : Image.asset(
                                           floorPlan['asset']!,
-                                          fit: BoxFit.cover,
+                                          fit: BoxFit
+                                              .contain, // 改為 contain，顯示完整圖片
                                         ),
                                 ),
                                 Padding(
