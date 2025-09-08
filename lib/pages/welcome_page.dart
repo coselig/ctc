@@ -4,11 +4,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/services/image_service.dart';
-import 'package:ctc/widgets/compass_background.dart';
 import 'package:ctc/widgets/company_info_footer.dart';
-import 'package:ctc/widgets/mission_card.dart';
-import 'package:ctc/widgets/product_card.dart';
+import 'package:ctc/widgets/compass_background.dart';
 import 'package:ctc/widgets/responsive_container.dart';
+import 'package:ctc/widgets/unified_card.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -324,10 +323,11 @@ class _WelcomePageState extends State<WelcomePage> {
                               crossAxisSpacing: 16,
                               childAspectRatio: childAspectRatio,
                               children: [
-                                ProductCard(
+                                UnifiedCard(
                                   imageName: 'DI.jpg',
                                   title: '高規元件',
                                   subtitle: '台灣製造\n調光控制器',
+                                  cardType: CardType.product,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -338,10 +338,11 @@ class _WelcomePageState extends State<WelcomePage> {
                                     );
                                   },
                                 ),
-                                ProductCard(
+                                UnifiedCard(
                                   imageName: 'HA.jpg',
                                   title: '開源整合平台',
                                   subtitle: '啟動智慧生活\nHome Assistant',
+                                  cardType: CardType.product,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -351,10 +352,11 @@ class _WelcomePageState extends State<WelcomePage> {
                                     );
                                   },
                                 ),
-                                ProductCard(
+                                UnifiedCard(
                                   imageName: 'LIGHT.jpeg',
                                   title: '快時尚照明',
                                   subtitle: '裝修新高度\n輕量複和金屬板',
+                                  cardType: CardType.product,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -378,15 +380,17 @@ class _WelcomePageState extends State<WelcomePage> {
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.7,
                           children: const [
-                            ProductCard(
+                            UnifiedCard(
                               imageName: 'customize_service.jpg',
                               title: '客製化服務',
                               subtitle: '專屬於你的智慧家居解決方案',
+                              cardType: CardType.product,
                             ),
-                            ProductCard(
+                            UnifiedCard(
                               imageName: 'handshake.jpg',
                               title: '加入光悅',
                               subtitle: '不一樣的工作體驗',
+                              cardType: CardType.product,
                             ),
                           ],
                         ),
@@ -405,40 +409,46 @@ class _WelcomePageState extends State<WelcomePage> {
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.85,
                           children: [
-                            MissionCard(
+                            UnifiedCard(
                               imageName: 'feasible.png',
                               title: '務實',
                               subtitle: 'Feasible',
+                              cardType: CardType.mission,
                               invertColors: true,
                             ),
-                            MissionCard(
+                            UnifiedCard(
                               imageName: 'stable.png',
                               title: '穩定',
                               subtitle: 'Stable',
+                              cardType: CardType.mission,
                               invertColors: true,
                             ),
-                            MissionCard(
+                            UnifiedCard(
                               imageName: 'affordable.png',
                               title: '實惠',
                               subtitle: 'Affordable',
+                              cardType: CardType.mission,
                               invertColors: true,
                             ),
-                            MissionCard(
+                            UnifiedCard(
                               imageName: 'durable.png',
                               title: '耐用',
                               subtitle: 'Durable',
+                              cardType: CardType.mission,
                               invertColors: true,
                             ),
-                            MissionCard(
+                            UnifiedCard(
                               imageName: 'sustainable.png',
                               title: '永續',
                               subtitle: 'Sustainable',
+                              cardType: CardType.mission,
                               invertColors: true,
                             ),
-                            MissionCard(
+                            UnifiedCard(
                               imageName: 'comfortable.png',
                               title: '舒適',
                               subtitle: 'Comfortable',
+                              cardType: CardType.mission,
                               invertColors: true,
                             ),
                           ],
