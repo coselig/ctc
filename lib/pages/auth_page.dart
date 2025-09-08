@@ -321,10 +321,10 @@ class _AuthPageState extends State<AuthPage> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Image.network(
-                                    'https://www.google.com/favicon.ico',
-                                    height: 24,
-                                    width: 24,
+                                  Icon(
+                                    Icons.account_circle,
+                                    size: 24,
+                                    color: Colors.blue[600],
                                   ),
                                   const SizedBox(width: 12),
                                   Text(

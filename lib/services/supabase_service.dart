@@ -89,12 +89,18 @@ class SupabaseService {
 
   Future<List<Map<String, dynamic>>> loadFloorPlans() async {
     try {
-      final response = await client
-          .from('floor_plans')
-          .select()
-          .order('created_at');
+      // 使用權限系統來獲取用戶有權限的設計圖
+      final accessibleFloorPlans = await permissionService
+          .getUserAccessibleFloorPlans();
 
-      return (response as List<dynamic>).cast<Map<String, dynamic>>();
+      print('用戶有權限的設計圖數量: ${accessibleFloorPlans.length}');
+      for (final plan in accessibleFloorPlans) {
+        print(
+          '設計圖: ${plan['name']}, 權限等級: ${plan['permission_level']}, 擁有者: ${plan['is_owner']}',
+        );
+      }
+
+      return accessibleFloorPlans;
     } catch (e) {
       print('載入設計圖失敗: $e');
       rethrow;

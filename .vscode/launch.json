@@ -6,10 +6,7 @@
             "request": "launch",
             "type": "dart",
             "flutterMode": "debug",
-            "console": "debugConsole",
-            "args": [
-                "--dart-define-from-file=.env"
-            ]
+            "console": "debugConsole"
         },
         {
             "name": "ctc (Flutter release mode)",

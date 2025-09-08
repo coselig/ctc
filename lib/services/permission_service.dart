@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 
@@ -118,17 +119,19 @@ class PermissionService {
       throw Exception('只有擁有者可以添加權限');
     }
 
-    // 查找目標用戶
-    final targetUserResponse = await client.auth.admin.listUsers();
-    final targetUser = targetUserResponse.firstWhere(
-      (user) => user.email == userEmail,
+    // 查找目標用戶 - 使用我們的 getAllUsers 方法而不是 admin API
+    final allUsers = await getAllUsers();
+    final targetUserData = allUsers.firstWhere(
+      (user) => user['email'] == userEmail,
       orElse: () => throw Exception('找不到用戶: $userEmail'),
     );
+
+    final targetUserId = targetUserData['id'] as String;
 
     // 檢查是否已有權限
     final existingPermission = await getUserPermission(
       floorPlanUrl: floorPlanUrl,
-      userId: targetUser.id,
+      userId: targetUserId,
     );
     if (existingPermission != null) {
       throw Exception('用戶已有此設計圖的權限');
@@ -138,7 +141,7 @@ class PermissionService {
       'floor_plan_id': floorPlanUrl.split('/').last.split('.').first,
       'floor_plan_url': floorPlanUrl,
       'floor_plan_name': floorPlanName,
-      'user_id': targetUser.id,
+      'user_id': targetUserId,
       'user_email': userEmail,
       'permission_level': permissionLevel.value,
       'is_owner': false,
@@ -332,28 +335,176 @@ class PermissionService {
   }
 
   /// 獲取系統中所有使用者（用於權限管理）
+  /// 從 profiles 表或權限表中獲取使用者資訊
   Future<List<Map<String, dynamic>>> getAllUsers() async {
     try {
       print('開始獲取所有使用者...');
-      final response = await client.auth.admin.listUsers();
-      print('獲取到 ${response.length} 個使用者');
 
-      final userList = response
-          .map(
-            (user) => {
-              'id': user.id,
-              'email': user.email ?? '',
-              'created_at': user.createdAt,
-            },
-          )
-          .toList();
+      // 方法 1: 嘗試使用 RPC 函數
+      try {
+        final rpcResponse = await client.rpc('get_all_users');
+        if (rpcResponse != null) {
+          print('RPC 原始回應: $rpcResponse');
+          print('RPC 回應類型: ${rpcResponse.runtimeType}');
 
-      print('處理後的使用者清單: $userList');
-      return userList;
+          List<Map<String, dynamic>> userList = [];
+
+          if (rpcResponse is List) {
+            userList = rpcResponse.cast<Map<String, dynamic>>();
+          } else if (rpcResponse is String) {
+            // 如果回應是 JSON 字符串，嘗試解析
+            try {
+              final decoded = jsonDecode(rpcResponse);
+              if (decoded is List) {
+                userList = decoded.cast<Map<String, dynamic>>();
+              }
+            } catch (e) {
+              print('JSON 解析失敗: $e');
+            }
+          } else if (rpcResponse is Map) {
+            // 處理可能的單個對象回應
+            userList = [rpcResponse.cast<String, dynamic>()];
+          } else {
+            // 嘗試直接轉換
+            try {
+              if (rpcResponse != null) {
+                final converted = List<Map<String, dynamic>>.from(rpcResponse);
+                userList = converted;
+              }
+            } catch (e) {
+              print('直接轉換失敗: $e');
+            }
+          }
+
+          if (userList.isNotEmpty) {
+            print('從 RPC 函數獲取到 ${userList.length} 個使用者');
+            return userList;
+          }
+        }
+      } catch (e) {
+        print('get_all_users RPC 函數調用失敗: $e');
+      }
+
+      // 嘗試備用的 RPC 函數
+      try {
+        final rpcResponse = await client.rpc('list_users');
+        if (rpcResponse != null &&
+            rpcResponse is List &&
+            rpcResponse.isNotEmpty) {
+          print('從 list_users RPC 函數獲取到 ${rpcResponse.length} 個使用者');
+          // 轉換字段名稱以匹配預期格式
+          final userList = rpcResponse
+              .map(
+                (user) => {
+                  'id': user['user_id'],
+                  'email': user['user_email'],
+                  'created_at': user['user_created_at'],
+                },
+              )
+              .toList()
+              .cast<Map<String, dynamic>>();
+          return userList;
+        }
+      } catch (e) {
+        print('list_users RPC 函數調用失敗: $e');
+      }
+
+      // 方法 2: 嘗試從 profiles 表獲取
+      try {
+        final profilesResponse = await client
+            .from('profiles')
+            .select('id, email, created_at')
+            .order('created_at', ascending: false);
+
+        if (profilesResponse.isNotEmpty) {
+          print('從 profiles 表獲取到 ${profilesResponse.length} 個使用者');
+          return profilesResponse.cast<Map<String, dynamic>>();
+        }
+      } catch (e) {
+        print('profiles 表訪問失敗: $e');
+      }
+
+      // 方法 3: 從權限表中獲取唯一使用者
+      try {
+        final permissionsResponse = await client
+            .from('floor_plan_permissions')
+            .select('user_id, user_email, created_at')
+            .order('created_at', ascending: false);
+
+        // 去除重複的使用者
+        final uniqueUsers = <String, Map<String, dynamic>>{};
+        for (final permission in permissionsResponse) {
+          final userId = permission['user_id'] as String;
+          if (!uniqueUsers.containsKey(userId)) {
+            uniqueUsers[userId] = {
+              'id': userId,
+              'email': permission['user_email'] ?? '',
+              'created_at': permission['created_at'],
+            };
+          }
+        }
+
+        final userList = uniqueUsers.values.toList();
+        print('從權限表獲取到 ${userList.length} 個唯一使用者');
+
+        if (userList.isNotEmpty) {
+          return userList;
+        }
+      } catch (e) {
+        print('從權限表獲取使用者失敗: $e');
+      }
+
+      // 方法 4: 臨時解決方案 - 創建模擬使用者清單供測試
+      print('⚠️ 所有方法都失敗，返回當前使用者作為測試');
+      final currentUser = client.auth.currentUser;
+      if (currentUser != null) {
+        return [
+          {
+            'id': currentUser.id,
+            'email': currentUser.email ?? '',
+            'created_at': currentUser.createdAt,
+          },
+        ];
+      }
+
+      print('❌ 無法獲取任何使用者資訊');
+      return [];
     } catch (e) {
       print('獲取所有使用者失敗: $e');
       print('錯誤類型: ${e.runtimeType}');
       return [];
+    }
+  }
+
+  /// 獲取當前用戶有權限訪問的設計圖列表
+  Future<List<Map<String, dynamic>>> getUserAccessibleFloorPlans() async {
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('未登入');
+    }
+
+    try {
+      // 獲取用戶有權限的設計圖
+      final permissionsResponse = await client
+          .from('floor_plan_permissions')
+          .select('floor_plan_url, floor_plan_name, permission_level, is_owner')
+          .eq('user_id', currentUser.id)
+          .order('created_at', ascending: false);
+
+      // 轉換為設計圖格式
+      final accessibleFloorPlans = permissionsResponse.map((permission) {
+        return {
+          'image_url': permission['floor_plan_url'],
+          'name': permission['floor_plan_name'],
+          'permission_level': permission['permission_level'],
+          'is_owner': permission['is_owner'],
+        };
+      }).toList();
+
+      return accessibleFloorPlans.cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('獲取用戶設計圖權限失敗: $e');
+      rethrow;
     }
   }
 }
