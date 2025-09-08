@@ -52,13 +52,18 @@ class SupabaseService {
       };
 
       print('嘗試插入設計圖資料: $insertData');
-      await client.from('floor_plans').insert(insertData);
-      print('設計圖插入成功');
+      final response = await client
+          .from('floor_plans')
+          .insert(insertData)
+          .select('id')
+          .single();
+      final floorPlanId = response['id'] as String;
+      print('設計圖插入成功，ID: $floorPlanId');
 
       // 2. 立即為當前用戶創建擁有者權限
       print('正在創建擁有者權限...');
       await permissionService.createOwnerPermission(
-        floorPlanId: fileName.split('.').first,
+        floorPlanId: floorPlanId,
         floorPlanUrl: publicUrl,
         floorPlanName: name,
       );

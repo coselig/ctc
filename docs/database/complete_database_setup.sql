@@ -85,7 +85,7 @@ CREATE POLICY "Users can insert their own profile" ON public.profiles
 -- 2. 創建設計圖表格 (floor_plans)
 -- ================================================
 CREATE TABLE public.floor_plans (
-    id text PRIMARY KEY,
+    id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name text NOT NULL,
     image_url text NOT NULL UNIQUE,
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
