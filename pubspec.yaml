@@ -39,6 +39,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^5.0.0
 
 flutter_launcher_icons:
   android: true
@@ -49,7 +50,6 @@ flutter_launcher_icons:
     image_path: "assets/sqare_ctc_icon.png"
     background_color: "#ffffff"
     theme_color: "#000000"
-  flutter_lints: ^5.0.0
 flutter:
   uses-material-design: true
   assets:
