@@ -7,6 +7,7 @@ import 'package:ctc/services/image_service.dart';
 import 'package:ctc/widgets/company_info_footer.dart';
 import 'package:ctc/widgets/compass_background.dart';
 import 'package:ctc/widgets/responsive_container.dart';
+import 'package:ctc/widgets/transparent_app_bar.dart';
 import 'package:ctc/widgets/unified_card.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -144,11 +145,8 @@ class _WelcomePageState extends State<WelcomePage> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        iconTheme: IconThemeData(color: primaryColor),
+      appBar: TransparentAppBar(
+        showUserInfo: user != null, // 登入後顯示用戶資訊
         actions: [
           IconButton(
             icon: Icon(_getThemeIcon(), color: primaryColor),

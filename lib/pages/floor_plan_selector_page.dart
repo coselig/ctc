@@ -6,6 +6,7 @@ import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/name_input_dialog.dart';
+import '../widgets/transparent_app_bar.dart';
 
 class FloorPlanSelectorPage extends StatefulWidget {
   const FloorPlanSelectorPage({
@@ -182,10 +183,10 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      extendBodyBehindAppBar: true, // 讓內容延伸到 AppBar 後面
+      appBar: TransparentAppBar(
         title: const Text('選擇設計圖'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        showUserInfo: true, // 顯示用戶資訊
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -195,138 +196,165 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
         ],
       ),
       body: CompassBackground(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : floorPlans.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('尚未有任何設計圖'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _addNewFloorPlan,
-                      child: const Text('新增設計圖'),
-                    ),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _loadFloorPlans,
-                child: GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, // 每排3個
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: floorPlans.length,
-                  itemBuilder: (context, index) {
-                    final floorPlan = floorPlans[index];
-                    return InkWell(
-                      onTap: () =>
-                          widget.onFloorPlanSelected(floorPlan['asset']!),
-                      onLongPress: () => _showFloorPlanOptions(floorPlan),
-                      child: Card(
-                        clipBehavior: Clip.antiAlias,
-                        color: Colors.transparent, // 改為透明背景
-                        elevation: 0, // 移除陰影讓它更透明
-                        child: Stack(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: floorPlan['asset']!.startsWith('http')
-                                      ? Image.network(
-                                          floorPlan['asset']!,
-                                          fit: BoxFit
-                                              .contain, // 改為 contain，顯示完整圖片
-                                          loadingBuilder: (context, child, loadingProgress) {
-                                            if (loadingProgress == null) {
-                                              return child;
-                                            }
-                                            return Center(
-                                              child: CircularProgressIndicator(
-                                                value:
-                                                    loadingProgress
-                                                            .expectedTotalBytes !=
-                                                        null
-                                                    ? loadingProgress
-                                                              .cumulativeBytesLoaded /
-                                                          loadingProgress
-                                                              .expectedTotalBytes!
-                                                    : null,
-                                              ),
-                                            );
-                                          },
-                                        )
-                                      : Image.asset(
-                                          floorPlan['asset']!,
-                                          fit: BoxFit
-                                              .contain, // 改為 contain，顯示完整圖片
-                                        ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(
-                                    floorPlans[index]['name']!,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium,
-                                  ),
-                                ),
-                              ],
+        child: Column(
+          children: [
+            // AppBar 間距
+            SizedBox(
+              height:
+                  MediaQuery.of(context).padding.top +
+                  AppBar().preferredSize.height +
+                  20, // 額外20像素給用戶資訊
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : floorPlans.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('尚未有任何設計圖'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _addNewFloorPlan,
+                            child: const Text('新增設計圖'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadFloorPlans,
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3, // 每排3個
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
                             ),
-                            // 權限管理按鈕
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: PopupMenuButton<String>(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(4),
+                        itemCount: floorPlans.length,
+                        itemBuilder: (context, index) {
+                          final floorPlan = floorPlans[index];
+                          return InkWell(
+                            onTap: () =>
+                                widget.onFloorPlanSelected(floorPlan['asset']!),
+                            onLongPress: () => _showFloorPlanOptions(floorPlan),
+                            child: Card(
+                              clipBehavior: Clip.antiAlias,
+                              color: Colors.transparent, // 改為透明背景
+                              elevation: 0, // 移除陰影讓它更透明
+                              child: Stack(
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child:
+                                            floorPlan['asset']!.startsWith(
+                                              'http',
+                                            )
+                                            ? Image.network(
+                                                floorPlan['asset']!,
+                                                fit: BoxFit
+                                                    .contain, // 改為 contain，顯示完整圖片
+                                                loadingBuilder: (context, child, loadingProgress) {
+                                                  if (loadingProgress == null) {
+                                                    return child;
+                                                  }
+                                                  return Center(
+                                                    child: CircularProgressIndicator(
+                                                      value:
+                                                          loadingProgress
+                                                                  .expectedTotalBytes !=
+                                                              null
+                                                          ? loadingProgress
+                                                                    .cumulativeBytesLoaded /
+                                                                loadingProgress
+                                                                    .expectedTotalBytes!
+                                                          : null,
+                                                    ),
+                                                  );
+                                                },
+                                              )
+                                            : Image.asset(
+                                                floorPlan['asset']!,
+                                                fit: BoxFit
+                                                    .contain, // 改為 contain，顯示完整圖片
+                                              ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(
+                                          floorPlans[index]['name']!,
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  child: const Icon(
-                                    Icons.more_vert,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                ),
-                                onSelected: (value) {
-                                  switch (value) {
-                                    case 'permissions':
-                                      _openPermissionManagement(floorPlan);
-                                      break;
-                                    case 'delete':
-                                      _showDeleteDialog(floorPlan);
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'permissions',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.people),
-                                        SizedBox(width: 8),
-                                        Text('權限管理'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuDivider(),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.delete, color: Colors.red),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          '刪除設計圖',
-                                          style: TextStyle(color: Colors.red),
+                                  // 權限管理按鈕
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: PopupMenuButton<String>(
+                                      icon: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.more_vert,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'permissions':
+                                            _openPermissionManagement(
+                                              floorPlan,
+                                            );
+                                            break;
+                                          case 'delete':
+                                            _showDeleteDialog(floorPlan);
+                                            break;
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'permissions',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.people),
+                                              SizedBox(width: 8),
+                                              Text('權限管理'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuDivider(),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.delete,
+                                                color: Colors.red,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                '刪除設計圖',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -334,13 +362,13 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
                                 ],
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

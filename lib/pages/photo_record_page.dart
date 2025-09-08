@@ -13,6 +13,7 @@ import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
 import '../widgets/floor_plan_view.dart';
 import '../widgets/photo_dialog.dart';
+import '../widgets/transparent_app_bar.dart';
 import 'floor_plan_selector_page.dart';
 
 class PhotoRecordPage extends StatefulWidget {
@@ -313,16 +314,10 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.title,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
+      extendBodyBehindAppBar: true, // 讓內容延伸到 AppBar 後面
+      appBar: TransparentAppBar(
+        title: Text(widget.title),
+        showUserInfo: true, // 顯示用戶資訊
         actions: [
           IconButton(
             icon: const Icon(Icons.map),
@@ -392,6 +387,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       body: CompassBackground(
         child: Column(
           children: [
+            // AppBar 間距
+            SizedBox(
+              height:
+                  MediaQuery.of(context).padding.top +
+                  AppBar().preferredSize.height +
+                  20, // 額外20像素給用戶資訊
+            ),
             Expanded(
               child: InteractiveViewer(
                 constrained: true,

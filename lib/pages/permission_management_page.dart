@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/permission_service.dart';
+import '../widgets/app_bar_spacer.dart';
+import '../widgets/transparent_app_bar.dart';
 
 /// 權限管理頁面
 class PermissionManagementPage extends StatefulWidget {
@@ -261,80 +263,95 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      extendBodyBehindAppBar: true, // 讓內容延伸到 AppBar 後面
+      appBar: TransparentAppBar(
         title: const Text('權限管理'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        showUserInfo: true, // 顯示用戶資訊
       ),
       body: Column(
         children: [
-          // 設計圖信息
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
+          // AppBar 間距
+          SizedBox(
+            height:
+                MediaQuery.of(context).padding.top +
+                AppBar().preferredSize.height +
+                20, // 額外20像素給用戶資訊
+          ),
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.floorPlanName,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '設計圖權限管理',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).textTheme.bodySmall?.color,
+                // 設計圖信息
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.floorPlanName,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '設計圖權限管理',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 權限列表
+                Expanded(
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 64,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '載入失敗',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(errorMessage!),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadPermissions,
+                                child: const Text('重試'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : permissions.isEmpty
+                      ? const Center(child: Text('沒有權限記錄'))
+                      : RefreshIndicator(
+                          onRefresh: _loadPermissions,
+                          child: ListView.builder(
+                            itemCount: permissions.length,
+                            itemBuilder: (context, index) {
+                              return _buildPermissionCard(permissions[index]);
+                            },
+                          ),
+                        ),
                 ),
               ],
             ),
-          ),
-
-          // 權限列表
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          '載入失敗',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(errorMessage!),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadPermissions,
-                          child: const Text('重試'),
-                        ),
-                      ],
-                    ),
-                  )
-                : permissions.isEmpty
-                ? const Center(child: Text('沒有權限記錄'))
-                : RefreshIndicator(
-                    onRefresh: _loadPermissions,
-                    child: ListView.builder(
-                      itemCount: permissions.length,
-                      itemBuilder: (context, index) {
-                        return _buildPermissionCard(permissions[index]);
-                      },
-                    ),
-                  ),
           ),
         ],
       ),
