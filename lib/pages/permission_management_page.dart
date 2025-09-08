@@ -352,60 +352,256 @@ class AddUserPermissionDialog extends StatefulWidget {
 }
 
 class _AddUserPermissionDialogState extends State<AddUserPermissionDialog> {
-  final _emailController = TextEditingController();
+  final _filterController = TextEditingController();
   PermissionLevel _selectedLevel = PermissionLevel.level1;
+  List<Map<String, dynamic>> _allUsers = [];
+  List<Map<String, dynamic>> _filteredUsers = [];
+  Map<String, dynamic>? _selectedUser;
+  bool _isLoadingUsers = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+    _filterController.addListener(_filterUsers);
+  }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _filterController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      print('開始載入使用者清單...');
+      final users = await widget.permissionService.getAllUsers();
+      print('載入完成，獲得 ${users.length} 個使用者');
+      print('使用者清單: $users');
+
+      setState(() {
+        _allUsers = users;
+        _filteredUsers = users;
+        _isLoadingUsers = false;
+      });
+
+      print(
+        '狀態更新完成 - _allUsers: ${_allUsers.length}, _filteredUsers: ${_filteredUsers.length}',
+      );
+    } catch (e) {
+      print('載入使用者失敗: $e');
+      setState(() {
+        _isLoadingUsers = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('載入使用者列表失敗: $e')));
+    }
+  }
+
+  void _filterUsers() {
+    final query = _filterController.text.toLowerCase();
+    setState(() {
+      _filteredUsers = _allUsers.where((user) {
+        final email = (user['email'] as String).toLowerCase();
+        return email.contains(query);
+      }).toList();
+    });
+  }
+
+  void _selectUser(Map<String, dynamic> user) {
+    setState(() {
+      _selectedUser = user;
+      _filterController.text = user['email'];
+      _filteredUsers = []; // 隱藏列表
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedUser = null;
+      _filterController.clear();
+      _filteredUsers = _allUsers;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('添加用戶權限'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _emailController,
-            decoration: const InputDecoration(
-              labelText: '用戶電子郵件',
-              hintText: '輸入要添加權限的用戶郵箱',
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 使用者搜尋輸入框
+            TextField(
+              controller: _filterController,
+              decoration: InputDecoration(
+                labelText: '搜尋使用者',
+                hintText: '輸入電子郵件篩選',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _selectedUser != null
+                    ? IconButton(
+                        onPressed: _clearSelection,
+                        icon: const Icon(Icons.clear),
+                      )
+                    : null,
+              ),
+              keyboardType: TextInputType.emailAddress,
             ),
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<PermissionLevel>(
-            initialValue: _selectedLevel,
-            decoration: const InputDecoration(labelText: '權限等級'),
-            items: PermissionLevel.values.map((level) {
-              return DropdownMenuItem(
-                value: level,
+            const SizedBox(height: 16),
+
+            // 使用者清單
+            if (_isLoadingUsers)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (_filteredUsers.isNotEmpty && _selectedUser == null)
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _filteredUsers.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final user = _filteredUsers[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).primaryColor.withValues(alpha: 0.1),
+                          child: Text(
+                            (user['email'] as String).isNotEmpty
+                                ? (user['email'] as String)[0].toUpperCase()
+                                : '?',
+                          ),
+                        ),
+                        title: Text(user['email'] as String),
+                        subtitle: Text(
+                          '註冊時間: ${DateTime.parse(user['created_at']).toLocal().toString().split('.')[0]}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        onTap: () => _selectUser(user),
+                      );
+                    },
+                  ),
+                ),
+              )
+            else if (!_isLoadingUsers &&
+                _filteredUsers.isEmpty &&
+                _selectedUser == null)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 64,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '沒有找到使用者',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '調試資訊:\n'
+                        '載入中: $_isLoadingUsers\n'
+                        '所有使用者: ${_allUsers.length}\n'
+                        '篩選使用者: ${_filteredUsers.length}\n'
+                        '已選使用者: ${_selectedUser != null}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_selectedUser != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Row(
                   children: [
-                    Text(level.icon),
-                    const SizedBox(width: 8),
-                    Text(level.displayName),
+                    CircleAvatar(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.2),
+                      child: Text(
+                        (_selectedUser!['email'] as String)[0].toUpperCase(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedUser!['email'] as String,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            '已選擇此使用者',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _clearSelection,
+                      icon: const Icon(Icons.close),
+                    ),
                   ],
                 ),
-              );
-            }).toList(),
-            onChanged: (level) {
-              if (level != null) {
-                setState(() {
-                  _selectedLevel = level;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _selectedLevel.description,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+              ),
+
+            const SizedBox(height: 16),
+
+            // 權限等級選擇
+            DropdownButtonFormField<PermissionLevel>(
+              initialValue: _selectedLevel,
+              decoration: const InputDecoration(labelText: '權限等級'),
+              items: PermissionLevel.values.map((level) {
+                return DropdownMenuItem(
+                  value: level,
+                  child: Row(
+                    children: [
+                      Text(level.icon),
+                      const SizedBox(width: 8),
+                      Text(level.displayName),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (level) {
+                if (level != null) {
+                  setState(() {
+                    _selectedLevel = level;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _selectedLevel.description,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -413,14 +609,14 @@ class _AddUserPermissionDialogState extends State<AddUserPermissionDialog> {
           child: const Text('取消'),
         ),
         ElevatedButton(
-          onPressed: () {
-            final email = _emailController.text.trim();
-            if (email.isNotEmpty) {
-              Navigator.of(
-                context,
-              ).pop({'email': email, 'permissionLevel': _selectedLevel});
-            }
-          },
+          onPressed: _selectedUser != null
+              ? () {
+                  Navigator.of(context).pop({
+                    'email': _selectedUser!['email'],
+                    'permissionLevel': _selectedLevel,
+                  });
+                }
+              : null,
           child: const Text('添加'),
         ),
       ],

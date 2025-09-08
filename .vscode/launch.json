@@ -1,11 +1,44 @@
 {
     "configurations": [
         {
+            "name": "ctc (Flutter debug mode)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "console": "debugConsole",
+            "args": [
+                "--dart-define-from-file=.env"
+            ]
+        },
+        {
             "name": "ctc (Flutter release mode)",
             "program": "lib/main.dart",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
+        },
+        {
+            "name": "ctc (Flutter profile mode)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile",
+            "console": "debugConsole"
+        },
+        {
+            "name": "ctc (Chrome Web Debug)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "chrome",
+            "console": "debugConsole",
+            "args": [
+                "--web-renderer",
+                "html"
+            ]
         }
-    ]
+    ],
+    "version": "0.2.0"
 }

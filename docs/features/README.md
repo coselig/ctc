@@ -16,6 +16,17 @@
   - 管理員功能說明
   - 常見問題和解決方案
 
+### 🆕 最新功能更新
+
+- **[user_selection_update.md](user_selection_update.md)**
+  - 使用者選擇功能的詳細更新說明
+  - 技術實作和介面改進
+  - 搜尋和篩選功能詳解
+
+- **[user_selection_quick_guide.md](user_selection_quick_guide.md)**
+  - 新功能快速使用指南
+  - 簡潔的操作步驟說明
+
 ## 🏗️ 系統架構
 
 ### 權限層級

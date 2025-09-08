@@ -31,5 +31,30 @@
     "gitlens.codeLens.enabled": true,
     "gitlens.currentLine.enabled": true,
     // GitHub Copilot 語言設定
-    "github.copilot.chat.localeOverride": "zh-TW"
+    "github.copilot.chat.localeOverride": "zh-TW",
+    // Flutter 和 Dart 調試相關設定
+    "dart.debugConsole": true,
+    "dart.debugSdkLibraries": false,
+    "dart.debugExternalPackageLibraries": false,
+    "dart.vmAdditionalArgs": [
+        "--observe",
+        "--pause-isolates-on-start"
+    ],
+    "dart.flutterHotReloadOnSave": "all",
+    "dart.hotReloadOnSave": "all",
+    "dart.previewFlutterUiGuides": true,
+    "dart.flutterOutline": true,
+    "dart.closingLabels": true,
+    // 調試輸出設定
+    "debug.console.fontSize": 14,
+    "debug.console.fontFamily": "Consolas, 'Courier New', monospace",
+    "debug.console.wordWrap": true,
+    "debug.allowBreakpointsEverywhere": true,
+    // Flutter Inspector 設定
+    "dart.flutterCreateAndroidLanguage": "kotlin",
+    "dart.flutterCreateIOSLanguage": "swift",
+    "dart.showInspectorNotificationsForWidgetErrors": true,
+    // 自動保存設定（有助於熱重載）
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000
 }

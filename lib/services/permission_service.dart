@@ -330,4 +330,30 @@ class PermissionService {
       rethrow;
     }
   }
+
+  /// 獲取系統中所有使用者（用於權限管理）
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      print('開始獲取所有使用者...');
+      final response = await client.auth.admin.listUsers();
+      print('獲取到 ${response.length} 個使用者');
+
+      final userList = response
+          .map(
+            (user) => {
+              'id': user.id,
+              'email': user.email ?? '',
+              'created_at': user.createdAt,
+            },
+          )
+          .toList();
+
+      print('處理後的使用者清單: $userList');
+      return userList;
+    } catch (e) {
+      print('獲取所有使用者失敗: $e');
+      print('錯誤類型: ${e.runtimeType}');
+      return [];
+    }
+  }
 }
