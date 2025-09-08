@@ -37,11 +37,11 @@ class CompanyInfoFooter extends StatelessWidget {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // 使用與其他卡片相同的主題風格
+    // 使用與其他卡片相同的主題風格，調整透明度讓卡片更亮
     final gradientColors = isDarkMode
         ? [
-            theme.colorScheme.surface,
-            theme.colorScheme.surface.withValues(alpha: 0.8),
+            theme.colorScheme.surface.withValues(alpha: 0.5), // 提高透明度讓卡片更亮
+            theme.colorScheme.surface.withValues(alpha: 0.4), // 提高透明度讓卡片更亮
           ]
         : [
             const Color(0xFFF5E6D3), // 淺米色
@@ -60,19 +60,14 @@ class CompanyInfoFooter extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: gradientColors,
           ),
-          border: Border(
-            top: BorderSide(
-              color: isDarkMode
-                  ? theme.colorScheme.outline.withValues(alpha: 0.3)
-                  : const Color(0xFFD17A3A).withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
+          borderRadius: BorderRadius.circular(12), // 增加圓角，移除邊框
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(
+                alpha: isDarkMode ? 0.15 : 0.05,
+              ), // 稍微增加陰影
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
