@@ -21,11 +21,25 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
   bool _isLoading = true;
   Map<String, dynamic>? _userProfile;
 
+  // 密碼修改相關的控制器
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _passwordFormKey = GlobalKey<FormState>();
+
   @override
   void initState() {
     super.initState();
     _userPreferencesService = UserPreferencesService(Supabase.instance.client);
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -80,6 +94,130 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
         ).showSnackBar(SnackBar(content: Text('更新主題偏好失敗: $e')));
       }
     }
+  }
+
+  Future<void> _changePassword() async {
+    if (!_passwordFormKey.currentState!.validate()) {
+      return;
+    }
+
+    // 驗證新密碼和確認密碼是否一致
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('新密碼和確認密碼不一致')));
+      return;
+    }
+
+    try {
+      // 使用 Supabase 更新密碼
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: _newPasswordController.text),
+      );
+
+      if (mounted) {
+        // 清空輸入框
+        _currentPasswordController.clear();
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+
+        // 顯示成功訊息
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('密碼修改成功！')));
+
+        // 關閉密碼修改對話框
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('密碼修改失敗: $e')));
+      }
+    }
+  }
+
+  void _showChangePasswordDialog() {
+    // 清空輸入框
+    _currentPasswordController.clear();
+    _newPasswordController.clear();
+    _confirmPasswordController.clear();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('修改密碼'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Form(
+            key: _passwordFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 當前密碼輸入框（可選，Supabase 不需要驗證舊密碼）
+                TextFormField(
+                  controller: _currentPasswordController,
+                  decoration: const InputDecoration(
+                    labelText: '當前密碼（可選）',
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                // 新密碼輸入框
+                TextFormField(
+                  controller: _newPasswordController,
+                  decoration: const InputDecoration(
+                    labelText: '新密碼',
+                    prefixIcon: Icon(Icons.lock),
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return '請輸入新密碼';
+                    }
+                    if (value.length < 6) {
+                      return '密碼長度至少6個字符';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                // 確認密碼輸入框
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  decoration: const InputDecoration(
+                    labelText: '確認新密碼',
+                    prefixIcon: Icon(Icons.lock_reset),
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return '請確認新密碼';
+                    }
+                    if (value != _newPasswordController.text) {
+                      return '密碼不一致';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(onPressed: _changePassword, child: const Text('確認修改')),
+        ],
+      ),
+    );
   }
 
   Widget _buildThemeOption({
@@ -179,6 +317,19 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              // 密碼修改按鈕
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showChangePasswordDialog,
+                  icon: const Icon(Icons.security),
+                  label: const Text('修改密碼'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -241,6 +392,41 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                     title: '跟隨系統',
                     subtitle: '根據系統設置自動切換',
                     icon: Icons.settings_brightness,
+                  ),
+
+                  // 安全設置標題
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                    child: Text(
+                      '安全設置',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                  // 密碼修改選項
+                  Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.security,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: const Text('修改密碼'),
+                        subtitle: const Text('更新您的登入密碼'),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: _showChangePasswordDialog,
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 20),
