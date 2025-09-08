@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'pages/welcome_page.dart';
+import 'services/user_preferences_service.dart';
 import 'theme/app_theme.dart';
 
 class AppRoot extends StatefulWidget {
@@ -17,10 +18,12 @@ class _AppRootState extends State<AppRoot> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
   StreamSubscription<AuthState>? _authSubscription;
+  late UserPreferencesService _userPreferencesService;
 
   @override
   void initState() {
     super.initState();
+    _userPreferencesService = UserPreferencesService(Supabase.instance.client);
     _initializeApp();
     _setupGlobalAuthListener();
   }
@@ -38,10 +41,30 @@ class _AppRootState extends State<AppRoot> {
       // 例如：如果用戶登出，可以清理快取、重置狀態等
       if (event == AuthChangeEvent.signedOut) {
         debugPrint('User signed out globally');
+        // 登出時重置為系統主題
+        _setThemeMode(ThemeMode.system, saveToDatabase: false);
       } else if (event == AuthChangeEvent.signedIn) {
         debugPrint('User signed in globally: ${session?.user.email}');
+        // 登入時確保用戶 profile 存在，然後載入主題偏好
+        _ensureUserProfileAndLoadTheme();
       }
     });
+  }
+
+  /// 確保用戶 profile 存在並載入主題偏好
+  Future<void> _ensureUserProfileAndLoadTheme() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      // 先確保用戶 profile 存在
+      await _userPreferencesService.createOrUpdateUserProfile();
+
+      // 然後載入主題偏好
+      await _loadUserThemePreference();
+    } catch (e) {
+      debugPrint('確保用戶 profile 和載入主題失敗: $e');
+    }
   }
 
   @override
@@ -58,6 +81,9 @@ class _AppRootState extends State<AppRoot> {
       // 預載入關鍵資源
       await _preloadCriticalResources();
 
+      // 載入用戶主題偏好（如果已登入）
+      await _loadUserThemePreference();
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -69,6 +95,48 @@ class _AppRootState extends State<AppRoot> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  /// 載入用戶的主題偏好
+  Future<void> _loadUserThemePreference() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final themePreference = await _userPreferencesService
+          .getThemePreference();
+      final themeMode = UserPreferencesService.stringToThemeMode(
+        themePreference,
+      );
+
+      if (mounted) {
+        setState(() {
+          _themeMode = themeMode;
+        });
+      }
+    } catch (e) {
+      debugPrint('載入主題偏好失敗: $e');
+    }
+  }
+
+  /// 設置主題模式
+  Future<void> _setThemeMode(
+    ThemeMode themeMode, {
+    bool saveToDatabase = true,
+  }) async {
+    setState(() {
+      _themeMode = themeMode;
+    });
+
+    // 如果用戶已登入且需要儲存到資料庫
+    if (saveToDatabase && Supabase.instance.client.auth.currentUser != null) {
+      try {
+        final themeString = UserPreferencesService.themeModeToString(themeMode);
+        await _userPreferencesService.updateThemePreference(themeString);
+      } catch (e) {
+        debugPrint('儲存主題偏好失敗: $e');
       }
     }
   }
@@ -98,21 +166,27 @@ class _AppRootState extends State<AppRoot> {
     }
 
     return WelcomePage(
-      onThemeToggle: toggleTheme,
+      onThemeToggle: _advancedToggleTheme,
       currentThemeMode: _themeMode,
     );
   }
 
   void toggleTheme() {
-    setState(() {
-      if (_themeMode == ThemeMode.light) {
-        _themeMode = ThemeMode.dark;
-      } else if (_themeMode == ThemeMode.dark) {
-        _themeMode = ThemeMode.system;
-      } else {
-        _themeMode = ThemeMode.light;
-      }
-    });
+    ThemeMode newThemeMode;
+    if (_themeMode == ThemeMode.light) {
+      newThemeMode = ThemeMode.dark;
+    } else if (_themeMode == ThemeMode.dark) {
+      newThemeMode = ThemeMode.system;
+    } else {
+      newThemeMode = ThemeMode.light;
+    }
+
+    _setThemeMode(newThemeMode);
+  }
+
+  /// 高級主題切換（包含資料庫儲存）
+  void _advancedToggleTheme() {
+    toggleTheme();
   }
 
   @override

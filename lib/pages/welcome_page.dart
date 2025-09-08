@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/product_compass.dart';
+import 'package:ctc/pages/user_settings_page.dart';
 import 'package:ctc/services/image_service.dart';
 import 'package:ctc/widgets/company_info_footer.dart';
 import 'package:ctc/widgets/compass_background.dart';
@@ -153,6 +154,19 @@ class _WelcomePageState extends State<WelcomePage> {
             onPressed: widget.onThemeToggle,
             tooltip: '切換主題',
           ),
+          if (user != null)
+            IconButton(
+              icon: Icon(Icons.settings, color: primaryColor),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        UserSettingsPage(onThemeChanged: widget.onThemeToggle),
+                  ),
+                );
+              },
+              tooltip: '用戶設置',
+            ),
           if (user == null)
             TextButton.icon(
               icon: Icon(Icons.login, color: primaryColor),
