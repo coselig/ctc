@@ -6,7 +6,7 @@ class PhotoRecord {
   final Offset point;
   final String imageUrl;
   final String? description;
-  final String userId;
+  String userId;
   final DateTime timestamp;
   final bool isLocal;
 
@@ -49,6 +49,7 @@ class PhotoRecord {
       'description': description,
       'user_id': userId,
       'created_at': timestamp.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
     };
   }
 }

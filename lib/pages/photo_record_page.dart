@@ -1,11 +1,9 @@
 import 'package:ctc/models/photo_record.dart';
+import 'package:ctc/services/photo_record_service.dart';
 import 'package:ctc/widgets/general_page.dart';
 import 'package:ctc/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../widgets/floor_plan_upload_widget.dart';
 
 class PhotoRecordPage extends StatefulWidget {
   const PhotoRecordPage({
@@ -23,116 +21,15 @@ class PhotoRecordPage extends StatefulWidget {
 
 class _PhotoRecordPageState extends State<PhotoRecordPage> {
   final List<PhotoRecord> records = [];
-  final ImagePicker _picker = ImagePicker();
   final supabase = Supabase.instance.client;
-  bool _isLoading = false;
   bool _isRecordMode = false;
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
-  String? _currentFloorPlan;
-
-  Future<void> _takePicture(Offset point) async {
-    // try {
-    //   final currentUser = supabase.auth.currentUser;
-    //   if (currentUser == null) {
-    //     throw Exception('請先登入');
-    //   }
-
-    //   if (_currentFloorPlan == null) {
-    //     throw Exception('請先選擇設計圖');
-    //   }
-
-    //   final XFile? photo = await _picker.pickImage(
-    //     source: ImageSource.camera,
-    //     maxWidth: 1920,
-    //     maxHeight: 1080,
-    //     imageQuality: 85,
-    //   );
-
-    //   if (photo == null) return;
-
-    //   if (!mounted) return;
-    //   ScaffoldMessenger.of(
-    //     context,
-    //   ).showSnackBar(const SnackBar(content: Text('正在處理圖片...')));
-
-    //   // 先在本地顯示圖片
-    //   String tempImagePath;
-    //   if (kIsWeb) {
-    //     // Web 平台：將圖片轉換為 data URL
-    //     final bytes = await photo.readAsBytes();
-    //     final base64 = base64Encode(bytes);
-    //     tempImagePath = 'data:image/jpeg;base64,$base64';
-    //   } else {
-    //     tempImagePath = photo.path;
-    //   }
-
-    //   final tempRecord = PhotoRecord(
-    //     userId: currentUser.id,
-    //     username: currentUser.email ?? '未知用戶',
-    //     imagePath: tempImagePath,
-    //     point: point,
-    //     timestamp: DateTime.now(),
-    //     floorPlanPath: _currentFloorPlan!,
-    //     isLocal: true,
-    //   );
-
-    //   setState(() {
-    //     records.add(tempRecord);
-    //     selectedRecord = tempRecord;
-    //   });
-
-    //   // 獲取並壓縮圖片
-    //   Uint8List? compressedBytes;
-    //   if (kIsWeb) {
-    //     // Web 平台：直接讀取圖片數據
-    //     compressedBytes = await photo.readAsBytes();
-    //   } else {
-    //     // 其他平台：使用 FlutterImageCompress
-    //     final file = File(photo.path);
-    //     compressedBytes = await FlutterImageCompress.compressWithFile(
-    //       file.absolute.path,
-    //       quality: 85,
-    //       minWidth: 1024,
-    //       minHeight: 1024,
-    //     );
-    //   }
-
-    //   if (compressedBytes == null) throw Exception('圖片壓縮失敗');
-
-    //   // 上傳圖片並創建記錄
-    //   final updatedRecord = await _intergratedService
-    //       .uploadPhotoAndCreateRecord(
-    //         localPath: photo.path,
-    //         photoBytes: compressedBytes,
-    //         x: point.dx,
-    //         y: point.dy,
-    //         floorPlanPath: _currentFloorPlan!,
-    //       );
-
-    //   if (mounted) {
-    //     setState(() {
-    //       final index = records.indexOf(tempRecord);
-    //       if (index != -1) {
-    //         records[index] = updatedRecord;
-    //         if (selectedRecord == tempRecord) {
-    //           selectedRecord = updatedRecord;
-    //         }
-    //       }
-    //     });
-
-    //     ScaffoldMessenger.of(
-    //       context,
-    //     ).showSnackBar(const SnackBar(content: Text('上傳完成')));
-    //   }
-    // } catch (e) {
-    //   if (mounted) {
-    //     ScaffoldMessenger.of(
-    //       context,
-    //     ).showSnackBar(SnackBar(content: Text('上傳失敗: ${e.toString()}')));
-    //   }
-    // }
-  }
+  // 平面圖的 ID (UUID)
+  String _currentFloorPlanId = 'bc26ea40-6550-4901-950a-bc30ffec116d';
+  // 平面圖的 URL
+  String _currentFloorPlanUrl =
+      'https://coselig.com:8080/storage/v1/object/public/assets/floor_plans/1757402440180_scaled_2f.png';
 
   PhotoRecord? _findNearestRecord(Offset point) {
     const double threshold = 20.0;
@@ -140,7 +37,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     double minDistance = double.infinity;
 
     for (var record in records) {
-      if (record.floorPlanId != _currentFloorPlan) continue;
+      if (record.floorPlanId != _currentFloorPlanId) continue;
 
       final distance = (record.point - point).distance;
       if (distance < threshold && distance < minDistance) {
@@ -152,36 +49,54 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     return nearest;
   }
 
-  void _handleTapUp(Offset point) {
-    final nearest = _findNearestRecord(point);
+  void onTap(Offset offset) async {
+    if (_isRecordMode) {
+      try {
+        final user = supabase.auth.currentUser;
+        final session = supabase.auth.currentSession;
 
-    setState(() {
-      if (nearest != null) {
-        selectedRecord = nearest;
-        selectedPoint = nearest.point;
-      } else if (_isRecordMode) {
-        selectedPoint = point;
-        selectedRecord = null;
-        _takePicture(point);
+        if (user == null || session == null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('請先登入或 Session 已過期')));
+          return;
+        }
+
+        print('Current user ID: ${user.id}');
+        print('Session status: ${session.accessToken}'); // 不要在生產環境印出 token
+
+        final record = PhotoRecord(
+          floorPlanId: _currentFloorPlanId,
+          point: offset,
+          imageUrl: 'https://example.com/placeholder.jpg', // 使用有效的 URL
+          userId: user.id,
+          timestamp: DateTime.now(),
+          description: '照片記錄於 ${DateTime.now().toString()}',
+        );
+
+        print('Attempting to create record: ${record.toString()}');
+
+        final service = PhotoRecordService(supabase);
+        final createdRecord = await service.create(record);
+
+        setState(() {
+          records.add(createdRecord);
+        });
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('成功創建記錄點：${offset.toString()}')));
+      } catch (e) {
+        print('Error details: $e'); // 印出詳細錯誤
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('創建記錄失敗：$e')));
       }
-    });
-  }
-
-  void _openFloorPlanSelector() {
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => FloorPlanSelectorPage(
-    //       onFloorPlanSelected: (String assetPath) {
-    //         setState(() {
-    //           _currentFloorPlan = assetPath;
-    //         });
-    //         Navigator.pop(context);
-    //       },
-    //       intergratedService: _intergratedService,
-    //     ),
-    //   ),
-    // );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('tap at $offset')));
+    }
   }
 
   void _showPhotoDialog() {
@@ -211,7 +126,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       actions: [
         IconButton(
           icon: const Icon(Icons.map),
-          onPressed: _openFloorPlanSelector,
+          onPressed: () {},
           tooltip: '選擇設計圖',
         ),
         IconButton(
@@ -279,25 +194,23 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             constrained: true,
             minScale: 0.5,
             maxScale: 4.0,
-            child: _currentFloorPlan == null
-                ? FloorPlanUploadWidget()
-                : FloorPlanView(
-                    imageUrl: _currentFloorPlan!,
-                    records: records
-                        .where((r) => r.floorPlanId == _currentFloorPlan)
-                        .toList(),
-                    onTapUp: (x) {},
-                    selectedRecord: selectedRecord,
-                    selectedPoint: selectedPoint,
-                    isRecordMode: _isRecordMode,
-                    onRecordTap: (record) {
-                      setState(() {
-                        selectedRecord = record;
-                        selectedPoint = record.point;
-                      });
-                      _showPhotoDialog();
-                    },
-                  ),
+            child: FloorPlanView(
+              imageUrl: _currentFloorPlanUrl,
+              records: records
+                  .where((r) => r.floorPlanId == _currentFloorPlanId)
+                  .toList(),
+              onTapUp: onTap,
+              selectedRecord: selectedRecord,
+              selectedPoint: selectedPoint,
+              isRecordMode: _isRecordMode,
+              onRecordTap: (record) {
+                setState(() {
+                  selectedRecord = record;
+                  selectedPoint = record.point;
+                });
+                _showPhotoDialog();
+              },
+            ),
           ),
         ),
       ],
