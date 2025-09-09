@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'user_service.dart';
 
 /// 用戶偏好服務
 /// 處理用戶的各種偏好設置，包括主題模式
+/// 現在使用 UserService 來管理用戶資料
 class UserPreferencesService {
   final SupabaseClient _client;
+  late final UserService _userService;
 
-  UserPreferencesService(this._client);
+  UserPreferencesService(this._client) {
+    _userService = UserService(_client);
+  }
 
   /// 主題模式枚舉
   static const String themeModeLight = 'light';
@@ -16,24 +21,15 @@ class UserPreferencesService {
   /// 獲取當前用戶的主題偏好
   Future<String> getThemePreference() async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) return themeModeSystem;
+      final userProfile = await _userService.getCurrentUserProfile();
 
-      // 先嘗試使用 RPC 函數
-      try {
-        final response = await _client.rpc('get_user_theme_preference');
-        return response as String? ?? themeModeSystem;
-      } catch (rpcError) {
-        print('RPC 函數調用失敗，嘗試直接查詢: $rpcError');
-
-        // 如果 RPC 失敗，直接查詢 profiles 表
-        final profile = await getUserProfile();
-        if (profile != null && profile['theme_preference'] != null) {
-          return profile['theme_preference'] as String;
-        }
-
-        return themeModeSystem;
+      if (userProfile != null) {
+        return userProfile.themePreference;
       }
+
+      // 如果 profile 不存在，嘗試創建一個預設的
+      await _userService.upsertCurrentUserProfile();
+      return themeModeSystem;
     } catch (e) {
       print('獲取主題偏好失敗: $e');
       return themeModeSystem;
@@ -43,34 +39,16 @@ class UserPreferencesService {
   /// 更新用戶的主題偏好
   Future<bool> updateThemePreference(String themeMode) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) return false;
-
       // 驗證主題模式是否有效
       if (!_isValidThemeMode(themeMode)) {
         throw ArgumentError('無效的主題模式: $themeMode');
       }
 
-      // 先嘗試使用 RPC 函數
-      try {
-        final response = await _client.rpc(
-          'update_user_theme_preference',
-          params: {'new_theme': themeMode},
-        );
-        return response as bool? ?? false;
-      } catch (rpcError) {
-        print('RPC 函數調用失敗，嘗試直接更新: $rpcError');
+      final updatedProfile = await _userService.updateCurrentUserProfile(
+        themePreference: themeMode,
+      );
 
-        // 如果 RPC 失敗，直接更新 profiles 表
-        await _client.from('profiles').upsert({
-          'id': user.id,
-          'email': user.email,
-          'theme_preference': themeMode,
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-
-        return true;
-      }
+      return updatedProfile != null;
     } catch (e) {
       print('更新主題偏好失敗: $e');
       return false;
@@ -78,86 +56,33 @@ class UserPreferencesService {
   }
 
   /// 直接從 profiles 表獲取用戶資料（包含主題偏好）
+  /// 推薦使用 UserService.getCurrentUserProfile() 替代
+  @Deprecated('請使用 UserService.getCurrentUserProfile() 替代')
   Future<Map<String, dynamic>?> getUserProfile() async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) return null;
-
-      // 先嘗試獲取現有的 profile
-      final response = await _client
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle(); // 使用 maybeSingle 而不是 single
-
-      // 如果 profile 存在，直接返回
-      if (response != null) {
-        return response;
-      }
-
-      // 如果 profile 不存在，創建一個新的
-      print('用戶 profile 不存在，正在創建...');
-      final success = await createOrUpdateUserProfile();
-
-      if (success) {
-        // 再次獲取創建的 profile
-        final newResponse = await _client
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
-        return newResponse;
-      }
-
-      return null;
+      final userProfile = await _userService.getCurrentUserProfile();
+      return userProfile?.toJson();
     } catch (e) {
       print('獲取用戶資料失敗: $e');
-      // 如果是因為 profile 不存在的錯誤，嘗試創建
-      if (e.toString().contains('0 rows') ||
-          e.toString().contains('PGRST116')) {
-        try {
-          print('嘗試為新用戶創建 profile...');
-          await createOrUpdateUserProfile();
-
-          // 再次嘗試獲取
-          final user = _client.auth.currentUser;
-          if (user != null) {
-            final retryResponse = await _client
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .maybeSingle();
-            return retryResponse;
-          }
-        } catch (createError) {
-          print('創建用戶 profile 失敗: $createError');
-        }
-      }
       return null;
     }
   }
 
   /// 創建或更新用戶資料（首次登入時）
+  /// 推薦使用 UserService.upsertCurrentUserProfile() 替代
+  @Deprecated('請使用 UserService.upsertCurrentUserProfile() 替代')
   Future<bool> createOrUpdateUserProfile({
     String? fullName,
     String? avatarUrl,
     String? themePreference,
   }) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) return false;
-
-      final data = {
-        'id': user.id,
-        'email': user.email,
-        if (fullName != null) 'full_name': fullName,
-        if (avatarUrl != null) 'avatar_url': avatarUrl,
-        'theme_preference': themePreference ?? themeModeSystem,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      await _client.from('profiles').upsert(data);
-      return true;
+      final result = await _userService.upsertCurrentUserProfile(
+        fullName: fullName,
+        avatarUrl: avatarUrl,
+        themePreference: themePreference ?? themeModeSystem,
+      );
+      return result != null;
     } catch (e) {
       print('創建/更新用戶資料失敗: $e');
       return false;

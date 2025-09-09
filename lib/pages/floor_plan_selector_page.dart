@@ -1,8 +1,8 @@
+import 'package:ctc/services/integrated_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../pages/permission_management_page.dart';
-import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/name_input_dialog.dart';
@@ -12,11 +12,11 @@ class FloorPlanSelectorPage extends StatefulWidget {
   const FloorPlanSelectorPage({
     super.key,
     required this.onFloorPlanSelected,
-    required this.supabaseService,
+    required this.intergratedService,
   });
 
   final Function(String) onFloorPlanSelected;
-  final SupabaseService supabaseService;
+  final IntegratedService intergratedService;
 
   @override
   State<FloorPlanSelectorPage> createState() => _FloorPlanSelectorPageState();
@@ -48,7 +48,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
       try {
         setState(() => _isLoading = true);
 
-        await widget.supabaseService.deleteFloorPlan(floorPlan['asset']!);
+        await widget.intergratedService.deleteFloorPlan(floorPlan['asset']!);
 
         setState(() {
           floorPlans.removeWhere((plan) => plan['asset'] == floorPlan['asset']);
@@ -83,7 +83,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
         builder: (context) => PermissionManagementPage(
           floorPlanUrl: floorPlan['asset']!,
           floorPlanName: floorPlan['name']!,
-          permissionService: widget.supabaseService.permissionService,
+          permissionService: widget.intergratedService.permissionService,
         ),
       ),
     );
@@ -93,7 +93,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
     try {
       setState(() => _isLoading = true);
 
-      final plans = await widget.supabaseService.loadFloorPlans();
+      final plans = await widget.intergratedService.loadFloorPlans();
 
       setState(() {
         floorPlans = plans
@@ -155,7 +155,7 @@ class _FloorPlanSelectorPageState extends State<FloorPlanSelectorPage> {
       final imageBytes = await image.readAsBytes();
 
       // 上傳到 Supabase
-      final imageUrl = await widget.supabaseService.uploadFloorPlan(
+      final imageUrl = await widget.intergratedService.uploadFloorPlan(
         localPath: image.path,
         imageBytes: imageBytes,
         name: name,

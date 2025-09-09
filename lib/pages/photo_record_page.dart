@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:ctc/services/integrated_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -9,7 +10,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/photo_record.dart';
-import '../services/supabase_service.dart';
 import '../widgets/compass_background.dart';
 import '../widgets/floor_plan_view.dart';
 import '../widgets/photo_dialog.dart';
@@ -36,7 +36,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   final List<PhotoRecord> records = [];
   final ImagePicker _picker = ImagePicker();
   final supabase = Supabase.instance.client;
-  late final SupabaseService _supabaseService;
+  late final IntegratedService _intergratedService;
   bool _isLoading = false;
   bool _isRecordMode = false;
   Offset? selectedPoint;
@@ -45,7 +45,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
   Future<void> _loadDefaultFloorPlan() async {
     try {
-      final plans = await _supabaseService.loadFloorPlans();
+      final plans = await _intergratedService.loadFloorPlans();
       if (plans.isNotEmpty) {
         setState(() {
           _currentFloorPlan = plans.first['image_url'] as String;
@@ -71,7 +71,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             });
             Navigator.pop(context);
           },
-          supabaseService: _supabaseService,
+          intergratedService: _intergratedService,
         ),
       ),
     );
@@ -80,7 +80,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   @override
   void initState() {
     super.initState();
-    _supabaseService = SupabaseService(supabase);
+    _intergratedService = IntegratedService(supabase);
     _loadRecords();
     _loadDefaultFloorPlan();
   }
@@ -89,7 +89,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     try {
       setState(() => _isLoading = true);
 
-      final newRecords = await _supabaseService.loadRecords();
+      final newRecords = await _intergratedService.loadRecords();
 
       setState(() {
         records.clear();
@@ -187,13 +187,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       if (compressedBytes == null) throw Exception('圖片壓縮失敗');
 
       // 上傳圖片並創建記錄
-      final updatedRecord = await _supabaseService.uploadPhotoAndCreateRecord(
-        localPath: photo.path,
-        photoBytes: compressedBytes,
-        x: point.dx,
-        y: point.dy,
-        floorPlanPath: _currentFloorPlan!,
-      );
+      final updatedRecord = await _intergratedService
+          .uploadPhotoAndCreateRecord(
+            localPath: photo.path,
+            photoBytes: compressedBytes,
+            x: point.dx,
+            y: point.dy,
+            floorPlanPath: _currentFloorPlan!,
+          );
 
       if (mounted) {
         setState(() {
