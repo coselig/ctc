@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../widgets/floor_plan_upload_widget.dart';
+
 class PhotoRecordPage extends StatefulWidget {
   const PhotoRecordPage({
     super.key,
@@ -278,7 +280,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             minScale: 0.5,
             maxScale: 4.0,
             child: _currentFloorPlan == null
-                ? const Center(child: Text('請選擇設計圖'))
+                ? FloorPlanUploadWidget()
                 : FloorPlanView(
                     imageUrl: _currentFloorPlan!,
                     records: records

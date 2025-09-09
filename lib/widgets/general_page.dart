@@ -1,6 +1,5 @@
 import 'package:ctc/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 
 class GeneralPage extends StatefulWidget {
   final List<Widget> children;
@@ -19,6 +18,7 @@ class _GeneralPageState extends State<GeneralPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: TransparentAppBar(actions: widget.actions),
       body: CompassBackground(
         child: Column(
