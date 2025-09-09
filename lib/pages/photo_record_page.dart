@@ -31,6 +31,37 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   String _currentFloorPlanUrl =
       'https://coselig.com:8080/storage/v1/object/public/assets/floor_plans/1757402440180_scaled_2f.png';
 
+  @override
+  void initState() {
+    super.initState();
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    try {
+      final response = await supabase
+          .from('photo_records')
+          .select()
+          .eq('floor_plan_id', _currentFloorPlanId);
+      
+      setState(() {
+        records.clear();
+        records.addAll(
+          response.map((record) => PhotoRecord.fromJson(record)).toList(),
+        );
+      });
+      
+      print('載入了 ${records.length} 筆記錄');
+    } catch (e) {
+      print('載入記錄失敗: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('載入記錄失敗: $e')),
+        );
+      }
+    }
+  }
+
   PhotoRecord? _findNearestRecord(Offset point) {
     const double threshold = 20.0;
     PhotoRecord? nearest;
