@@ -3,8 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
 import '../services/floor_plan_service.dart';
-import '../services/photo_record_service.dart';
 import '../services/integrated_service.dart';
+import '../services/photo_record_service.dart';
 
 /// 新服務架構使用範例
 class ServiceExamplePage extends StatefulWidget {
