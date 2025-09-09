@@ -12,6 +12,7 @@ export 'feature_item.dart';
 // 樓層平面圖
 export 'floor_plan_view.dart';
 export 'loading_overlay.dart';
+export 'logout_button.dart';
 export 'marker_painter.dart';
 export 'message_helper.dart';
 export 'name_input_dialog.dart';
