@@ -134,7 +134,7 @@ class FloorPlanView extends StatelessWidget {
                     ),
                     // 標記點層
                     ...records.map((record) {
-                      if (record.floorPlanPath != imageUrl) {
+                      if (record.imageUrl != imageUrl) {
                         return const SizedBox();
                       }
 

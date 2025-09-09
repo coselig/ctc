@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ctc/pages/photo_record_page.dart';
 import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/pages/user_settings_page.dart';
@@ -14,7 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_page.dart';
-import 'photo_record_page.dart';
 import 'product_page.dart';
 
 class WelcomePage extends StatefulWidget {

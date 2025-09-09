@@ -2,43 +2,38 @@ import 'package:flutter/material.dart';
 
 class PhotoRecord {
   final String? id;
-  final String userId;
-  final String username;
-  final String imagePath;
-  final bool isLocal;
+  final String floorPlanId;
   final Offset point;
-  final DateTime timestamp;
+  final String imageUrl;
   final String? description;
-  final String floorPlanPath; // 新增：記錄照片所屬的平面圖路徑
+  final String userId;
+  final DateTime timestamp;
+  final bool isLocal;
 
   PhotoRecord({
     this.id,
-    required this.userId,
-    required this.username,
-    required this.imagePath,
+    required this.floorPlanId,
     required this.point,
-    required this.timestamp,
-    required this.floorPlanPath,
+    required this.imageUrl,
     this.description,
+    required this.userId,
+    required this.timestamp,
     this.isLocal = false,
   });
 
   // 從 Supabase 數據轉換為 PhotoRecord
   factory PhotoRecord.fromJson(Map<String, dynamic> json) {
     return PhotoRecord(
-      id: json['id']?.toString(),
-      userId: json['user_id']?.toString() ?? '',
-      username: json['username']?.toString() ?? '未知用戶',
-      imagePath: json['image_url']?.toString() ?? '',
+      id: json['id'] as String?,
+      floorPlanId: json['floor_plan_id'] as String,
       point: Offset(
-        (json['x_coordinate'] as num?)?.toDouble() ?? 0.0,
-        (json['y_coordinate'] as num?)?.toDouble() ?? 0.0,
+        (json['x_coordinate'] as num).toDouble(),
+        (json['y_coordinate'] as num).toDouble(),
       ),
-      timestamp: DateTime.parse(
-        json['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-      ),
-      description: json['description']?.toString(),
-      floorPlanPath: json['floor_plan_path']?.toString() ?? '',
+      imageUrl: json['image_url'] as String,
+      description: json['description'] as String?,
+      userId: json['user_id'] as String,
+      timestamp: DateTime.parse(json['created_at'] as String),
       isLocal: false,
     );
   }
@@ -46,14 +41,14 @@ class PhotoRecord {
   // 轉換為 JSON 格式以存儲到 Supabase
   Map<String, dynamic> toJson() {
     return {
-      'user_id': userId,
-      'image_url': imagePath,
+      'id': id,
+      'floor_plan_id': floorPlanId,
       'x_coordinate': point.dx,
       'y_coordinate': point.dy,
-      'created_at': timestamp.toIso8601String(),
+      'image_url': imageUrl,
       'description': description,
-      'username': username,
-      'floor_plan_path': floorPlanPath,
+      'user_id': userId,
+      'created_at': timestamp.toIso8601String(),
     };
   }
 }

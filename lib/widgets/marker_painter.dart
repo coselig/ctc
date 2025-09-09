@@ -28,7 +28,7 @@ class MarkerPainter extends CustomPainter {
 
     for (var record in records) {
       // 只繪製當前平面圖的標記點
-      if (record.floorPlanPath == currentFloorPlan) {
+      if (record.imageUrl == currentFloorPlan) {
         if (record == selectedRecord) {
           // 選中狀態使用更亮的色彩
           dotPaint.color = isDarkMode
