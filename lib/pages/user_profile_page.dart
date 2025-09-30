@@ -294,7 +294,7 @@ Email: ${user.email ?? '未設定'}
                   const SizedBox(height: 16),
 
                   DropdownButtonFormField<String>(
-                    value: _selectedTheme,
+                    initialValue: _selectedTheme,
                     decoration: const InputDecoration(
                       labelText: '主題偏好',
                       border: OutlineInputBorder(),

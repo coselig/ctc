@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FloorPlansService {
   final SupabaseClient supabase;

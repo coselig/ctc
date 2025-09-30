@@ -7,6 +7,9 @@ import 'pages/welcome_page.dart';
 import 'services/user_preferences_service.dart';
 import 'theme/app_theme.dart';
 
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class AppRoot extends StatefulWidget {
   const AppRoot({super.key});
 
@@ -192,6 +195,7 @@ class _AppRootState extends State<AppRoot> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: '光悅科技',
       debugShowCheckedModeBanner: false, // 關閉 debug 標籤
       theme: AppTheme.lightTheme,

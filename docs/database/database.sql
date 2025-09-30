@@ -1,7 +1,17 @@
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
+-- 1. floor_plans 必須先建立，因為其他表會依賴它
+CREATE TABLE IF NOT EXISTS public.floor_plans (
+  id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  name text NOT NULL,
+  image_url text NOT NULL UNIQUE,
+  user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT floor_plans_pkey PRIMARY KEY (id),
+  CONSTRAINT floor_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 
-CREATE TABLE public.floor_plan_permissions (
+-- 2. floor_plan_permissions 依賴 floor_plans
+CREATE TABLE IF NOT EXISTS public.floor_plan_permissions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   floor_plan_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -12,17 +22,9 @@ CREATE TABLE public.floor_plan_permissions (
   CONSTRAINT floor_plan_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT floor_plan_permissions_floor_plan_id_fkey FOREIGN KEY (floor_plan_id) REFERENCES public.floor_plans(id)
 );
-CREATE TABLE public.floor_plans (
-  id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
-  name text NOT NULL,
-  image_url text NOT NULL UNIQUE,
-  user_id uuid,
-  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  CONSTRAINT floor_plans_pkey PRIMARY KEY (id),
-  CONSTRAINT floor_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.photo_records (
+
+-- 3. photo_records 也依賴 floor_plans
+CREATE TABLE IF NOT EXISTS public.photo_records (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   floor_plan_id uuid NOT NULL,
   x_coordinate double precision NOT NULL,
@@ -36,12 +38,16 @@ CREATE TABLE public.photo_records (
   CONSTRAINT photo_records_floor_plan_id_fkey FOREIGN KEY (floor_plan_id) REFERENCES public.floor_plans(id),
   CONSTRAINT photo_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.profiles (
+
+-- 4. profiles 則只依賴 auth.users，不依賴 floor_plans
+CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
   email text,
   full_name text,
   avatar_url text,
-  theme_preference text DEFAULT 'system'::text CHECK (theme_preference = ANY (ARRAY['light'::text, 'dark'::text, 'system'::text])),
+  theme_preference text DEFAULT 'system'::text CHECK (
+    theme_preference = ANY (ARRAY['light'::text, 'dark'::text, 'system'::text])
+  ),
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),

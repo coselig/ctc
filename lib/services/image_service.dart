@@ -19,10 +19,9 @@ class ImageService {
       return _cache[fileName]!;
     }
     try {
-      final url = await _supabase.storage
+      final url = _supabase.storage
           .from('assets')
-          .createSignedUrl(fileName, 3600)
-          .timeout(const Duration(seconds: 10));
+          .getPublicUrl(fileName);
       _cache[fileName] = url;
       return url;
     } catch (e) {
