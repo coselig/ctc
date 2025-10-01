@@ -44,9 +44,24 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
         ).showSnackBar(const SnackBar(content: Text('圖片上傳成功！')));
       }
     } catch (e) {
+      String errorMessage = '上傳失敗: $e';
+
+      // 檢查具體錯誤類型
+      if (e.toString().contains('Invalid key') || 
+          e.toString().contains('InvalidKey')) {
+        errorMessage = '檔名格式錯誤：請選擇檔名為英文的圖片，或重新命名後再試';
+      } else if (e.toString().contains('413') || 
+                 e.toString().contains('too large')) {
+        errorMessage = '檔案太大：請選擇小於 10MB 的圖片';
+      }
+
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('上傳失敗: $e')));
+      ).showSnackBar(SnackBar(
+        content: Text(errorMessage),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ));
     } finally {
       setState(() {
         _isUploading = false;
@@ -88,12 +103,18 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
     } catch (e) {
       String errorMessage = '上傳失敗: $e';
 
-      // 檢查是否為權限錯誤
+      // 檢查具體錯誤類型
       if (e.toString().contains('403') ||
           e.toString().contains('Unauthorized')) {
         errorMessage = '權限不足：請確認已登入且有上傳權限';
       } else if (e.toString().contains('請先登入')) {
         errorMessage = '請先登入後再上傳圖片';
+      } else if (e.toString().contains('Invalid key') || 
+                 e.toString().contains('InvalidKey')) {
+        errorMessage = '檔名格式錯誤：請選擇檔名為英文的圖片，或重新命名後再試';
+      } else if (e.toString().contains('413') || 
+                 e.toString().contains('too large')) {
+        errorMessage = '檔案太大：請選擇小於 10MB 的圖片';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,7 +145,7 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
     });
 
     try {
-      // 如果還沒有圖片，可以先選擇一張
+      // 確保有圖片URL
       String? imageUrl = _uploadedImageUrl;
       if (imageUrl == null) {
         imageUrl = await _floorPlansService.pickAndUploadImage();
@@ -136,9 +157,10 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
         }
       }
 
-      // 直接使用已上傳的圖片URL創建記錄
-      await _floorPlansService.createFloorPlanWithImage(
+      // 使用圖片URL創建記錄
+      await _floorPlansService.createFloorPlanRecord(
         name: _nameController.text,
+        imageUrl: imageUrl,
       );
 
       ScaffoldMessenger.of(
@@ -196,104 +218,135 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 設計圖名稱輸入
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: '設計圖名稱',
-              border: OutlineInputBorder(),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 設計圖名稱輸入
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: '設計圖名稱',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // 圖片上傳區域
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: _uploadedImageUrl != null
-                ? Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          _uploadedImageUrl!,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
+            // 圖片上傳區域
+            Container(
+              height: 180, // 稍微減少高度以節省空間
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _uploadedImageUrl != null
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            _uploadedImageUrl!,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _uploadedImageUrl = null;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 20,
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _uploadedImageUrl = null;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 18, // 稍微縮小圖示
+                              ),
                             ),
                           ),
                         ),
+                      ],
+                    )
+                  : InkWell(
+                      onTap: _isUploading ? null : _showImageSourceDialog,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: _isUploading
+                              ? const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 8),
+                                    Text('上傳中...'),
+                                  ],
+                                )
+                              : const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.cloud_upload,
+                                      size: 40, // 稍微縮小圖示
+                                      color: Colors.grey,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      '點擊選擇圖片',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                        ),
                       ),
-                    ],
-                  )
-                : Center(
-                    child: _isUploading
-                        ? const CircularProgressIndicator()
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.cloud_upload,
-                                size: 48,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                '點擊選擇圖片',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                  ),
-          ),
-          const SizedBox(height: 16),
-
-          // 上傳按鈕
-          ElevatedButton(
-            onPressed: _isUploading ? null : _showImageSourceDialog,
-            child: Text(_uploadedImageUrl != null ? '重新選擇圖片' : '選擇圖片'),
-          ),
-          const SizedBox(height: 16),
-
-          // 創建設計圖按鈕
-          ElevatedButton(
-            onPressed: _isUploading ? null : _createFloorPlan,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
+                    ),
             ),
-            child: const Text('創建設計圖'),
-          ),
-        ],
+            const SizedBox(height: 16),
+
+            // 上傳按鈕（只在已有圖片時顯示重新選擇）
+            if (_uploadedImageUrl != null) ...[
+              OutlinedButton(
+                onPressed: _isUploading ? null : _showImageSourceDialog,
+                child: const Text('重新選擇圖片'),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // 創建設計圖按鈕
+            ElevatedButton(
+              onPressed: _isUploading ? null : _createFloorPlan,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: _isUploading 
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('創建設計圖'),
+            ),
+          ],
+        ),
       ),
     );
   }

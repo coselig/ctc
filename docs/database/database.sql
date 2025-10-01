@@ -1,14 +1,43 @@
 -- 1. floor_plans 必須先建立，因為其他表會依賴它
 CREATE TABLE IF NOT EXISTS public.floor_plans (
-  id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  image_url text NOT NULL UNIQUE,
-  user_id uuid,
+  image_url text NOT NULL,
+  user_id uuid, -- 暫時允許 NULL，稍後處理
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  CONSTRAINT floor_plans_pkey PRIMARY KEY (id),
-  CONSTRAINT floor_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT floor_plans_pkey PRIMARY KEY (id)
 );
+
+-- 處理現有資料的 NULL user_id 問題
+-- 選項1：刪除 user_id 為 NULL 的記錄（如果這些記錄不重要）
+DELETE FROM public.floor_plans WHERE user_id IS NULL;
+
+-- 選項2：將 NULL user_id 設為某個預設用戶（請替換為實際的用戶ID）
+-- UPDATE public.floor_plans 
+-- SET user_id = 'your-default-user-uuid-here' 
+-- WHERE user_id IS NULL;
+
+-- 移除 image_url 的 UNIQUE 約束（如果存在）
+ALTER TABLE public.floor_plans DROP CONSTRAINT IF EXISTS floor_plans_image_url_key;
+
+-- 現在設定 user_id 為 NOT NULL
+ALTER TABLE public.floor_plans ALTER COLUMN user_id SET NOT NULL;
+
+-- 檢查並添加外鍵約束（如果不存在）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'floor_plans_user_id_fkey' 
+        AND table_name = 'floor_plans'
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE public.floor_plans 
+        ADD CONSTRAINT floor_plans_user_id_fkey 
+        FOREIGN KEY (user_id) REFERENCES auth.users(id);
+    END IF;
+END $$;
 -- 2. floor_plan_permissions 依賴 floor_plans
 CREATE TABLE IF NOT EXISTS public.floor_plan_permissions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

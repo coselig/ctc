@@ -2,7 +2,7 @@ class FloorPlan {
   final String id;
   final String name;
   final String imageUrl;
-  final String? userId;
+  final String userId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -10,7 +10,7 @@ class FloorPlan {
     required this.id,
     required this.name,
     required this.imageUrl,
-    this.userId,
+    required this.userId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -20,7 +20,7 @@ class FloorPlan {
       id: json['id'] as String,
       name: json['name'] as String,
       imageUrl: json['image_url'] as String,
-      userId: json['user_id'] as String?,
+      userId: json['user_id'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
