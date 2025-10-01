@@ -337,6 +337,64 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     }
   }
 
+  Future<void> _deletePhotoRecord() async {
+    if (selectedRecord == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未選中任何記錄')),
+      );
+      return;
+    }
+
+    // 顯示確認對話框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('刪除照片記錄'),
+        content: const Text('確定要刪除這張照片記錄嗎？此操作無法復原。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('刪除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final service = PhotoRecordService(supabase);
+      await service.delete(selectedRecord!.id!);
+
+      // 從本地記錄中移除
+      setState(() {
+        records.removeWhere((record) => record.id == selectedRecord!.id);
+        selectedRecord = null;
+        selectedPoint = null;
+      });
+
+      // 關閉照片對話框
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('照片記錄已刪除')),
+      );
+    } catch (e) {
+      print('刪除照片記錄失敗: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('刪除失敗：$e')),
+      );
+    }
+  }
+
   void _showPhotoDialog() {
     if (selectedRecord == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -352,6 +410,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     PhotoDialog.show(
       context: context,
       title: '現場照片',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: _deletePhotoRecord,
+          tooltip: '刪除照片記錄',
+          color: Colors.red,
+        ),
+      ],
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -436,12 +502,26 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '記錄資訊',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '記錄資訊',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _deletePhotoRecord,
+                        icon: const Icon(Icons.delete, size: 16),
+                        label: const Text('刪除'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text('位置: (${selectedRecord!.point.dx.toStringAsFixed(1)}, ${selectedRecord!.point.dy.toStringAsFixed(1)})'),
