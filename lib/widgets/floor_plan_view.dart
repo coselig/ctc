@@ -52,6 +52,8 @@ class FloorPlanView extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
 
+    print('FloorPlanView 渲染：imageUrl=$imageUrl, records=${records.length}個記錄');
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
@@ -62,6 +64,20 @@ class FloorPlanView extends StatelessWidget {
               FutureBuilder<Size>(
                 future: _getImageSize(imageUrl),
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    print('圖片載入錯誤: ${snapshot.error}');
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red),
+                          const SizedBox(height: 8),
+                          Text('載入設計圖失敗: ${snapshot.error}'),
+                        ],
+                      ),
+                    );
+                  }
+                  
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
@@ -136,10 +152,9 @@ class FloorPlanView extends StatelessWidget {
                       ),
                       // 標記點層
                       ...records.map((record) {
-                        if (record.imageUrl != imageUrl) {
-                          return const SizedBox();
-                        }
-          
+                        // 記錄的 imageUrl 是照片URL，不是設計圖URL
+                        // 這裡不需要比較 URL，因為記錄已經通過 floor_plan_id 過濾過了
+                        
                         // 計算標記點在螢幕上的位置
                         double screenX = (record.point.dx * scale) + offsetX;
                         double screenY = (record.point.dy * scale) + offsetY;

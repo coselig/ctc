@@ -1,6 +1,7 @@
 import 'package:ctc/models/photo_record.dart';
 import 'package:ctc/services/photo_record_service.dart';
 import 'package:ctc/services/floor_plans_service.dart';
+import 'package:ctc/services/photo_upload_service.dart';
 import 'package:ctc/widgets/general_page.dart';
 import 'package:ctc/widgets/widgets.dart';
 import 'package:ctc/widgets/empty_state.dart';
@@ -26,6 +27,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   final List<PhotoRecord> records = [];
   final supabase = Supabase.instance.client;
   late final FloorPlansService _floorPlansService;
+  late final PhotoUploadService _photoUploadService;
   
   bool _isRecordMode = false;
   bool _isLoading = true;
@@ -42,6 +44,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   void initState() {
     super.initState();
     _floorPlansService = FloorPlansService(supabase);
+    _photoUploadService = PhotoUploadService(supabase);
     _loadFloorPlans();
   }
 
@@ -283,12 +286,27 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         }
 
         print('Current user ID: ${user.id}');
-        print('Session status: ${session.accessToken}'); // 不要在生產環境印出 token
+        print('開始拍攝或選擇照片...');
+
+        // 顯示照片來源選擇對話框並上傳照片
+        final photoUrl = await PhotoUploadService.showPhotoSourceDialog(
+          context,
+          _photoUploadService,
+        );
+
+        if (photoUrl == null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('未選擇照片')));
+          return;
+        }
+
+        print('照片上傳成功：$photoUrl');
 
         final record = PhotoRecord(
           floorPlanId: _currentFloorPlanId!,
           point: offset,
-          imageUrl: 'https://example.com/placeholder.jpg', // 使用有效的 URL
+          imageUrl: photoUrl, // 使用實際上傳的照片URL
           userId: user.id,
           timestamp: DateTime.now(),
           description: '照片記錄於 ${DateTime.now().toString()}',
@@ -305,7 +323,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('成功創建記錄點：${offset.toString()}')));
+        ).showSnackBar(SnackBar(content: Text('成功創建照片記錄：${offset.toString()}')));
       } catch (e) {
         print('Error details: $e'); // 印出詳細錯誤
         ScaffoldMessenger.of(
@@ -320,11 +338,113 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   }
 
   void _showPhotoDialog() {
+    if (selectedRecord == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未選中任何記錄')),
+      );
+      return;
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+    final maxWidth = screenSize.width * 0.9; // 90% 的螢幕寬度
+    final maxHeight = screenSize.height * 0.7; // 70% 的螢幕高度
+    
     PhotoDialog.show(
       context: context,
       title: '現場照片',
       child: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 顯示照片
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                maxHeight: maxHeight,
+                minWidth: 200, // 最小寬度
+                minHeight: 150, // 最小高度
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: InteractiveViewer(
+                  panEnabled: true, // 允許平移
+                  scaleEnabled: true, // 允許縮放
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    selectedRecord!.imageUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 200,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      print('照片載入失敗: $error');
+                      return Container(
+                        height: 200,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error, color: Colors.red),
+                              const SizedBox(height: 8),
+                              Text('照片載入失敗'),
+                              const SizedBox(height: 4),
+                              Text(
+                                'URL: ${selectedRecord!.imageUrl}',
+                                style: TextStyle(fontSize: 10, color: Colors.grey),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // 顯示記錄資訊
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '記錄資訊',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('位置: (${selectedRecord!.point.dx.toStringAsFixed(1)}, ${selectedRecord!.point.dy.toStringAsFixed(1)})'),
+                  const SizedBox(height: 4),
+                  Text('時間: ${selectedRecord!.timestamp.toString().split('.')[0]}'),
+                  if (selectedRecord!.description?.isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Text('描述: ${selectedRecord!.description}'),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -418,27 +538,48 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       children: [
         if (_currentFloorPlanUrl != null)
           Expanded(
-            child: InteractiveViewer(
-              constrained: true,
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: FloorPlanView(
-                imageUrl: _currentFloorPlanUrl!,
-                records: records
+            child: Builder(
+              builder: (context) {
+                final filteredRecords = records
                     .where((r) => r.floorPlanId == _currentFloorPlanId)
-                    .toList(),
-                onTapUp: onTap,
-                selectedRecord: selectedRecord,
-                selectedPoint: selectedPoint,
-                isRecordMode: _isRecordMode,
-                onRecordTap: (record) {
-                  setState(() {
-                    selectedRecord = record;
-                    selectedPoint = record.point;
-                  });
-                  _showPhotoDialog();
-                },
-              ),
+                    .toList();
+                
+                print('PhotoRecordPage 渲染：');
+                print('  - 設計圖URL: $_currentFloorPlanUrl');
+                print('  - 當前設計圖ID: $_currentFloorPlanId');
+                print('  - 總記錄數: ${records.length}');
+                print('  - 過濾後記錄數: ${filteredRecords.length}');
+                
+                if (filteredRecords.isNotEmpty) {
+                  print('  - 記錄詳情:');
+                  for (var i = 0; i < filteredRecords.length; i++) {
+                    final record = filteredRecords[i];
+                    print('    ${i + 1}. ID=${record.id}, 座標=(${record.point.dx}, ${record.point.dy}), 圖片=${record.imageUrl}');
+                  }
+                }
+                
+                return InteractiveViewer(
+                  constrained: true,
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: FloorPlanView(
+                    imageUrl: _currentFloorPlanUrl!,
+                    records: filteredRecords,
+                    onTapUp: onTap,
+                    selectedRecord: selectedRecord,
+                    selectedPoint: selectedPoint,
+                    isRecordMode: _isRecordMode,
+                    onRecordTap: (record) {
+                      print('點擊記錄: ${record.id}');
+                      setState(() {
+                        selectedRecord = record;
+                        selectedPoint = record.point;
+                      });
+                      _showPhotoDialog();
+                    },
+                  ),
+                );
+              },
             ),
           )
         else
