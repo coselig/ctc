@@ -126,6 +126,76 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     _loadRecords();
   }
 
+  /// 刪除設計圖
+  Future<void> _deleteFloorPlan(String floorPlanId, String floorPlanName) async {
+    // 顯示確認對話框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('刪除設計圖'),
+        content: Text('確定要刪除設計圖「$floorPlanName」嗎？\n\n⚠️ 此操作將會：\n• 刪除設計圖檔案\n• 刪除所有相關的照片記錄\n• 此操作無法復原'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('刪除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // 顯示載入指示器
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // 刪除設計圖
+      await _floorPlansService.deleteFloorPlan(floorPlanId);
+
+      // 關閉載入指示器
+      Navigator.of(context).pop();
+
+      // 如果刪除的是當前選中的設計圖，清空選中狀態
+      if (_currentFloorPlanId == floorPlanId) {
+        setState(() {
+          _currentFloorPlanId = null;
+          _currentFloorPlanUrl = null;
+          _currentFloorPlanName = null;
+          records.clear(); // 清空記錄
+        });
+      }
+
+      // 重新載入設計圖列表
+      await _loadFloorPlans();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('設計圖「$floorPlanName」已刪除')),
+      );
+    } catch (e) {
+      // 關閉載入指示器
+      Navigator.of(context).pop();
+
+      print('刪除設計圖失敗: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('刪除失敗：$e')),
+      );
+    }
+  }
+
   /// 顯示設計圖選擇對話框
   void _showFloorPlanSelector() {
     showDialog(
@@ -155,6 +225,17 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   ),
                   subtitle: Text('創建於 ${_formatDate(plan['created_at'])}'),
                   selected: isSelected,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      Navigator.of(context).pop(); // 先關閉選擇對話框
+                      _deleteFloorPlan(
+                        plan['id'] as String,
+                        plan['name'] as String,
+                      );
+                    },
+                    tooltip: '刪除設計圖',
+                  ),
                   onTap: () {
                     Navigator.of(context).pop();
                     if (!isSelected) {
@@ -603,6 +684,15 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           onPressed: _showFloorPlanSelector,
           tooltip: '選擇設計圖 (${_currentFloorPlanName ?? '未選擇'})',
         ),
+        if (_currentFloorPlanId != null && _currentFloorPlanName != null)
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              _deleteFloorPlan(_currentFloorPlanId!, _currentFloorPlanName!);
+            },
+            tooltip: '刪除當前設計圖 (${_currentFloorPlanName})',
+            color: Colors.red.shade400,
+          ),
         IconButton(
           icon: const Icon(Icons.add),
           onPressed: _showUploadDialog,

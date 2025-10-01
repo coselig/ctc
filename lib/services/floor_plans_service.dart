@@ -317,23 +317,38 @@ class FloorPlansService {
   /// 刪除設計圖（包含圖片）
   Future<void> deleteFloorPlan(String id) async {
     try {
-      // 先獲取設計圖資訊
-      final floorPlan = await getFloorPlanById(id);
-      if (floorPlan == null) {
-        throw Exception('找不到指定的設計圖');
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('請先登入');
       }
 
-      // 刪除相關的照片記錄
+      // 先獲取設計圖資訊並檢查權限
+      final floorPlan = await supabase
+          .from('floor_plans')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', user.id) // 只能刪除自己的設計圖
+          .maybeSingle();
+
+      if (floorPlan == null) {
+        throw Exception('找不到指定的設計圖或無權限刪除');
+      }
+
+      print('開始刪除設計圖: $id (${floorPlan['name']})');
+
+      // 刪除相關的照片記錄（只刪除該用戶的記錄）
       await supabase
           .from('photo_records')
           .delete()
-          .eq('floor_plan_id', id);
+          .eq('floor_plan_id', id)
+          .eq('user_id', user.id);
 
-      // 刪除設計圖記錄
+      // 刪除設計圖記錄（只能刪除自己的）
       await supabase
           .from('floor_plans')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .eq('user_id', user.id);
 
       // 刪除圖片檔案
       final imageUrl = floorPlan['image_url'] as String?;
