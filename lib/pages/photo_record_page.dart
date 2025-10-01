@@ -364,9 +364,15 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                 minWidth: 200, // 最小寬度
                 minHeight: 150, // 最小高度
               ),
+              decoration: BoxDecoration(
+                color: Colors.transparent, // 透明背景
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: InteractiveViewer(
+                child: Container(
+                  color: Colors.transparent, // 容器透明背景
+                  child: InteractiveViewer(
                   panEnabled: true, // 允許平移
                   scaleEnabled: true, // 允許縮放
                   minScale: 0.5,
@@ -412,6 +418,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                     },
                   ),
                 ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -419,8 +426,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.3), // 半透明背景
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  width: 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,11 +569,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   }
                 }
                 
-                return InteractiveViewer(
-                  constrained: true,
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: FloorPlanView(
+                return Container(
+                  color: Colors.transparent, // 確保容器背景透明
+                  child: InteractiveViewer(
+                    constrained: true,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: FloorPlanView(
                     imageUrl: _currentFloorPlanUrl!,
                     records: filteredRecords,
                     onTapUp: onTap,
@@ -577,6 +590,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                       });
                       _showPhotoDialog();
                     },
+                  ),
                   ),
                 );
               },

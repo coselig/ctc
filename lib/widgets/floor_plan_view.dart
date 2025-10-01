@@ -57,7 +57,7 @@ class FloorPlanView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
-          color: Colors.grey[200],
+          color: Colors.transparent,
           child: Stack(
             children: [
               // 圖片層
