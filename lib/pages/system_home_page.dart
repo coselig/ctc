@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/employee.dart';
+import '../services/employee_service.dart';
 import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
-import 'photo_record_page.dart';
 import 'employee_management_page.dart';
+import 'photo_record_page.dart';
 import 'welcome_page.dart';
 
 class SystemHomePage extends StatefulWidget {
@@ -24,6 +27,81 @@ class SystemHomePage extends StatefulWidget {
 
 class _SystemHomePageState extends State<SystemHomePage> {
   final supabase = Supabase.instance.client;
+  late final EmployeeService _employeeService;
+  Employee? _currentEmployee;
+  bool _isLoadingEmployee = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _employeeService = EmployeeService(supabase);
+    _loadCurrentEmployee();
+  }
+
+  /// 載入當前用戶的員工資料
+  Future<void> _loadCurrentEmployee() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user?.email != null) {
+        final employees = await _employeeService.getAllEmployees();
+        final employee = employees.where(
+          (e) => e.email?.toLowerCase() == user!.email!.toLowerCase(),
+        ).firstOrNull;
+        
+        if (mounted) {
+          setState(() {
+            _currentEmployee = employee;
+            _isLoadingEmployee = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('載入員工資料失敗: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingEmployee = false;
+        });
+      }
+    }
+  }
+
+  /// 建構歡迎文字
+  Widget _buildWelcomeText(BuildContext context, User? user) {
+    if (_isLoadingEmployee) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '載入用戶資料中...',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      );
+    }
+
+    String displayText;
+    if (_currentEmployee != null) {
+      // 如果是員工，顯示姓名
+      displayText = '歡迎您，${_currentEmployee!.name}';
+    } else {
+      // 如果不是員工，顯示郵箱
+      displayText = '歡迎您，${user?.email ?? '使用者'}';
+    }
+
+    return Text(
+      displayText,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        color: Colors.grey.shade600,
+      ),
+    );
+  }
 
   IconData _getThemeIcon() {
     switch (widget.currentThemeMode) {
@@ -78,12 +156,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '歡迎您，${user?.email ?? '使用者'}',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
+                _buildWelcomeText(context, user),
               ],
             ),
           ),
