@@ -9,6 +9,7 @@ import 'attendance_page.dart';
 import 'attendance_stats_page.dart';
 import 'employee_management_page.dart';
 import 'photo_record_page.dart';
+import 'registered_users_debug_page.dart';
 import 'welcome_page.dart';
 
 class SystemHomePage extends StatefulWidget {
@@ -282,6 +283,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('系統設定功能開發中...')),
+                );
+              },
+            ),
+            
+            // 用戶調試工具
+            _buildSystemCard(
+              context,
+              icon: Icons.bug_report,
+              title: '用戶調試工具',
+              subtitle: '檢查註冊用戶狀態',
+              color: Colors.red,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const RegisteredUsersDebugPage(),
+                  ),
                 );
               },
             ),
