@@ -21,16 +21,19 @@ class _GeneralPageState extends State<GeneralPage> {
       extendBodyBehindAppBar: true,
       appBar: TransparentAppBar(actions: widget.actions),
       body: CompassBackground(
-        child: Column(
-          children: [
-            SizedBox(
-              height:
-                  MediaQuery.of(context).padding.top +
-                  AppBar().preferredSize.height +
-                  20,
-            ),
-            ...widget.children,
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height:
+                    MediaQuery.of(context).padding.top +
+                    AppBar().preferredSize.height +
+                    20,
+              ),
+              ...widget.children,
+            ],
+          ),
         ),
       ),
     );

@@ -236,3 +236,202 @@ COMMENT ON COLUMN public.job_vacancies.description IS '職位詳細描述';
 COMMENT ON COLUMN public.job_vacancies.is_active IS '是否為活躍職位';
 COMMENT ON COLUMN public.job_vacancies.created_at IS '建立時間';
 COMMENT ON COLUMN public.job_vacancies.updated_at IS '更新時間';
+
+-- ======================================
+-- 11. 員工資料管理系統 (人力資源模組)
+-- ======================================
+
+-- 員工主表
+CREATE TABLE IF NOT EXISTS public.employees (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id text UNIQUE NOT NULL, -- 員工編號（如：EMP001）
+  name text NOT NULL,
+  email text UNIQUE,
+  phone text,
+  department text NOT NULL,
+  position text NOT NULL,
+  hire_date date NOT NULL,
+  salary decimal(10,2),
+  status text DEFAULT 'active'::text CHECK (
+    status = ANY (ARRAY['active'::text, 'inactive'::text, 'resigned'::text, 'terminated'::text])
+  ),
+  manager_id uuid, -- 直屬主管
+  avatar_url text,
+  address text,
+  emergency_contact_name text,
+  emergency_contact_phone text,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT employees_pkey PRIMARY KEY (id),
+  CONSTRAINT employees_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
+  CONSTRAINT employees_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id)
+);
+
+-- 員工技能表
+CREATE TABLE IF NOT EXISTS public.employee_skills (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  skill_name text NOT NULL,
+  proficiency_level integer NOT NULL CHECK (proficiency_level >= 1 AND proficiency_level <= 5),
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT employee_skills_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_skills_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE,
+  CONSTRAINT unique_employee_skill UNIQUE (employee_id, skill_name)
+);
+
+-- 員工考勤記錄表
+CREATE TABLE IF NOT EXISTS public.employee_attendance (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  date date NOT NULL,
+  check_in_time timestamp with time zone,
+  check_out_time timestamp with time zone,
+  break_duration integer DEFAULT 0, -- 休息時間（分鐘）
+  total_hours decimal(4,2),
+  status text DEFAULT 'present'::text CHECK (
+    status = ANY (ARRAY['present'::text, 'absent'::text, 'late'::text, 'sick_leave'::text, 'annual_leave'::text, 'personal_leave'::text])
+  ),
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT employee_attendance_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_attendance_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE,
+  CONSTRAINT unique_employee_date UNIQUE (employee_id, date)
+);
+
+-- 員工績效評估表
+CREATE TABLE IF NOT EXISTS public.employee_evaluations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  evaluation_period text NOT NULL, -- 評估期間（如：2025Q1）
+  overall_rating integer CHECK (overall_rating >= 1 AND overall_rating <= 5),
+  performance_goals text,
+  achievements text,
+  areas_for_improvement text,
+  evaluator_id uuid NOT NULL,
+  evaluation_date date NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT employee_evaluations_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_evaluations_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE,
+  CONSTRAINT employee_evaluations_evaluator_id_fkey FOREIGN KEY (evaluator_id) REFERENCES auth.users(id)
+);
+
+-- 員工管理系統索引優化
+CREATE INDEX IF NOT EXISTS idx_employees_department ON public.employees(department);
+CREATE INDEX IF NOT EXISTS idx_employees_position ON public.employees(position);
+CREATE INDEX IF NOT EXISTS idx_employees_status ON public.employees(status);
+CREATE INDEX IF NOT EXISTS idx_employees_hire_date ON public.employees(hire_date DESC);
+CREATE INDEX IF NOT EXISTS idx_employees_manager_id ON public.employees(manager_id);
+CREATE INDEX IF NOT EXISTS idx_employees_employee_id ON public.employees(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_employee_date ON public.employee_attendance(employee_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_status ON public.employee_attendance(status);
+CREATE INDEX IF NOT EXISTS idx_evaluations_employee ON public.employee_evaluations(employee_id, evaluation_period);
+
+-- 員工資料更新時間觸發器
+CREATE OR REPLACE FUNCTION update_employee_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 檢查並創建員工觸發器（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'update_employees_updated_at'
+        AND event_object_table = 'employees'
+        AND event_object_schema = 'public'
+    ) THEN
+        CREATE TRIGGER update_employees_updated_at 
+        BEFORE UPDATE ON public.employees 
+        FOR EACH ROW EXECUTE FUNCTION update_employee_updated_at();
+    END IF;
+END $$;
+
+-- 員工管理系統行級安全性設定
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_evaluations ENABLE ROW LEVEL SECURITY;
+
+-- 員工資料政策：只有認證用戶可以查看和管理員工資料
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Authenticated users can manage employees'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Authenticated users can manage employees" ON public.employees
+        FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
+
+-- 技能資料政策
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Authenticated users can manage employee skills'
+        AND tablename = 'employee_skills'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Authenticated users can manage employee skills" ON public.employee_skills
+        FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
+
+-- 考勤資料政策
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Authenticated users can manage attendance'
+        AND tablename = 'employee_attendance'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Authenticated users can manage attendance" ON public.employee_attendance
+        FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
+
+-- 評估資料政策
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Authenticated users can manage evaluations'
+        AND tablename = 'employee_evaluations'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Authenticated users can manage evaluations" ON public.employee_evaluations
+        FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
+
+-- 員工管理系統表格註釋
+COMMENT ON TABLE public.employees IS '員工主資料表';
+COMMENT ON COLUMN public.employees.id IS '員工系統ID (UUID)';
+COMMENT ON COLUMN public.employees.employee_id IS '員工編號 (如：EMP001)';
+COMMENT ON COLUMN public.employees.name IS '員工姓名';
+COMMENT ON COLUMN public.employees.email IS '電子郵件';
+COMMENT ON COLUMN public.employees.phone IS '聯絡電話';
+COMMENT ON COLUMN public.employees.department IS '所屬部門';
+COMMENT ON COLUMN public.employees.position IS '職位';
+COMMENT ON COLUMN public.employees.hire_date IS '入職日期';
+COMMENT ON COLUMN public.employees.salary IS '薪資';
+COMMENT ON COLUMN public.employees.status IS '狀態 (active/inactive/resigned/terminated)';
+COMMENT ON COLUMN public.employees.manager_id IS '直屬主管ID';
+COMMENT ON COLUMN public.employees.avatar_url IS '頭像網址';
+COMMENT ON COLUMN public.employees.address IS '住址';
+COMMENT ON COLUMN public.employees.emergency_contact_name IS '緊急聯絡人姓名';
+COMMENT ON COLUMN public.employees.emergency_contact_phone IS '緊急聯絡人電話';
+
+COMMENT ON TABLE public.employee_skills IS '員工技能資料表';
+COMMENT ON TABLE public.employee_attendance IS '員工考勤記錄表';
+COMMENT ON TABLE public.employee_evaluations IS '員工績效評估表';

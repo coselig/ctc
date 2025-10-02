@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/join_company_page.dart';
-import 'package:ctc/pages/photo_record_page.dart';
+import 'system_home_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/pages/user_settings_page.dart';
 import 'package:ctc/services/image_service.dart';
@@ -181,8 +181,8 @@ class _WelcomePageState extends State<WelcomePage> {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => PhotoRecordPage(
-                      title: '工地照片記錄系統',
+                    builder: (context) => SystemHomePage(
+                      title: '光悅科技管理系統',
                       onThemeToggle: widget.onThemeToggle,
                       currentThemeMode: widget.currentThemeMode,
                     ),
