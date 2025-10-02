@@ -557,3 +557,104 @@ COMMENT ON COLUMN public.user_profiles.display_name IS '顯示姓名';
 COMMENT ON COLUMN public.user_profiles.avatar_url IS '頭像網址';
 COMMENT ON COLUMN public.user_profiles.phone IS '聯絡電話';
 COMMENT ON COLUMN public.user_profiles.metadata IS '額外的用戶資料 (JSON 格式)';
+
+-- ======================================
+-- 13. 打卡記錄系統 (出勤管理)
+-- ======================================
+
+-- 打卡記錄主表
+CREATE TABLE IF NOT EXISTS public.attendance_records (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  employee_name text NOT NULL,
+  employee_email text NOT NULL,
+  check_in_time timestamp with time zone NOT NULL,
+  check_out_time timestamp with time zone,
+  work_hours numeric(5,2),
+  location text,
+  notes text,
+  is_manual_entry boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT attendance_records_pkey PRIMARY KEY (id),
+  CONSTRAINT attendance_records_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE
+);
+
+-- 打卡記錄索引優化（移除有問題的日期索引）
+CREATE INDEX IF NOT EXISTS idx_attendance_records_employee_id ON public.attendance_records(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_check_in_time ON public.attendance_records(check_in_time);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_employee_email ON public.attendance_records(employee_email);
+-- 注意：日期索引已移除以避免 IMMUTABLE 函數錯誤
+-- 如需按日期查詢，請使用 check_in_time 時間戳索引
+
+-- 打卡記錄更新時間觸發器函數
+CREATE OR REPLACE FUNCTION update_attendance_records_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = timezone('utc'::text, now());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 檢查並創建打卡記錄更新觸發器（如果不存在）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'update_attendance_records_updated_at'
+        AND event_object_table = 'attendance_records'
+        AND event_object_schema = 'public'
+    ) THEN
+        CREATE TRIGGER update_attendance_records_updated_at 
+        BEFORE UPDATE ON public.attendance_records 
+        FOR EACH ROW EXECUTE FUNCTION update_attendance_records_updated_at();
+    END IF;
+END $$;
+
+-- 打卡記錄行級安全性設定
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+
+-- 檢查並創建打卡記錄訪問政策（如果不存在）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'attendance_records'
+        AND policyname = 'Employees can view own attendance records'
+    ) THEN
+        CREATE POLICY "Employees can view own attendance records" ON public.attendance_records
+        FOR SELECT USING (
+          employee_email = auth.jwt() ->> 'email'
+        );
+    END IF;
+END $$;
+
+-- 檢查並創建打卡記錄管理政策（如果不存在）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'attendance_records'
+        AND policyname = 'Authenticated users can manage all attendance records'
+    ) THEN
+        CREATE POLICY "Authenticated users can manage all attendance records" ON public.attendance_records
+        FOR ALL USING (
+          auth.role() = 'authenticated'
+        );
+    END IF;
+END $$;
+
+-- 打卡記錄表格註釋
+COMMENT ON TABLE public.attendance_records IS '員工打卡記錄表';
+COMMENT ON COLUMN public.attendance_records.id IS '打卡記錄ID (UUID)';
+COMMENT ON COLUMN public.attendance_records.employee_id IS '員工ID (關聯到員工表)';
+COMMENT ON COLUMN public.attendance_records.employee_name IS '員工姓名 (冗餘字段，方便查詢)';
+COMMENT ON COLUMN public.attendance_records.employee_email IS '員工信箱 (冗餘字段，用於權限控制)';
+COMMENT ON COLUMN public.attendance_records.check_in_time IS '打卡上班時間';
+COMMENT ON COLUMN public.attendance_records.check_out_time IS '打卡下班時間 (可為空)';
+COMMENT ON COLUMN public.attendance_records.work_hours IS '工作小時數';
+COMMENT ON COLUMN public.attendance_records.location IS '打卡地點';
+COMMENT ON COLUMN public.attendance_records.notes IS '備註';
+COMMENT ON COLUMN public.attendance_records.is_manual_entry IS '是否為手動輸入記錄';

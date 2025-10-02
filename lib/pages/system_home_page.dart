@@ -5,6 +5,8 @@ import '../models/employee.dart';
 import '../services/employee_service.dart';
 import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
+import 'attendance_page.dart';
+import 'attendance_stats_page.dart';
 import 'employee_management_page.dart';
 import 'photo_record_page.dart';
 import 'welcome_page.dart';
@@ -220,16 +222,52 @@ class _SystemHomePageState extends State<SystemHomePage> {
               },
             ),
             
-            // 報表統計
+            // 打卡系統
+            _buildSystemCard(
+              context,
+              icon: Icons.access_time,
+              title: '打卡系統',
+              subtitle: '員工考勤打卡管理',
+              color: Colors.orange,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => AttendancePage(
+                      title: '打卡系統',
+                      onThemeToggle: widget.onThemeToggle,
+                      currentThemeMode: widget.currentThemeMode,
+                    ),
+                  ),
+                );
+              },
+            ),
+            
+            // 打卡統計
             _buildSystemCard(
               context,
               icon: Icons.analytics,
-              title: '報表統計',
-              subtitle: '數據分析與統計',
-              color: Colors.orange,
+              title: '打卡統計',
+              subtitle: '考勤統計與報表',
+              color: Colors.purple,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AttendanceStatsPage(),
+                  ),
+                );
+              },
+            ),
+            
+            // 系統報表
+            _buildSystemCard(
+              context,
+              icon: Icons.assessment,
+              title: '系統報表',
+              subtitle: '綜合數據分析統計',
+              color: Colors.teal,
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('報表統計功能開發中...')),
+                  const SnackBar(content: Text('系統報表功能開發中...')),
                 );
               },
             ),
