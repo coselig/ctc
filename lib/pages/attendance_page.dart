@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import '../models/models.dart';
 import '../services/attendance_service.dart';
 import '../services/employee_service.dart';
+import '../services/company_location_service.dart';
 import '../widgets/general_page.dart';
 
 class AttendancePage extends StatefulWidget {
@@ -38,13 +39,90 @@ class _AttendancePageState extends State<AttendancePage> {
   
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
+  
+  // 公司位置設定 (從本地存儲讀取)
+  CompanyLocation? _companyLocation;
 
   @override
   void initState() {
     super.initState();
     _attendanceService = AttendanceService(supabase);
     _employeeService = EmployeeService(supabase);
+    _loadCompanyLocation();
+    _updateCompanyLocationFromAddress();
     _loadData();
+  }
+
+  /// 從地址獲取精確座標並更新公司位置
+  Future<void> _updateCompanyLocationFromAddress() async {
+    try {
+      const address = '406台中市北屯區后庄七街215號';
+      
+      // 先使用實際的精確座標
+      const preciseLocation = CompanyLocation(
+        name: '光悅科技股份有限公司',
+        address: address,
+        latitude: 24.202445,  // 光悅科技實際GPS座標
+        longitude: 120.655053,
+        radius: 100.0,
+      );
+      
+      // 保存座標
+      await CompanyLocationService.saveCompanyLocation(preciseLocation);
+      await _loadCompanyLocation();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已設定公司位置: 光悅科技股份有限公司 (24.202445, 120.655053)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+      // 嘗試使用地理編碼獲得更精確的座標
+      try {
+        List<Location> locations = await locationFromAddress(address);
+        
+        if (locations.isNotEmpty) {
+          final location = locations[0];
+          print('地理編碼精確座標 - 緯度: ${location.latitude}, 經度: ${location.longitude}');
+          
+          // 如果獲得的座標與預設座標差異不大，則更新
+          final morePreciseLocation = CompanyLocation(
+            name: '光悅科技股份有限公司',
+            address: address,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            radius: 100.0,
+          );
+          
+          await CompanyLocationService.saveCompanyLocation(morePreciseLocation);
+          await _loadCompanyLocation();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('已更新為地理編碼精確座標 (${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)})'),
+                backgroundColor: Colors.blue,
+              ),
+            );
+          }
+        }
+      } catch (geocodingError) {
+        print('地理編碼失敗，使用預設座標: $geocodingError');
+      }
+    } catch (e) {
+      print('設定公司位置失敗: $e');
+    }
+  }
+
+  /// 載入公司位置設定
+  Future<void> _loadCompanyLocation() async {
+    _companyLocation = await CompanyLocationService.getCurrentCompanyLocation();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -150,7 +228,35 @@ class _AttendancePageState extends State<AttendancePage> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // 反向地理編碼獲取地址
+      // 檢查是否在公司範圍內 (如果公司位置已載入)
+      double? distanceToCompany;
+      if (_companyLocation != null) {
+        distanceToCompany = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          _companyLocation!.latitude,
+          _companyLocation!.longitude,
+        );
+
+        // 如果在公司範圍內，直接顯示公司名稱
+        if (distanceToCompany <= _companyLocation!.radius) {
+          setState(() {
+            _locationController.text = _companyLocation!.name;
+          });
+        
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('已偵測到在公司範圍內 (距離: ${distanceToCompany.round()}公尺)'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      // 不在公司範圍內，進行反向地理編碼獲取地址
       try {
         List<Placemark> placemarks = await placemarkFromCoordinates(
           position.latitude,
@@ -171,8 +277,11 @@ class _AttendancePageState extends State<AttendancePage> {
           });
           
           if (mounted) {
+            final distanceText = distanceToCompany != null 
+              ? ' (距離公司: ${(distanceToCompany/1000).toStringAsFixed(1)}公里)'
+              : '';
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已獲取當前位置')),
+              SnackBar(content: Text('已獲取當前位置$distanceText')),
             );
           }
         }
@@ -407,6 +516,107 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
+  /// 建構位置狀態指示器
+  Widget _buildLocationStatusIndicator() {
+    return FutureBuilder<bool>(
+      future: _isCurrentLocationInCompany(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 8),
+                Text('檢查位置中...'),
+              ],
+            ),
+          );
+        }
+
+        final isInCompany = snapshot.data ?? false;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isInCompany ? Colors.green.shade50 : Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isInCompany ? Colors.green.shade300 : Colors.orange.shade300,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isInCompany ? Icons.business : Icons.location_on,
+                size: 16,
+                color: isInCompany ? Colors.green.shade700 : Colors.orange.shade700,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isInCompany 
+                    ? '✓ 您目前在公司範圍內'
+                    : '⚠ 您目前不在公司範圍內',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: isInCompany ? Colors.green.shade700 : Colors.orange.shade700,
+                  ),
+                ),
+              ),
+              if (!isInCompany)
+                Icon(
+                  Icons.info_outline,
+                  size: 14,
+                  color: Colors.orange.shade700,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 檢查當前位置是否在公司範圍內
+  Future<bool> _isCurrentLocationInCompany() async {
+    try {
+      if (_companyLocation == null) return false;
+
+      // 檢查位置權限
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        return false;
+      }
+
+      // 獲取當前位置
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+      ).timeout(const Duration(seconds: 5));
+
+      // 計算距離
+      double distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        _companyLocation!.latitude,
+        _companyLocation!.longitude,
+      );
+
+      return distance <= _companyLocation!.radius;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// 建構打卡按鈕區域
   Widget _buildCheckInButtons() {
     return Card(
@@ -422,6 +632,10 @@ class _AttendancePageState extends State<AttendancePage> {
               ),
             ),
             const SizedBox(height: 16),
+            
+            // 位置狀態指示器
+            _buildLocationStatusIndicator(),
+            const SizedBox(height: 12),
             
             // 地點輸入
             Row(
