@@ -355,6 +355,231 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     }
 
     if (_isRecordMode) {
+      // 顯示光標點擊操作介面
+      _showCursorActionDialog(offset);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('tap at $offset')));
+    }
+  }
+
+  /// 顯示光標點擊操作介面
+  void _showCursorActionDialog(Offset offset) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: 500,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 標題列
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '位置操作',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            Text(
+                              '座標: (${offset.dx.toStringAsFixed(1)}, ${offset.dy.toStringAsFixed(1)})',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // 操作選項
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // 拍攝照片選項
+                      _buildActionButton(
+                        icon: Icons.camera_alt,
+                        title: '拍攝照片',
+                        subtitle: '使用相機拍攝現場照片',
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await _takePhotoAtLocation(offset);
+                        },
+                        color: Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 選擇相簿選項
+                      _buildActionButton(
+                        icon: Icons.photo_library,
+                        title: '選擇照片',
+                        subtitle: '從相簿選擇已有照片',
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await _pickPhotoAtLocation(offset);
+                        },
+                        color: Colors.green,
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 添加備註選項
+                      _buildActionButton(
+                        icon: Icons.note_add,
+                        title: '添加備註',
+                        subtitle: '在此位置添加文字備註',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _addNoteAtLocation(offset);
+                        },
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 查看附近記錄選項
+                      _buildActionButton(
+                        icon: Icons.search,
+                        title: '查看附近記錄',
+                        subtitle: '查看此位置附近的照片記錄',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _showNearbyRecords(offset);
+                        },
+                        color: Colors.purple,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 構建操作按鈕
+  Widget _buildActionButton({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 使用相機拍攝照片
+  Future<void> _takePhotoAtLocation(Offset offset) async {
+    if (_isRecordMode) {
       try {
         final user = supabase.auth.currentUser;
         final session = supabase.auth.currentSession;
@@ -369,11 +594,8 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         print('Current user ID: ${user.id}');
         print('開始拍攝或選擇照片...');
 
-        // 顯示照片來源選擇對話框並上傳照片
-        final photoUrl = await PhotoUploadService.showPhotoSourceDialog(
-          context,
-          _photoUploadService,
-        );
+        // 直接使用相機拍攝照片
+        final photoUrl = await _photoUploadService.takePhotoAndUpload();
 
         if (photoUrl == null) {
           ScaffoldMessenger.of(
@@ -416,6 +638,203 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         context,
       ).showSnackBar(SnackBar(content: Text('tap at $offset')));
     }
+  }
+
+  /// 從相簿選擇照片
+  Future<void> _pickPhotoAtLocation(Offset offset) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('請先登入')),
+        );
+        return;
+      }
+
+      // 直接從相簿選擇照片
+      final photoUrl = await _photoUploadService.pickPhotoAndUpload();
+
+      if (photoUrl == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未選擇照片')),
+        );
+        return;
+      }
+
+      print('照片上傳成功：$photoUrl');
+
+      final record = PhotoRecord(
+        floorPlanId: _currentFloorPlanId!,
+        point: offset,
+        imageUrl: photoUrl,
+        userId: user.id,
+        timestamp: DateTime.now(),
+        description: '照片記錄於 ${DateTime.now().toString()}',
+      );
+
+      final service = PhotoRecordService(supabase);
+      final createdRecord = await service.create(record);
+
+      setState(() {
+        records.add(createdRecord);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('成功創建照片記錄：${offset.toString()}')),
+      );
+    } catch (e) {
+      print('Error details: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('創建記錄失敗：$e')),
+      );
+    }
+  }
+
+  /// 在指定位置添加文字備註
+  void _addNoteAtLocation(Offset offset) {
+    final TextEditingController noteController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('添加備註'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('位置: (${offset.dx.toStringAsFixed(1)}, ${offset.dy.toStringAsFixed(1)})'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(
+                hintText: '請輸入備註內容...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (noteController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('請輸入備註內容')),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              try {
+                final user = supabase.auth.currentUser;
+                if (user == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('請先登入')),
+                  );
+                  return;
+                }
+
+                final record = PhotoRecord(
+                  floorPlanId: _currentFloorPlanId!,
+                  point: offset,
+                  imageUrl: '', // 備註記錄沒有圖片
+                  userId: user.id,
+                  timestamp: DateTime.now(),
+                  description: noteController.text.trim(),
+                );
+
+                final service = PhotoRecordService(supabase);
+                final createdRecord = await service.create(record);
+
+                setState(() {
+                  records.add(createdRecord);
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('備註已添加')),
+                );
+              } catch (e) {
+                print('添加備註失敗: $e');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('添加備註失敗：$e')),
+                );
+              }
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 查看附近的記錄
+  void _showNearbyRecords(Offset offset) {
+    // 查找附近50像素範圍內的記錄
+    const double searchRadius = 50.0;
+    final nearbyRecords = records.where((record) {
+      final distance = (record.point - offset).distance;
+      return distance <= searchRadius;
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('附近記錄 (${nearbyRecords.length}個)'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: nearbyRecords.isEmpty
+              ? const Center(
+                  child: Text('此位置附近沒有記錄'),
+                )
+              : ListView.builder(
+                  itemCount: nearbyRecords.length,
+                  itemBuilder: (context, index) {
+                    final record = nearbyRecords[index];
+                    final distance = (record.point - offset).distance;
+                    return ListTile(
+                      leading: record.imageUrl.isNotEmpty
+                          ? const Icon(Icons.photo, color: Colors.blue)
+                          : const Icon(Icons.note, color: Colors.orange),
+                      title: Text(
+                        record.imageUrl.isNotEmpty ? '照片記錄' : '文字備註',
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('距離: ${distance.toStringAsFixed(1)} 像素'),
+                          Text('位置: (${record.point.dx.toStringAsFixed(1)}, ${record.point.dy.toStringAsFixed(1)})'),
+                          if (record.description?.isNotEmpty == true)
+                            Text('備註: ${record.description}'),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        setState(() {
+                          selectedRecord = record;
+                          selectedPoint = record.point;
+                        });
+                        if (record.imageUrl.isNotEmpty) {
+                          _showPhotoDialog();
+                        }
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('關閉'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deletePhotoRecord() async {

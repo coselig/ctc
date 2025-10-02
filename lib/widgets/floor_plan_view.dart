@@ -160,8 +160,8 @@ class FloorPlanView extends StatelessWidget {
                         double screenY = (record.point.dy * scale) + offsetY;
           
                         return Positioned(
-                          left: screenX - 8, // 8 是標記點寬度的一半
-                          top: screenY - 8, // 8 是標記點高度的一半
+                          left: screenX - 10, // 10 是標記點寬度的一半
+                          top: screenY - 10, // 10 是標記點高度的一半
                           child: GestureDetector(
                             onTap: () {
                               if (onRecordTap != null) {
@@ -169,22 +169,16 @@ class FloorPlanView extends StatelessWidget {
                               }
                             },
                             child: Container(
-                              width: 16,
-                              height: 16,
+                              width: 20,
+                              height: 20,
                               decoration: BoxDecoration(
                                 color: record == selectedRecord
                                     ? (isDarkMode
                                           ? primaryColor.withValues(alpha: 0.8)
                                           : const Color(0xFF8B6914)) // 金棕色（選中）
-                                    : (record.isLocal
-                                          ? (isDarkMode
-                                                ? primaryColor.withValues(
-                                                    alpha: 0.6,
-                                                  )
-                                                : const Color(
-                                                    0xFFB8956F,
-                                                  )) // 深棕色（本地）
-                                          : primaryColor), // 主題主色
+                                    : (record.imageUrl.isNotEmpty 
+                                        ? Colors.blue // 照片記錄為藍色
+                                        : Colors.orange), // 備註記錄為橙色
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isDarkMode
@@ -200,6 +194,13 @@ class FloorPlanView extends StatelessWidget {
                                   ),
                                 ],
                               ),
+                              child: Icon(
+                                record.imageUrl.isNotEmpty 
+                                    ? Icons.camera_alt 
+                                    : Icons.note,
+                                size: 12,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         );
@@ -208,11 +209,11 @@ class FloorPlanView extends StatelessWidget {
                       // 臨時選擇點
                       if (selectedPoint != null && isRecordMode)
                         Positioned(
-                          left: (selectedPoint!.dx * scale) + offsetX - 8,
-                          top: (selectedPoint!.dy * scale) + offsetY - 8,
+                          left: (selectedPoint!.dx * scale) + offsetX - 10,
+                          top: (selectedPoint!.dy * scale) + offsetY - 10,
                           child: Container(
-                            width: 16,
-                            height: 16,
+                            width: 20,
+                            height: 20,
                             decoration: BoxDecoration(
                               color: isDarkMode
                                   ? primaryColor.withValues(alpha: 0.9)
