@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
+import 'package:ctc/pages/join_company_page.dart';
 import 'package:ctc/pages/photo_record_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/pages/user_settings_page.dart';
@@ -391,8 +392,8 @@ class _WelcomePageState extends State<WelcomePage> {
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.7,
-                          children: const [
-                            UnifiedCard(
+                          children: [
+                            const UnifiedCard(
                               imageName: 'customize_service.jpg',
                               title: '客製化服務',
                               subtitle: '專屬於你的智慧家居解決方案',
@@ -403,6 +404,17 @@ class _WelcomePageState extends State<WelcomePage> {
                               title: '加入光悅',
                               subtitle: '不一樣的工作體驗',
                               cardType: CardType.product,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => JoinCompanyPage(
+                                      onThemeToggle: widget.onThemeToggle,
+                                      currentThemeMode: widget.currentThemeMode,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),

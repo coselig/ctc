@@ -143,3 +143,61 @@ CREATE TABLE IF NOT EXISTS public.images (
   CONSTRAINT images_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT images_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id)
 );
+
+-- 10. 職位空缺管理 (人力資源模組)
+CREATE TABLE IF NOT EXISTS public.job_vacancies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  department text NOT NULL,
+  location text NOT NULL,
+  type text NOT NULL DEFAULT '全職',
+  requirements text[] NOT NULL DEFAULT '{}',
+  responsibilities text[] NOT NULL DEFAULT '{}',
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT job_vacancies_pkey PRIMARY KEY (id)
+);
+
+-- 職位空缺索引優化
+CREATE INDEX IF NOT EXISTS idx_job_vacancies_active ON public.job_vacancies(is_active);
+CREATE INDEX IF NOT EXISTS idx_job_vacancies_department ON public.job_vacancies(department);
+CREATE INDEX IF NOT EXISTS idx_job_vacancies_type ON public.job_vacancies(type);
+CREATE INDEX IF NOT EXISTS idx_job_vacancies_created_at ON public.job_vacancies(created_at DESC);
+
+-- 職位空缺更新時間觸發器
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_job_vacancies_updated_at 
+  BEFORE UPDATE ON public.job_vacancies 
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 職位空缺行級安全性設定
+ALTER TABLE public.job_vacancies ENABLE ROW LEVEL SECURITY;
+
+-- 職位空缺政策：所有人都可以讀取活躍的職位
+CREATE POLICY "Anyone can view active job vacancies" ON public.job_vacancies
+  FOR SELECT USING (is_active = true);
+
+-- 注意：示例資料已移至 sample_data.sql 文件中
+
+-- 職位空缺表格註釋
+COMMENT ON TABLE public.job_vacancies IS '職位空缺資料表';
+COMMENT ON COLUMN public.job_vacancies.id IS '職位ID (UUID)';
+COMMENT ON COLUMN public.job_vacancies.title IS '職位名稱';
+COMMENT ON COLUMN public.job_vacancies.department IS '所屬部門';
+COMMENT ON COLUMN public.job_vacancies.location IS '工作地點';
+COMMENT ON COLUMN public.job_vacancies.type IS '職位類型 (全職/兼職/實習)';
+COMMENT ON COLUMN public.job_vacancies.requirements IS '應徵條件列表';
+COMMENT ON COLUMN public.job_vacancies.responsibilities IS '工作職責列表';
+COMMENT ON COLUMN public.job_vacancies.description IS '職位詳細描述';
+COMMENT ON COLUMN public.job_vacancies.is_active IS '是否為活躍職位';
+COMMENT ON COLUMN public.job_vacancies.created_at IS '建立時間';
+COMMENT ON COLUMN public.job_vacancies.updated_at IS '更新時間';
