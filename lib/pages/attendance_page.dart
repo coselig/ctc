@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 import '../models/models.dart';
 import '../services/attendance_service.dart';
@@ -32,6 +34,7 @@ class _AttendancePageState extends State<AttendancePage> {
   List<AttendanceRecord> _recentRecords = [];
   bool _isLoading = true;
   bool _isCheckingIn = false;
+  bool _isGettingLocation = false;
   
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
@@ -99,6 +102,102 @@ class _AttendancePageState extends State<AttendancePage> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// 獲取當前位置
+  Future<void> _getCurrentLocation() async {
+    try {
+      setState(() => _isGettingLocation = true);
+
+      // 檢查位置服務是否啟用
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('請開啟位置服務')),
+          );
+        }
+        return;
+      }
+
+      // 檢查位置權限
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('位置權限被拒絕')),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('位置權限被永久拒絕，請到設定中開啟')),
+          );
+        }
+        return;
+      }
+
+      // 獲取當前位置
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // 反向地理編碼獲取地址
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        
+        if (placemarks.isNotEmpty) {
+          final placemark = placemarks[0];
+          final address = [
+            placemark.street,
+            placemark.subLocality,
+            placemark.locality,
+            placemark.administrativeArea,
+          ].where((part) => part != null && part.isNotEmpty).join(', ');
+          
+          setState(() {
+            _locationController.text = address;
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('已獲取當前位置')),
+            );
+          }
+        }
+      } catch (e) {
+        // 如果地理編碼失敗，使用經緯度
+        setState(() {
+          _locationController.text = '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已獲取GPS座標')),
+          );
+        }
+      }
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('獲取位置失敗: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGettingLocation = false);
       }
     }
   }
@@ -325,14 +424,44 @@ class _AttendancePageState extends State<AttendancePage> {
             const SizedBox(height: 16),
             
             // 地點輸入
-            TextField(
-              controller: _locationController,
-              decoration: const InputDecoration(
-                labelText: '地點 (選填)',
-                hintText: '請輸入打卡地點',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.location_on),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _locationController,
+                    decoration: const InputDecoration(
+                      labelText: '地點 (選填)',
+                      hintText: '請輸入打卡地點',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                  icon: _isGettingLocation 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.my_location, color: Colors.white),
+                  tooltip: '獲取當前位置',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             
