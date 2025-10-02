@@ -355,17 +355,19 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     }
 
     if (_isRecordMode) {
-      // 顯示光標點擊操作介面
+      // 只有在記錄模式下才顯示光標點擊操作介面
       _showCursorActionDialog(offset);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('tap at $offset')));
     }
+    // 非記錄模式下不執行任何操作，不顯示點擊位置
   }
 
   /// 顯示光標點擊操作介面
   void _showCursorActionDialog(Offset offset) {
+    // 設置選擇點以顯示標記
+    setState(() {
+      selectedPoint = offset;
+    });
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -434,7 +436,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                           Icons.close,
                           color: Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          setState(() {
+                            selectedPoint = null;
+                          });
+                          Navigator.of(context).pop();
+                        },
                       ),
                     ],
                   ),
@@ -622,6 +629,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
         setState(() {
           records.add(createdRecord);
+          selectedPoint = null; // 清除選擇點
         });
 
         ScaffoldMessenger.of(
@@ -753,6 +761,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
                 setState(() {
                   records.add(createdRecord);
+                  selectedPoint = null; // 清除選擇點
                 });
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1124,6 +1133,10 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           onPressed: _currentFloorPlanId != null ? () {
             setState(() {
               _isRecordMode = !_isRecordMode;
+              // 當關閉記錄模式時清除選擇點
+              if (!_isRecordMode) {
+                selectedPoint = null;
+              }
             });
           } : null,
           tooltip: _isRecordMode ? '關閉記錄模式' : '開啟記錄模式',
