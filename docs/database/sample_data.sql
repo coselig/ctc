@@ -2,10 +2,33 @@
 -- 執行前請確保已經創建了相應的資料表結構
 
 -- ======================================
+-- 資料表結構檢查與修正
+-- ======================================
+
+-- 確保 job_vacancies 表格的 id 欄位有正確的預設值
+DO $$
+BEGIN
+    -- 檢查 id 欄位是否有 DEFAULT gen_random_uuid()
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'job_vacancies' 
+        AND column_name = 'id' 
+        AND column_default LIKE '%gen_random_uuid%'
+    ) THEN
+        -- 如果沒有，則添加預設值
+        ALTER TABLE public.job_vacancies 
+        ALTER COLUMN id SET DEFAULT gen_random_uuid();
+    END IF;
+END $$;
+
+-- ======================================
 -- 職位空缺示例資料
 -- ======================================
 
--- 插入職位空缺示例資料
+-- 先清理可能存在的示例資料（可選）
+-- DELETE FROM public.job_vacancies WHERE title IN ('前端工程師', '後端工程師', '硬體工程師', '業務代表', '產品經理', 'UI/UX 設計師');
+
+-- 插入職位空缺示例資料（使用 ON CONFLICT 避免重複）
 INSERT INTO public.job_vacancies (title, department, location, type, requirements, responsibilities, description) VALUES
 (
   '前端工程師',
@@ -132,7 +155,8 @@ INSERT INTO public.job_vacancies (title, department, location, type, requirement
     '持續優化產品使用體驗'
   ],
   '設計直觀易用的智慧家居控制介面，讓科技變得更親近人心。您將深入研究用戶行為，創造出既美觀又實用的設計解決方案。'
-);
+)
+ON CONFLICT DO NOTHING;
 
 -- ======================================
 -- 其他示例資料（可以在此添加更多表格的示例資料）
@@ -147,7 +171,19 @@ INSERT INTO public.system_settings (key, value, description) VALUES
 ('company_name', '光悅科技', '公司名稱'),
 ('company_address', '台北市信義區', '公司地址'),
 ('recruitment_email', 'hr@guangyue.tech', '人資聯絡信箱'),
-('company_phone', '02-1234-5678', '公司電話');
+('company_phone', '02-1234-5678', '公司電話')
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  description = EXCLUDED.description,
+  updated_at = timezone('utc'::text, now());
 
--- 注意：以上 INSERT 語句在重複執行時可能會產生重複資料錯誤
--- 如果需要重複執行，請使用 INSERT ... ON CONFLICT DO NOTHING 或先清空相關資料表
+-- ======================================
+-- 執行說明
+-- ======================================
+
+-- 此腳本已經使用 ON CONFLICT 處理，可以安全地重複執行
+-- 如果遇到 "null value in column id" 錯誤，請先執行 database.sql 確保表格結構正確
+
+-- 清理示例資料的指令（如有需要）：
+-- DELETE FROM public.job_vacancies WHERE title IN ('前端工程師', '後端工程師', '硬體工程師', '業務代表', '產品經理', 'UI/UX 設計師');
+-- DELETE FROM public.system_settings WHERE key IN ('company_name', 'company_address', 'recruitment_email', 'company_phone');

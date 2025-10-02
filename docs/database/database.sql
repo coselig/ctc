@@ -102,7 +102,21 @@ CREATE TABLE IF NOT EXISTS public.project_members (
 
 -- 6. 修改 floor_plans 增加 project_id
 ALTER TABLE public.floor_plans ADD COLUMN IF NOT EXISTS project_id uuid;
-ALTER TABLE public.floor_plans ADD CONSTRAINT floor_plans_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
+
+-- 檢查並添加 project_id 外鍵約束（如果不存在）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'floor_plans_project_id_fkey' 
+        AND table_name = 'floor_plans'
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE public.floor_plans 
+        ADD CONSTRAINT floor_plans_project_id_fkey 
+        FOREIGN KEY (project_id) REFERENCES public.projects(id);
+    END IF;
+END $$;
 
 -- 7. profiles 則只依賴 auth.users，不依賴 floor_plans
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -175,16 +189,37 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_job_vacancies_updated_at 
-  BEFORE UPDATE ON public.job_vacancies 
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 檢查並創建觸發器（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'update_job_vacancies_updated_at'
+        AND event_object_table = 'job_vacancies'
+        AND event_object_schema = 'public'
+    ) THEN
+        CREATE TRIGGER update_job_vacancies_updated_at 
+        BEFORE UPDATE ON public.job_vacancies 
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
 
 -- 職位空缺行級安全性設定
 ALTER TABLE public.job_vacancies ENABLE ROW LEVEL SECURITY;
 
--- 職位空缺政策：所有人都可以讀取活躍的職位
-CREATE POLICY "Anyone can view active job vacancies" ON public.job_vacancies
-  FOR SELECT USING (is_active = true);
+-- 檢查並創建 RLS 政策（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Anyone can view active job vacancies'
+        AND tablename = 'job_vacancies'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Anyone can view active job vacancies" ON public.job_vacancies
+        FOR SELECT USING (is_active = true);
+    END IF;
+END $$;
 
 -- 注意：示例資料已移至 sample_data.sql 文件中
 
