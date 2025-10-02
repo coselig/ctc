@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 class GeneralPage extends StatefulWidget {
   final List<Widget> children;
   final List<Widget> actions;
+  final String? title;
   const GeneralPage({
     super.key,
     required this.children,
     this.actions = const [],
+    this.title,
   });
 
   @override
@@ -19,7 +21,10 @@ class _GeneralPageState extends State<GeneralPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: TransparentAppBar(actions: widget.actions),
+      appBar: TransparentAppBar(
+        title: widget.title != null ? Text(widget.title!) : null,
+        actions: widget.actions,
+      ),
       body: CompassBackground(
         child: SingleChildScrollView(
           child: Column(

@@ -338,54 +338,50 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   @override
   Widget build(BuildContext context) {
     return GeneralPage(
-      children: [
-        Scaffold(
-          appBar: AppBar(
-            title: const Text('打卡統計'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.date_range),
-                onPressed: _selectMonth,
-                tooltip: '選擇月份',
-              ),
-            ],
-          ),
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _currentEmployee == null
-                  ? const Center(
-                      child: Text(
-                        '請先在員工管理中設定您的員工資料',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          // 月份選擇器
-                          Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.calendar_month),
-                              title: Text('統計月份'),
-                              subtitle: Text(_formatMonth(_selectedMonth)),
-                              trailing: const Icon(Icons.arrow_drop_down),
-                              onTap: _selectMonth,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // 統計概覽
-                          _buildStatsOverview(),
-                          const SizedBox(height: 24),
-
-                          // 記錄列表
-                          _buildRecordsList(),
-                        ],
-                      ),
-                    ),
+      title: '打卡統計',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.date_range),
+          onPressed: _selectMonth,
+          tooltip: '選擇月份',
         ),
+      ],
+      children: [
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_currentEmployee == null)
+          const Center(
+            child: Text(
+              '請先在員工管理中設定您的員工資料',
+              style: TextStyle(fontSize: 16),
+            ),
+          )
+        else
+          RefreshIndicator(
+            onRefresh: _loadData,
+            child: Column(
+              children: [
+                // 月份選擇器
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.calendar_month),
+                    title: const Text('統計月份'),
+                    subtitle: Text(_formatMonth(_selectedMonth)),
+                    trailing: const Icon(Icons.arrow_drop_down),
+                    onTap: _selectMonth,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 統計概覽
+                _buildStatsOverview(),
+                const SizedBox(height: 24),
+
+                // 記錄列表
+                _buildRecordsList(),
+              ],
+            ),
+          ),
       ],
     );
   }

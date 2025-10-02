@@ -1065,6 +1065,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     // 載入中狀態
     if (_isLoading) {
       return GeneralPage(
+        title: widget.title,
         actions: [
           IconButton(
             icon: Icon(_getThemeIcon()),
@@ -1073,9 +1074,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           ),
           const LogoutButton(),
         ],
-        children: const [
-          Expanded(
-            child: Center(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height - 
+                    MediaQuery.of(context).padding.top - 
+                    AppBar().preferredSize.height - 
+                    40,
+            child: const Center(
               child: CircularProgressIndicator(),
             ),
           ),
@@ -1086,6 +1091,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     // 沒有設計圖的狀態
     if (_floorPlans.isEmpty) {
       return GeneralPage(
+        title: widget.title,
         actions: [
           IconButton(
             icon: Icon(_getThemeIcon()),
@@ -1095,7 +1101,11 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           const LogoutButton(),
         ],
         children: [
-          Expanded(
+          SizedBox(
+            height: MediaQuery.of(context).size.height - 
+                    MediaQuery.of(context).padding.top - 
+                    AppBar().preferredSize.height - 
+                    40,
             child: NoFloorPlansState(
               onAddFloorPlan: _showUploadDialog,
             ),
@@ -1106,6 +1116,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
     // 有設計圖的正常狀態
     return GeneralPage(
+      title: widget.title,
       actions: [
         IconButton(
           icon: const Icon(Icons.map),
@@ -1150,7 +1161,11 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       ],
       children: [
         if (_currentFloorPlanUrl != null)
-          Expanded(
+          SizedBox(
+            height: MediaQuery.of(context).size.height - 
+                    MediaQuery.of(context).padding.top - 
+                    AppBar().preferredSize.height - 
+                    40,
             child: Builder(
               builder: (context) {
                 final filteredRecords = records
@@ -1199,8 +1214,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             ),
           )
         else
-          const Expanded(
-            child: Center(
+          SizedBox(
+            height: MediaQuery.of(context).size.height - 
+                    MediaQuery.of(context).padding.top - 
+                    AppBar().preferredSize.height - 
+                    40,
+            child: const Center(
               child: Text('請選擇設計圖'),
             ),
           ),
