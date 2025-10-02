@@ -414,6 +414,118 @@ BEGIN
     END IF;
 END $$;
 
+-- ======================================
+-- 12. 用戶檔案管理系統 (認證用戶資料)
+-- ======================================
+
+-- 用戶檔案表
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid UNIQUE NOT NULL, -- 關聯到 auth.users.id
+  email text UNIQUE NOT NULL,
+  display_name text,
+  avatar_url text,
+  phone text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT user_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 用戶檔案索引
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON public.user_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON public.user_profiles(email);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_display_name ON public.user_profiles(display_name);
+
+-- 用戶檔案更新時間觸發器
+CREATE OR REPLACE FUNCTION update_user_profiles_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 檢查並創建用戶檔案觸發器（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'update_user_profiles_updated_at'
+        AND event_object_table = 'user_profiles'
+        AND event_object_schema = 'public'
+    ) THEN
+        CREATE TRIGGER update_user_profiles_updated_at 
+        BEFORE UPDATE ON public.user_profiles 
+        FOR EACH ROW EXECUTE FUNCTION update_user_profiles_updated_at();
+    END IF;
+END $$;
+
+-- 用戶檔案行級安全性設定
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- 用戶檔案政策：用戶可以查看和修改自己的檔案，認證用戶可以查看所有檔案
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Users can view and update own profile'
+        AND tablename = 'user_profiles'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Users can view and update own profile" ON public.user_profiles
+        FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Authenticated users can view all profiles'
+        AND tablename = 'user_profiles'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Authenticated users can view all profiles" ON public.user_profiles
+        FOR SELECT USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
+
+-- 自動創建用戶檔案的觸發器函數
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.user_profiles (user_id, email, display_name, avatar_url)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN NEW;
+END;
+$$ language 'plpgsql' security definer;
+
+-- 當有新用戶註冊時自動創建用戶檔案
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'on_auth_user_created'
+        AND event_object_table = 'users'
+        AND event_object_schema = 'auth'
+    ) THEN
+        CREATE TRIGGER on_auth_user_created
+        AFTER INSERT ON auth.users
+        FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+    END IF;
+EXCEPTION
+    WHEN insufficient_privilege THEN
+        -- 如果沒有權限在 auth schema 上創建觸發器，忽略錯誤
+        RAISE NOTICE 'Cannot create trigger on auth.users, please create manually';
+END $$;
+
 -- 員工管理系統表格註釋
 COMMENT ON TABLE public.employees IS '員工主資料表';
 COMMENT ON COLUMN public.employees.id IS '員工系統ID (UUID)';
@@ -435,3 +547,13 @@ COMMENT ON COLUMN public.employees.emergency_contact_phone IS '緊急聯絡人�
 COMMENT ON TABLE public.employee_skills IS '員工技能資料表';
 COMMENT ON TABLE public.employee_attendance IS '員工考勤記錄表';
 COMMENT ON TABLE public.employee_evaluations IS '員工績效評估表';
+
+-- 用戶檔案系統表格註釋
+COMMENT ON TABLE public.user_profiles IS '用戶檔案資料表';
+COMMENT ON COLUMN public.user_profiles.id IS '檔案系統ID (UUID)';
+COMMENT ON COLUMN public.user_profiles.user_id IS '關聯到認證系統的用戶ID';
+COMMENT ON COLUMN public.user_profiles.email IS '用戶電子郵件';
+COMMENT ON COLUMN public.user_profiles.display_name IS '顯示姓名';
+COMMENT ON COLUMN public.user_profiles.avatar_url IS '頭像網址';
+COMMENT ON COLUMN public.user_profiles.phone IS '聯絡電話';
+COMMENT ON COLUMN public.user_profiles.metadata IS '額外的用戶資料 (JSON 格式)';

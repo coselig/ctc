@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'pages/welcome_page.dart';
+import 'pages/system_home_page.dart';
 import 'services/user_preferences_service.dart';
 import 'theme/app_theme.dart';
 
@@ -46,10 +47,18 @@ class _AppRootState extends State<AppRoot> {
         debugPrint('User signed out globally');
         // 登出時重置為系統主題
         _setThemeMode(ThemeMode.system, saveToDatabase: false);
+        // 觸發介面重建以返回歡迎頁面
+        if (mounted) {
+          setState(() {});
+        }
       } else if (event == AuthChangeEvent.signedIn) {
         debugPrint('User signed in globally: ${session?.user.email}');
         // 登入時確保用戶 profile 存在，然後載入主題偏好
         _ensureUserProfileAndLoadTheme();
+        // 觸發介面重建以跳轉到管理頁面
+        if (mounted) {
+          setState(() {});
+        }
       }
     });
   }
@@ -168,6 +177,19 @@ class _AppRootState extends State<AppRoot> {
       );
     }
 
+    // 檢查用戶登入狀態
+    final user = Supabase.instance.client.auth.currentUser;
+    
+    // 如果用戶已登入，直接跳轉到管理頁面
+    if (user != null) {
+      return SystemHomePage(
+        title: '光悅科技管理系統',
+        onThemeToggle: _advancedToggleTheme,
+        currentThemeMode: _themeMode,
+      );
+    }
+
+    // 如果用戶未登入，顯示歡迎頁面
     return WelcomePage(
       onThemeToggle: _advancedToggleTheme,
       currentThemeMode: _themeMode,

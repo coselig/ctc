@@ -175,20 +175,50 @@ class _WelcomePageState extends State<WelcomePage> {
               onPressed: _handleLoginTap,
             )
           else
-            TextButton.icon(
-              icon: Icon(Icons.arrow_forward, color: primaryColor),
-              label: Text('進入系統', style: TextStyle(color: primaryColor)),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => SystemHomePage(
-                      title: '光悅科技管理系統',
-                      onThemeToggle: widget.onThemeToggle,
-                      currentThemeMode: widget.currentThemeMode,
-                    ),
-                  ),
-                );
+            PopupMenuButton<String>(
+              icon: Icon(Icons.account_circle, color: primaryColor),
+              tooltip: '用戶選單',
+              onSelected: (value) {
+                switch (value) {
+                  case 'system':
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => SystemHomePage(
+                          title: '光悅科技管理系統',
+                          onThemeToggle: widget.onThemeToggle,
+                          currentThemeMode: widget.currentThemeMode,
+                        ),
+                      ),
+                    );
+                    break;
+                  case 'settings':
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            UserSettingsPage(onThemeChanged: widget.onThemeToggle),
+                      ),
+                    );
+                    break;
+                }
               },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  value: 'system',
+                  child: ListTile(
+                    leading: Icon(Icons.dashboard, color: primaryColor),
+                    title: const Text('進入系統'),
+                    dense: true,
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'settings',
+                  child: ListTile(
+                    leading: Icon(Icons.settings, color: primaryColor),
+                    title: const Text('用戶設置'),
+                    dense: true,
+                  ),
+                ),
+              ],
             ),
         ],
       ),

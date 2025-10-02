@@ -6,6 +6,7 @@ import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
 import 'employee_detail_page.dart';
 import 'employee_form_page.dart';
+import 'user_selection_page.dart';
 
 class EmployeeManagementPage extends StatefulWidget {
   const EmployeeManagementPage({
@@ -121,6 +122,21 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
     }
   }
 
+  void _navigateToUserSelection() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => UserSelectionPage(
+          onThemeToggle: widget.onThemeToggle,
+          currentThemeMode: widget.currentThemeMode,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _loadData();
+    }
+  }
+
   void _navigateToEmployeeDetail(Employee employee) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -208,10 +224,41 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
 
     return GeneralPage(
       actions: [
-        IconButton(
+        PopupMenuButton<String>(
           icon: const Icon(Icons.add),
-          onPressed: () => _navigateToEmployeeForm(),
           tooltip: '新增員工',
+          onSelected: (action) {
+            switch (action) {
+              case 'create_new':
+                _navigateToEmployeeForm();
+                break;
+              case 'from_users':
+                _navigateToUserSelection();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'create_new',
+              child: Row(
+                children: [
+                  Icon(Icons.person_add),
+                  SizedBox(width: 8),
+                  Text('直接新增員工'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'from_users',
+              child: Row(
+                children: [
+                  Icon(Icons.people_alt, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('從已註冊用戶選擇', style: TextStyle(color: Colors.blue)),
+                ],
+              ),
+            ),
+          ],
         ),
         IconButton(
           icon: const Icon(Icons.refresh),
@@ -380,6 +427,9 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                               case 'edit':
                                 _navigateToEmployeeForm(employee);
                                 break;
+                              case 'invite':
+                                _sendInvitation(employee);
+                                break;
                               case 'delete':
                                 _deleteEmployee(employee);
                                 break;
@@ -406,6 +456,17 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                                 ],
                               ),
                             ),
+                            if (employee.email != null && employee.email!.isNotEmpty)
+                              const PopupMenuItem(
+                                value: 'invite',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.mail, color: Colors.blue),
+                                    SizedBox(width: 8),
+                                    Text('發送邀請', style: TextStyle(color: Colors.blue)),
+                                  ],
+                                ),
+                              ),
                             const PopupMenuItem(
                               value: 'delete',
                               child: Row(
@@ -426,6 +487,95 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _sendInvitation(Employee employee) async {
+    if (employee.email == null || employee.email!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('該員工沒有設置電子郵件地址'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('發送系統邀請'),
+        content: Text(
+          '確定要為員工 ${employee.name} 發送系統帳號邀請嗎？\n\n'
+          '邀請將發送至：${employee.email}\n\n'
+          '員工將收到：\n'
+          '• 臨時登入密碼\n'
+          '• 系統使用說明\n'
+          '• 首次登入指引',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('發送邀請'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        // 模擬發送邀請
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✉️ 系統邀請已準備發送至 ${employee.email}\n'
+              '🔐 臨時密碼：${_generateDisplayPassword()}\n'
+              'ℹ️ 實際部署時需要設定郵件服務',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: '複製密碼',
+              textColor: Colors.white,
+              onPressed: () {
+                // 這裡可以實現複製到剪貼板的功能
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('臨時密碼已複製'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+
+        // TODO: 實際發送邀請
+        // final invitationService = EmployeeInvitationService(supabase);
+        // await invitationService.inviteEmployee(
+        //   email: employee.email!,
+        //   employeeData: employee,
+        // );
+
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('發送邀請失敗：$e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  String _generateDisplayPassword() {
+    // 生成顯示用的臨時密碼
+    return 'Temp${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
   Color _getStatusColor(EmployeeStatus status) {

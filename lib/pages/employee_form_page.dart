@@ -147,6 +147,16 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
         await _employeeService.updateEmployee(widget.employee!.id!, employee);
       } else {
         await _employeeService.createEmployee(employee);
+        
+        // 如果有提供 email，詢問是否要創建帳號並發送邀請
+        if (employee.email != null && employee.email!.isNotEmpty) {
+          if (mounted) {
+            final shouldInvite = await _showInviteDialog(employee.email!);
+            if (shouldInvite == true) {
+              await _inviteEmployee(employee);
+            }
+          }
+        }
       }
 
       if (mounted) {
@@ -165,6 +175,64 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<bool?> _showInviteDialog(String email) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('創建系統帳號'),
+        content: Text(
+          '是否為 $email 創建系統登入帳號？\n\n'
+          '• 系統會自動生成臨時密碼\n'
+          '• 員工會收到歡迎郵件\n'
+          '• 員工可立即開始使用系統',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('稍後處理'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('立即創建'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _inviteEmployee(Employee employee) async {
+    try {
+      // 這裡先模擬邀請功能，實際部署時需要完整的邀請服務
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('💌 系統帳號邀請已準備發送至 ${employee.email}\n\n'
+                'ℹ️ 實際部署時需要設定郵件服務來自動發送邀請郵件'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      
+      // TODO: 使用 EmployeeInvitationService 發送真正的邀請
+      // final invitationService = EmployeeInvitationService(supabase);
+      // await invitationService.inviteEmployee(
+      //   email: employee.email!,
+      //   employeeData: employee,
+      // );
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('發送邀請失敗: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

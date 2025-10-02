@@ -4,6 +4,7 @@ import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
 import 'photo_record_page.dart';
 import 'employee_management_page.dart';
+import 'welcome_page.dart';
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({
@@ -41,6 +42,20 @@ class _SystemHomePageState extends State<SystemHomePage> {
     
     return GeneralPage(
       actions: [
+        IconButton(
+          icon: const Icon(Icons.home),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => WelcomePage(
+                  onThemeToggle: widget.onThemeToggle,
+                  currentThemeMode: widget.currentThemeMode,
+                ),
+              ),
+            );
+          },
+          tooltip: '回到首頁',
+        ),
         IconButton(
           icon: Icon(_getThemeIcon()),
           onPressed: widget.onThemeToggle,
