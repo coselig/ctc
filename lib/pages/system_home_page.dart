@@ -175,14 +175,46 @@ class _SystemHomePageState extends State<SystemHomePage> {
         ),
         const SizedBox(height: 16),
         
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.2,
-          children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // 根據螢幕寬度動態計算列數
+            int crossAxisCount;
+            double childAspectRatio;
+            
+            if (constraints.maxWidth >= 1600) {
+              // 超大螢幕（1600px 以上）：6 列
+              crossAxisCount = 6;
+              childAspectRatio = 1.2;
+            } else if (constraints.maxWidth >= 1280) {
+              // 大螢幕（1280-1599px）：5 列
+              crossAxisCount = 5;
+              childAspectRatio = 1.2;
+            } else if (constraints.maxWidth >= 1080) {
+              // 中大螢幕（1080-1279px）：4 列
+              crossAxisCount = 4;
+              childAspectRatio = 1.2;
+            } else if (constraints.maxWidth >= 768) {
+              // 中螢幕（768-1079px）：3 列
+              crossAxisCount = 3;
+              childAspectRatio = 1.2;
+            } else if (constraints.maxWidth >= 480) {
+              // 小螢幕（480-767px）：2 列
+              crossAxisCount = 2;
+              childAspectRatio = 1.2;
+            } else {
+              // 極小螢幕（小於 480px）：1 列
+              crossAxisCount = 1;
+              childAspectRatio = 2.5;
+            }
+            
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: childAspectRatio,
+              children: [
             // 照片記錄系統
             _buildSystemCard(
               context,
@@ -303,6 +335,8 @@ class _SystemHomePageState extends State<SystemHomePage> {
               },
             ),
           ],
+            );
+          },
         ),
         
         const SizedBox(height: 32),
