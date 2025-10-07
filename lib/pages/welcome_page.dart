@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
+import 'package:ctc/pages/intro_page.dart';
 import 'package:ctc/pages/join_company_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/pages/user_settings_page.dart';
@@ -528,10 +529,27 @@ class _WelcomePageState extends State<WelcomePage> {
                           ],
                         ),
                         const SizedBox(height: 32),
-                        Text(
-                          '價值理念 Our Mission',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '價值理念 Our Mission',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.lightbulb_outline),
+                              label: const Text('25週年介紹'),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const IntroPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         GridView.count(
