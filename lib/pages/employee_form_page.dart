@@ -123,40 +123,32 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
         throw Exception('請先登入');
       }
 
-      final employee = Employee(
-        id: _isEditMode ? widget.employee!.id : null,
-        employeeId: _employeeIdController.text.trim(),
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        department: _departmentController.text.trim(),
-        position: _positionController.text.trim(),
-        hireDate: _hireDate,
-        salary: _salaryController.text.trim().isEmpty ? null : double.tryParse(_salaryController.text.trim()),
-        status: _status,
-        address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
-        emergencyContactName: _emergencyNameController.text.trim().isEmpty ? null : _emergencyNameController.text.trim(),
-        emergencyContactPhone: _emergencyPhoneController.text.trim().isEmpty ? null : _emergencyPhoneController.text.trim(),
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-        createdBy: user.id,
-        createdAt: _isEditMode ? widget.employee!.createdAt : DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
       if (_isEditMode) {
+        // 編輯模式：使用現有 ID 更新
+        final employee = Employee(
+          id: widget.employee!.id,
+          employeeId: _employeeIdController.text.trim(),
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          department: _departmentController.text.trim(),
+          position: _positionController.text.trim(),
+          hireDate: _hireDate,
+          salary: _salaryController.text.trim().isEmpty ? null : double.tryParse(_salaryController.text.trim()),
+          status: _status,
+          address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+          emergencyContactName: _emergencyNameController.text.trim().isEmpty ? null : _emergencyNameController.text.trim(),
+          emergencyContactPhone: _emergencyPhoneController.text.trim().isEmpty ? null : _emergencyPhoneController.text.trim(),
+          notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          createdBy: user.id,
+          createdAt: widget.employee!.createdAt,
+          updatedAt: DateTime.now(),
+        );
+
         await _employeeService.updateEmployee(widget.employee!.id!, employee);
       } else {
-        await _employeeService.createEmployee(employee);
-        
-        // 如果有提供 email，詢問是否要創建帳號並發送邀請
-        if (employee.email != null && employee.email!.isNotEmpty) {
-          if (mounted) {
-            final shouldInvite = await _showInviteDialog(employee.email!);
-            if (shouldInvite == true) {
-              await _inviteEmployee(employee);
-            }
-          }
-        }
+        // 新增模式：不再支持直接創建員工，必須從已註冊用戶創建
+        throw Exception('請從「用戶管理」頁面選擇已註冊用戶來創建員工記錄');
       }
 
       if (mounted) {

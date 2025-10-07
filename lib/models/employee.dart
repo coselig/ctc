@@ -89,9 +89,10 @@ class Employee {
     };
   }
 
-  /// 用於插入新員工到資料庫（不包含 id 欄位）
+  /// 用於插入新員工到資料庫（必須包含 id 欄位，使用 auth.users.id）
   Map<String, dynamic> toJsonForInsert() {
     final json = <String, dynamic>{
+      'id': id, // 必須包含，使用 auth.users.id
       'employee_id': employeeId,
       'name': name,
       'email': email,
@@ -112,8 +113,8 @@ class Employee {
       'updated_at': updatedAt.toIso8601String(),
     };
     
-    // 移除 null 值欄位
-    json.removeWhere((key, value) => value == null);
+    // 移除 null 值欄位（但保留 id）
+    json.removeWhere((key, value) => value == null && key != 'id');
     return json;
   }
 
@@ -163,10 +164,10 @@ class Employee {
 }
 
 enum EmployeeStatus {
-  active('active', '在職'),
-  inactive('inactive', '停職'),
-  resigned('resigned', '離職'),
-  terminated('terminated', '解僱');
+  active('在職', '在職'),
+  inactive('留職停薪', '留職停薪'),
+  resigned('離職', '離職'),
+  terminated('解雇', '解雇');
 
   const EmployeeStatus(this.value, this.displayName);
 
@@ -175,12 +176,16 @@ enum EmployeeStatus {
 
   static EmployeeStatus fromString(String value) {
     switch (value) {
+      case '在職':
       case 'active':
         return EmployeeStatus.active;
+      case '留職停薪':
       case 'inactive':
         return EmployeeStatus.inactive;
+      case '離職':
       case 'resigned':
         return EmployeeStatus.resigned;
+      case '解雇':
       case 'terminated':
         return EmployeeStatus.terminated;
       default:

@@ -242,8 +242,9 @@ COMMENT ON COLUMN public.job_vacancies.updated_at IS '更新時間';
 -- ======================================
 
 -- 員工主表
+-- 注意：id 直接使用 auth.users.id，不自動生成
 CREATE TABLE IF NOT EXISTS public.employees (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id uuid NOT NULL, -- 使用 auth.users.id 作為主鍵，不自動生成
   employee_id text UNIQUE NOT NULL, -- 員工編號（如：EMP001）
   name text NOT NULL,
   email text UNIQUE,
@@ -252,10 +253,10 @@ CREATE TABLE IF NOT EXISTS public.employees (
   position text NOT NULL,
   hire_date date NOT NULL,
   salary decimal(10,2),
-  status text DEFAULT 'active'::text CHECK (
-    status = ANY (ARRAY['active'::text, 'inactive'::text, 'resigned'::text, 'terminated'::text])
+  status text DEFAULT '在職'::text CHECK (
+    status = ANY (ARRAY['在職'::text, '離職'::text, '留職停薪'::text, '解雇'::text])
   ),
-  manager_id uuid, -- 直屬主管
+  manager_id uuid, -- 直屬主管（指向 employees.id，即 auth.users.id）
   avatar_url text,
   address text,
   emergency_contact_name text,
@@ -265,6 +266,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   CONSTRAINT employees_pkey PRIMARY KEY (id),
+  CONSTRAINT employees_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE,
   CONSTRAINT employees_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
   CONSTRAINT employees_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id)
 );
@@ -528,7 +530,7 @@ END $$;
 
 -- 員工管理系統表格註釋
 COMMENT ON TABLE public.employees IS '員工主資料表';
-COMMENT ON COLUMN public.employees.id IS '員工系統ID (UUID)';
+COMMENT ON COLUMN public.employees.id IS '員工系統ID (使用 auth.users.id)';
 COMMENT ON COLUMN public.employees.employee_id IS '員工編號 (如：EMP001)';
 COMMENT ON COLUMN public.employees.name IS '員工姓名';
 COMMENT ON COLUMN public.employees.email IS '電子郵件';
@@ -537,8 +539,8 @@ COMMENT ON COLUMN public.employees.department IS '所屬部門';
 COMMENT ON COLUMN public.employees.position IS '職位';
 COMMENT ON COLUMN public.employees.hire_date IS '入職日期';
 COMMENT ON COLUMN public.employees.salary IS '薪資';
-COMMENT ON COLUMN public.employees.status IS '狀態 (active/inactive/resigned/terminated)';
-COMMENT ON COLUMN public.employees.manager_id IS '直屬主管ID';
+COMMENT ON COLUMN public.employees.status IS '狀態 (在職/離職/留職停薪/解雇)';
+COMMENT ON COLUMN public.employees.manager_id IS '直屬主管ID (指向 employees.id)';
 COMMENT ON COLUMN public.employees.avatar_url IS '頭像網址';
 COMMENT ON COLUMN public.employees.address IS '住址';
 COMMENT ON COLUMN public.employees.emergency_contact_name IS '緊急聯絡人姓名';

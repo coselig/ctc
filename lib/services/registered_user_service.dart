@@ -228,6 +228,7 @@ class RegisteredUserService {
 
       // 創建員工記錄
       final employeeData = {
+        'id': user.id, // 使用 auth.users.id 作為主鍵
         'employee_id': employeeId,
         'name': user.displayName ?? user.email?.split('@')[0] ?? '未知用戶',
         'email': user.email,
@@ -236,7 +237,7 @@ class RegisteredUserService {
         'position': position,
         'hire_date': hireDate.toIso8601String().split('T')[0],
         'salary': salary,
-        'status': 'active',
+        'status': '在職', // 使用中文狀態
         'address': address,
         'emergency_contact_name': emergencyContactName,
         'emergency_contact_phone': emergencyContactPhone,
@@ -246,8 +247,8 @@ class RegisteredUserService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // 移除 null 值
-      employeeData.removeWhere((key, value) => value == null);
+      // 移除 null 值（但保留 id）
+      employeeData.removeWhere((key, value) => value == null && key != 'id');
 
       await _client
           .from('employees')

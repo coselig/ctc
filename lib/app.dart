@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pages/system_home_page.dart';
 import 'pages/welcome_page.dart';
 import 'services/user_preferences_service.dart';
+import 'services/user_permission_service.dart';
 import 'theme/app_theme.dart';
 
 
@@ -21,13 +22,16 @@ class AppRoot extends StatefulWidget {
 class _AppRootState extends State<AppRoot> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
+  bool _hasEmployeePermission = false;
   StreamSubscription<AuthState>? _authSubscription;
   late UserPreferencesService _userPreferencesService;
+  late UserPermissionService _userPermissionService;
 
   @override
   void initState() {
     super.initState();
     _userPreferencesService = UserPreferencesService(Supabase.instance.client);
+    _userPermissionService = UserPermissionService(Supabase.instance.client);
     _initializeApp();
     _setupGlobalAuthListener();
   }
@@ -47,6 +51,8 @@ class _AppRootState extends State<AppRoot> {
         debugPrint('User signed out globally');
         // 登出時重置為系統主題
         _setThemeMode(ThemeMode.system, saveToDatabase: false);
+        // 重置員工權限狀態
+        _hasEmployeePermission = false;
         // 觸發介面重建以返回歡迎頁面
         if (mounted) {
           setState(() {});
@@ -74,8 +80,30 @@ class _AppRootState extends State<AppRoot> {
 
       // 然後載入主題偏好
       await _loadUserThemePreference();
+
+      // 檢查用戶是否有員工權限
+      await _checkEmployeePermission();
     } catch (e) {
       debugPrint('確保用戶 profile 和載入主題失敗: $e');
+    }
+  }
+
+  /// 檢查用戶的員工權限
+  Future<void> _checkEmployeePermission() async {
+    try {
+      final hasPermission = await _userPermissionService.isUserInEmployeeList();
+      if (mounted) {
+        setState(() {
+          _hasEmployeePermission = hasPermission;
+        });
+      }
+    } catch (e) {
+      debugPrint('檢查員工權限失敗: $e');
+      if (mounted) {
+        setState(() {
+          _hasEmployeePermission = false;
+        });
+      }
     }
   }
 
@@ -95,6 +123,12 @@ class _AppRootState extends State<AppRoot> {
 
       // 載入用戶主題偏好（如果已登入）
       await _loadUserThemePreference();
+
+      // 檢查用戶員工權限（如果已登入）
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await _checkEmployeePermission();
+      }
 
       if (mounted) {
         setState(() {
@@ -180,13 +214,23 @@ class _AppRootState extends State<AppRoot> {
     // 檢查用戶登入狀態
     final user = Supabase.instance.client.auth.currentUser;
     
-    // 如果用戶已登入，直接跳轉到管理頁面
+    // 如果用戶已登入
     if (user != null) {
-      return SystemHomePage(
-        title: '光悅科技管理系統',
-        onThemeToggle: _advancedToggleTheme,
-        currentThemeMode: _themeMode,
-      );
+      // 檢查是否有員工權限
+      if (_hasEmployeePermission) {
+        // 有員工權限 → 進入系統功能頁面
+        return SystemHomePage(
+          title: '光悅科技管理系統',
+          onThemeToggle: _advancedToggleTheme,
+          currentThemeMode: _themeMode,
+        );
+      } else {
+        // 沒有員工權限 → 顯示一般首頁（但已登入狀態）
+        return WelcomePage(
+          onThemeToggle: _advancedToggleTheme,
+          currentThemeMode: _themeMode,
+        );
+      }
     }
 
     // 如果用戶未登入，顯示歡迎頁面
