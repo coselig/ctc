@@ -224,41 +224,10 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
 
     return GeneralPage(
       actions: [
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.add),
-          tooltip: '新增員工',
-          onSelected: (action) {
-            switch (action) {
-              case 'create_new':
-                _navigateToEmployeeForm();
-                break;
-              case 'from_users':
-                _navigateToUserSelection();
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'create_new',
-              child: Row(
-                children: [
-                  Icon(Icons.person_add),
-                  SizedBox(width: 8),
-                  Text('直接新增員工'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'from_users',
-              child: Row(
-                children: [
-                  Icon(Icons.people_alt, color: Colors.blue),
-                  SizedBox(width: 8),
-                  Text('從已註冊用戶選擇', style: TextStyle(color: Colors.blue)),
-                ],
-              ),
-            ),
-          ],
+        IconButton(
+          icon: const Icon(Icons.person_add),
+          tooltip: '從已註冊用戶新增員工',
+          onPressed: _navigateToUserSelection,
         ),
         IconButton(
           icon: const Icon(Icons.refresh),
