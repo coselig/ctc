@@ -23,7 +23,7 @@ class TriangleBackground extends StatelessWidget {
           top: 0,
           left: 0,
           child: CustomPaint(
-            size: Size(MediaQuery.of(context).size.width * 0.5, MediaQuery.of(context).size.height * 0.4),
+            size: Size(MediaQuery.of(context).size.width * 0.5, MediaQuery.of(context).size.height * 0.2),
             painter: TrianglePainter(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
