@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'pages/welcome_page.dart';
 import 'pages/system_home_page.dart';
+import 'pages/welcome_page.dart';
 import 'services/user_preferences_service.dart';
 import 'theme/app_theme.dart';
 

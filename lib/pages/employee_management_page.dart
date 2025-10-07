@@ -296,7 +296,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedDepartment,
+                        initialValue: _selectedDepartment,
                         decoration: const InputDecoration(
                           labelText: '部門',
                           border: OutlineInputBorder(),
@@ -322,7 +322,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<EmployeeStatus>(
-                        value: _selectedStatus,
+                        initialValue: _selectedStatus,
                         decoration: const InputDecoration(
                           labelText: '狀態',
                           border: OutlineInputBorder(),

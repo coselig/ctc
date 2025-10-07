@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
 import 'package:ctc/pages/join_company_page.dart';
-import 'system_home_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/pages/user_settings_page.dart';
 import 'package:ctc/services/image_service.dart';
@@ -17,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_page.dart';
 import 'product_page.dart';
+import 'system_home_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({

@@ -106,7 +106,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: proficiencyLevel,
+                initialValue: proficiencyLevel,
                 decoration: const InputDecoration(
                   labelText: '熟練度',
                   border: OutlineInputBorder(),

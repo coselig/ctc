@@ -3,8 +3,6 @@
 // 這個檔案展示了如何測試新的員工名字顯示功能
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ctc/pages/system_home_page.dart';
-import 'package:ctc/models/employee.dart';
 
 void main() {
   group('SystemHomePage 員工顯示測試', () {

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
 import '../services/attendance_service.dart';
-import '../services/employee_service.dart';
 import '../services/company_location_service.dart';
+import '../services/employee_service.dart';
 import '../widgets/general_page.dart';
 
 class AttendancePage extends StatefulWidget {

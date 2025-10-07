@@ -454,7 +454,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<EmployeeStatus>(
-                        value: _status,
+                        initialValue: _status,
                         decoration: const InputDecoration(
                           labelText: '狀態',
                           border: OutlineInputBorder(),
