@@ -54,4 +54,53 @@ class PhotoRecordService {
       rethrow;
     }
   }
+
+  Future<void> delete(String id) async {
+    try {
+      // 確保用戶已登入
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        throw Exception('必須登入才能刪除照片記錄');
+      }
+
+      print('正在刪除照片記錄: $id');
+
+      await _client
+          .from('photo_records')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id); // 只能刪除自己的記錄
+
+      print('刪除照片記錄成功');
+    } catch (e) {
+      print('刪除照片記錄失敗: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<PhotoRecord>> getUserRecords([String? floorPlanId]) async {
+    try {
+      // 確保用戶已登入
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        throw Exception('必須登入才能查看照片記錄');
+      }
+
+      var query = _client
+          .from('photo_records')
+          .select('*')
+          .eq('user_id', user.id);
+
+      if (floorPlanId != null) {
+        query = query.eq('floor_plan_id', floorPlanId);
+      }
+
+      final response = await query.order('timestamp', ascending: false);
+
+      return response.map<PhotoRecord>((json) => PhotoRecord.fromJson(json)).toList();
+    } catch (e) {
+      print('查詢用戶照片記錄失敗: $e');
+      rethrow;
+    }
+  }
 }

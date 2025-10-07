@@ -138,6 +138,55 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
     }
   }
 
+  /// 處理登出
+  Future<void> _handleLogout() async {
+    // 顯示確認對話框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('確認登出'),
+        content: const Text('您確定要登出嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('確認登出'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // 執行登出
+      await Supabase.instance.client.auth.signOut();
+
+      if (mounted) {
+        // 顯示成功訊息
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已成功登出')),
+        );
+
+        // 返回到上一頁（通常會回到歡迎頁面，因為 auth listener 會處理導航）
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('登出失敗: $e')),
+        );
+      }
+    }
+  }
+
   void _showChangePasswordDialog() {
     // 清空輸入框
     _currentPasswordController.clear();
@@ -425,6 +474,33 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                         subtitle: const Text('更新您的登入密碼'),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: _showChangePasswordDialog,
+                      ),
+                    ),
+                  ),
+
+                  // 登出按鈕
+                  Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.logout,
+                          color: Colors.red.shade700,
+                        ),
+                        title: Text(
+                          '登出',
+                          style: TextStyle(color: Colors.red.shade700),
+                        ),
+                        subtitle: const Text('登出當前帳號'),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: _handleLogout,
                       ),
                     ),
                   ),

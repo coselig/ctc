@@ -2,10 +2,11 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/pages/ha_page.dart';
-import 'package:ctc/pages/photo_record_page.dart';
+import 'package:ctc/pages/join_company_page.dart';
 import 'package:ctc/pages/product_compass.dart';
 import 'package:ctc/pages/user_settings_page.dart';
 import 'package:ctc/services/image_service.dart';
+import 'package:ctc/services/user_permission_service.dart';
 import 'package:ctc/widgets/company_info_footer.dart';
 import 'package:ctc/widgets/compass_background.dart';
 import 'package:ctc/widgets/responsive_container.dart';
@@ -16,6 +17,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_page.dart';
 import 'product_page.dart';
+import 'system_home_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({
@@ -38,14 +40,44 @@ class _WelcomePageState extends State<WelcomePage> {
   Timer? _timer;
   StreamSubscription<AuthState>? _authSubscription;
   User? _currentUser;
+  bool _hasEmployeePermission = false;
+  late UserPermissionService _userPermissionService;
 
   @override
   void initState() {
     super.initState();
     _currentUser = supabase.auth.currentUser;
+    _userPermissionService = UserPermissionService(supabase);
     _setupAuthListener();
     _loadImages();
     _startImageTimer();
+    _checkEmployeePermission();
+  }
+
+  /// 檢查用戶的員工權限
+  Future<void> _checkEmployeePermission() async {
+    if (_currentUser == null) {
+      setState(() {
+        _hasEmployeePermission = false;
+      });
+      return;
+    }
+
+    try {
+      final hasPermission = await _userPermissionService.isUserInEmployeeList();
+      if (mounted) {
+        setState(() {
+          _hasEmployeePermission = hasPermission;
+        });
+      }
+    } catch (e) {
+      debugPrint('檢查員工權限失敗: $e');
+      if (mounted) {
+        setState(() {
+          _hasEmployeePermission = false;
+        });
+      }
+    }
   }
 
   void _setupAuthListener() {
@@ -57,6 +89,8 @@ class _WelcomePageState extends State<WelcomePage> {
         setState(() {
           _currentUser = session?.user;
         });
+        // 當用戶狀態改變時，重新檢查員工權限
+        _checkEmployeePermission();
       }
 
       // 可選：添加日誌以便調試
@@ -174,20 +208,60 @@ class _WelcomePageState extends State<WelcomePage> {
               onPressed: _handleLoginTap,
             )
           else
-            TextButton.icon(
-              icon: Icon(Icons.arrow_forward, color: primaryColor),
-              label: Text('進入系統', style: TextStyle(color: primaryColor)),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => PhotoRecordPage(
-                      title: '工地照片記錄系統',
-                      onThemeToggle: widget.onThemeToggle,
-                      currentThemeMode: widget.currentThemeMode,
+            PopupMenuButton<String>(
+              icon: Icon(Icons.account_circle, color: primaryColor),
+              tooltip: '用戶選單',
+              onSelected: (value) {
+                switch (value) {
+                  case 'system':
+                    if (_hasEmployeePermission) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => SystemHomePage(
+                            title: '光悅科技管理系統',
+                            onThemeToggle: widget.onThemeToggle,
+                            currentThemeMode: widget.currentThemeMode,
+                          ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('您尚未被加入到員工列表，無法進入系統功能頁面'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                    break;
+                  case 'settings':
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            UserSettingsPage(onThemeChanged: widget.onThemeToggle),
+                      ),
+                    );
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                if (_hasEmployeePermission)
+                  PopupMenuItem<String>(
+                    value: 'system',
+                    child: ListTile(
+                      leading: Icon(Icons.dashboard, color: primaryColor),
+                      title: const Text('進入系統'),
+                      dense: true,
                     ),
                   ),
-                );
-              },
+                PopupMenuItem<String>(
+                  value: 'settings',
+                  child: ListTile(
+                    leading: Icon(Icons.settings, color: primaryColor),
+                    title: const Text('用戶設置'),
+                    dense: true,
+                  ),
+                ),
+              ],
             ),
         ],
       ),
@@ -280,6 +354,42 @@ class _WelcomePageState extends State<WelcomePage> {
                   ),
                 ),
               ],
+              // 顯示給已登入但沒有員工權限的用戶
+              if (user != null && !_hasEmployeePermission)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Card(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '您尚未被加入到員工列表',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '請聯繫管理員將您的帳號 (${user.email}) 加入員工管理系統，即可使用系統功能',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ResponsiveContainer(
                 child: Column(
                   children: [
@@ -391,8 +501,8 @@ class _WelcomePageState extends State<WelcomePage> {
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.7,
-                          children: const [
-                            UnifiedCard(
+                          children: [
+                            const UnifiedCard(
                               imageName: 'customize_service.jpg',
                               title: '客製化服務',
                               subtitle: '專屬於你的智慧家居解決方案',
@@ -403,6 +513,17 @@ class _WelcomePageState extends State<WelcomePage> {
                               title: '加入光悅',
                               subtitle: '不一樣的工作體驗',
                               cardType: CardType.product,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => JoinCompanyPage(
+                                      onThemeToggle: widget.onThemeToggle,
+                                      currentThemeMode: widget.currentThemeMode,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
