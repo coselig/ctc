@@ -16,7 +16,7 @@ class TriangleBackground extends StatelessWidget {
         Container(
           width: double.infinity,
           height: double.infinity,
-          color: Theme.of(context).colorScheme.background,
+          color: Theme.of(context).colorScheme.surface,
         ),
         // 左上角三角形
         Positioned(

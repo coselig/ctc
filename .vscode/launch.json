@@ -32,8 +32,38 @@
             "deviceId": "chrome",
             "console": "debugConsole",
             "args": [
-                "--web-renderer",
-                "html"
+                "--web-port",
+                "8080"
+            ]
+        },
+        {
+            "name": "ctc (Web Server)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "web-server",
+            "console": "debugConsole",
+            "args": [
+                "--web-port",
+                "8080",
+                "--web-hostname",
+                "0.0.0.0"
+            ]
+        },
+        {
+            "name": "ctc (Web Server Port 80)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "web-server",
+            "console": "debugConsole",
+            "args": [
+                "--web-port",
+                "80",
+                "--web-hostname",
+                "0.0.0.0"
             ]
         }
     ],
