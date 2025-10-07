@@ -29,12 +29,18 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
   late final EmployeeService _employeeService;
   
   List<Employee> employees = [];
+  List<Employee> allEmployees = []; // 儲存所有員工資料
   List<String> departments = [];
   bool _isLoading = true;
   String? _selectedDepartment;
   EmployeeStatus? _selectedStatus;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  
+  // 分頁相關
+  int _currentPage = 1;
+  final int _itemsPerPage = 25;
+  int get _totalPages => (allEmployees.length / _itemsPerPage).ceil().clamp(1, double.infinity).toInt();
 
   @override
   void initState() {
@@ -69,7 +75,9 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
       );
 
       setState(() {
-        employees = employeeList;
+        allEmployees = employeeList;
+        _currentPage = 1; // 重置到第一頁
+        _updateDisplayedEmployees();
         _isLoading = false;
       });
     } catch (e) {
@@ -81,6 +89,32 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
           SnackBar(content: Text('載入員工資料失敗：$e')),
         );
       }
+    }
+  }
+
+  void _updateDisplayedEmployees() {
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, allEmployees.length);
+    employees = allEmployees.sublist(startIndex, endIndex);
+  }
+
+  void _goToPage(int page) {
+    if (page < 1 || page > _totalPages) return;
+    setState(() {
+      _currentPage = page;
+      _updateDisplayedEmployees();
+    });
+  }
+
+  void _previousPage() {
+    if (_currentPage > 1) {
+      _goToPage(_currentPage - 1);
+    }
+  }
+
+  void _nextPage() {
+    if (_currentPage < _totalPages) {
+      _goToPage(_currentPage + 1);
     }
   }
 
@@ -323,10 +357,31 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
           ),
         ),
         const SizedBox(height: 16),
+        // 分頁資訊和統計
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '共 ${allEmployees.length} 位員工',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                if (_totalPages > 1)
+                  Text(
+                    '第 $_currentPage / $_totalPages 頁 (每頁 $_itemsPerPage 筆)',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         // 員工列表
         SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: employees.isEmpty
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: allEmployees.isEmpty
               ? const Center(
                   child: Text(
                     '沒有找到員工資料',
@@ -454,8 +509,109 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                   },
                 ),
         ),
+        // 分頁按鈕
+        if (_totalPages > 1) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 第一頁按鈕
+                  IconButton(
+                    icon: const Icon(Icons.first_page),
+                    onPressed: _currentPage > 1 ? () => _goToPage(1) : null,
+                    tooltip: '第一頁',
+                  ),
+                  // 上一頁按鈕
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: _currentPage > 1 ? _previousPage : null,
+                    tooltip: '上一頁',
+                  ),
+                  const SizedBox(width: 16),
+                  // 頁碼顯示和快速跳轉
+                  ..._buildPageNumbers(),
+                  const SizedBox(width: 16),
+                  // 下一頁按鈕
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: _currentPage < _totalPages ? _nextPage : null,
+                    tooltip: '下一頁',
+                  ),
+                  // 最後一頁按鈕
+                  IconButton(
+                    icon: const Icon(Icons.last_page),
+                    onPressed: _currentPage < _totalPages ? () => _goToPage(_totalPages) : null,
+                    tooltip: '最後一頁',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  List<Widget> _buildPageNumbers() {
+    List<Widget> pageButtons = [];
+    
+    // 計算顯示哪些頁碼
+    int startPage = (_currentPage - 2).clamp(1, _totalPages);
+    int endPage = (_currentPage + 2).clamp(1, _totalPages);
+    
+    // 確保至少顯示5個頁碼（如果總頁數允許）
+    if (endPage - startPage < 4) {
+      if (startPage == 1) {
+        endPage = (startPage + 4).clamp(1, _totalPages);
+      } else if (endPage == _totalPages) {
+        startPage = (endPage - 4).clamp(1, _totalPages);
+      }
+    }
+    
+    // 如果起始頁不是第1頁，顯示省略號
+    if (startPage > 1) {
+      pageButtons.add(const Text('...', style: TextStyle(fontSize: 18)));
+      pageButtons.add(const SizedBox(width: 4));
+    }
+    
+    // 生成頁碼按鈕
+    for (int i = startPage; i <= endPage; i++) {
+      pageButtons.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: _currentPage == i
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '$i',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : TextButton(
+                  onPressed: () => _goToPage(i),
+                  child: Text('$i'),
+                ),
+        ),
+      );
+    }
+    
+    // 如果結束頁不是最後一頁，顯示省略號
+    if (endPage < _totalPages) {
+      pageButtons.add(const SizedBox(width: 4));
+      pageButtons.add(const Text('...', style: TextStyle(fontSize: 18)));
+    }
+    
+    return pageButtons;
   }
 
   Future<void> _sendInvitation(Employee employee) async {
