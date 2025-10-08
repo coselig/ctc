@@ -9,6 +9,8 @@ import '../widgets/widgets.dart';
 import 'attendance_page.dart';
 import 'attendance_stats_page.dart';
 import 'attendance_management_page.dart';
+import 'attendance_request_page.dart';
+import 'attendance_request_review_page.dart';
 import 'employee_management_page.dart';
 import 'photo_record_page.dart';
 import 'welcome_page.dart';
@@ -308,6 +310,25 @@ class _SystemHomePageState extends State<SystemHomePage> {
               },
             ),
             
+                // 補打卡申請
+                _buildSystemCard(
+                  context,
+                  icon: Icons.event_note,
+                  title: '補打卡申請',
+                  subtitle: '提交補打卡申請',
+                  color: Colors.cyan,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AttendanceRequestPage(
+                          onThemeToggle: widget.onThemeToggle,
+                          currentThemeMode: widget.currentThemeMode,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            
                 // 出勤管理（僅 HR 和老闆可見）
                 if (_canViewAllAttendance)
                 _buildSystemCard(
@@ -324,6 +345,26 @@ class _SystemHomePageState extends State<SystemHomePage> {
                     );
                   },
                 ),
+            
+                // 補打卡審核（僅 HR 和老闆可見）
+                if (_canViewAllAttendance)
+                  _buildSystemCard(
+                    context,
+                    icon: Icons.fact_check,
+                    title: '補打卡審核',
+                    subtitle: '審核補打卡申請',
+                    color: Colors.deepOrange,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => AttendanceRequestReviewPage(
+                            onThemeToggle: widget.onThemeToggle,
+                            currentThemeMode: widget.currentThemeMode,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
             
             // 系統報表
             _buildSystemCard(
