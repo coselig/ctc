@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/attendance_service.dart';
 import '../services/company_location_service.dart';
 import '../services/employee_service.dart';
+import '../services/permission_service.dart';
 import '../widgets/general_page.dart';
 import 'manual_attendance_page.dart';
 
@@ -30,6 +31,7 @@ class _AttendancePageState extends State<AttendancePage> {
   final supabase = Supabase.instance.client;
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
+  late final PermissionService _permissionService;
 
   Employee? _currentEmployee;
   AttendanceRecord? _todayRecord;
@@ -37,6 +39,7 @@ class _AttendancePageState extends State<AttendancePage> {
   bool _isLoading = true;
   bool _isCheckingIn = false;
   bool _isGettingLocation = false;
+  bool _canManualAttendance = false; // 是否可以手動補打卡（HR/老闆）
   
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
@@ -53,9 +56,25 @@ class _AttendancePageState extends State<AttendancePage> {
     super.initState();
     _attendanceService = AttendanceService(supabase);
     _employeeService = EmployeeService(supabase);
+    _permissionService = PermissionService();
     _loadCompanyLocation();
     _updateCompanyLocationFromAddress();
     _loadData();
+    _checkPermissions();
+  }
+
+  /// 檢查權限
+  Future<void> _checkPermissions() async {
+    try {
+      final canManual = await _permissionService.canViewAllAttendance();
+      if (mounted) {
+        setState(() {
+          _canManualAttendance = canManual;
+        });
+      }
+    } catch (e) {
+      print('檢查權限失敗: $e');
+    }
   }
 
   /// 從地址獲取精確座標並更新公司位置
@@ -1071,16 +1090,17 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
             const SizedBox(height: 12),
 
-            // 補打卡/編輯記錄按鈕
-            OutlinedButton.icon(
-              onPressed: _openManualAttendance,
-              icon: const Icon(Icons.edit_calendar),
-              label: const Text('補打卡 / 編輯記錄'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                side: BorderSide(color: Colors.blue.shade300),
+            // 補打卡/編輯記錄按鈕（僅 HR/老闆可見）
+            if (_canManualAttendance)
+              OutlinedButton.icon(
+                onPressed: _openManualAttendance,
+                icon: const Icon(Icons.edit_calendar),
+                label: const Text('手動補打卡 / 編輯記錄'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: BorderSide(color: Colors.blue.shade300),
+                ),
               ),
-            ),
           ],
         ),
       ),

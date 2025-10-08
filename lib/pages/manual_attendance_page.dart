@@ -4,8 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 import '../services/attendance_service.dart';
 import '../services/employee_service.dart';
+import '../services/permission_service.dart';
 
-/// 補打卡頁面
+/// 手動補打卡頁面（僅 HR/老闆可用）
 class ManualAttendancePage extends StatefulWidget {
   const ManualAttendancePage({super.key});
 
@@ -18,6 +19,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   final _supabase = Supabase.instance.client;
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
+  late final PermissionService _permissionService;
 
   Employee? _currentEmployee;
   AttendanceRecord? _existingRecord; // 當天是否已有打卡記錄
@@ -29,14 +31,46 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   String _notes = '';
   bool _isLoading = true; // 初始化時應該是 true，表示正在載入
   bool _isSubmitting = false;
-  bool _isCheckingRecord = false;
+  bool _isCheckingRecord = false; // 是否正在檢查記錄
+  bool _canManualAttendance = false; // 是否有手動補打卡權限
 
   @override
   void initState() {
     super.initState();
     _attendanceService = AttendanceService(_supabase);
     _employeeService = EmployeeService(_supabase);
-    _loadCurrentEmployee();
+    _permissionService = PermissionService();
+    _checkPermissions();
+  }
+
+  /// 檢查權限
+  Future<void> _checkPermissions() async {
+    try {
+      final canManual = await _permissionService.canViewAllAttendance();
+      if (mounted) {
+        setState(() {
+          _canManualAttendance = canManual;
+        });
+
+        // 如果有權限才載入員工資料
+        if (canManual) {
+          _loadCurrentEmployee();
+        } else {
+          // 沒有權限時，也要停止載入狀態
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('檢查權限失敗: $e');
+      if (mounted) {
+        setState(() {
+          _canManualAttendance = false;
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   /// 載入當前用戶的員工資料
@@ -321,10 +355,45 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 權限檢查
+    if (!_canManualAttendance) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('手動補打卡')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, size: 80, color: Colors.orange),
+              const SizedBox(height: 24),
+              const Text(
+                '權限不足',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  '此功能僅限 HR 和老闆使用\n\n一般員工請使用「補打卡申請」功能\n提交申請後等待審核',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('返回'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('補打卡'),
+          title: const Text('手動補打卡'),
         ),
         body: const Center(
           child: CircularProgressIndicator(),
@@ -335,7 +404,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
     if (_currentEmployee == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('補打卡'),
+          title: const Text('手動補打卡'),
         ),
         body: Center(
           child: Column(
@@ -361,7 +430,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('補打卡'),
+        title: const Text('手動補打卡（管理員）'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
