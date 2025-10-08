@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/employee.dart';
+import '../models/user_role.dart';
 import '../services/employee_service.dart';
+import '../services/permission_service.dart';
 import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
 import 'employee_form_page.dart';
@@ -26,18 +28,36 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   final supabase = Supabase.instance.client;
   late final EmployeeService _employeeService;
   late final EmployeeSkillService _skillService;
+  late final PermissionService _permissionService;
   
   Employee? currentEmployee;
   List<EmployeeSkill> skills = [];
   bool _isLoading = false;
+  bool _isBoss = false; // 當前用戶是否為老闆
 
   @override
   void initState() {
     super.initState();
     _employeeService = EmployeeService(supabase);
     _skillService = EmployeeSkillService(supabase);
+    _permissionService = PermissionService();
     currentEmployee = widget.employee;
+    _loadPermissions();
     _loadSkills();
+  }
+
+  /// 載入當前用戶權限
+  Future<void> _loadPermissions() async {
+    try {
+      final isBoss = await _permissionService.isBoss();
+      if (mounted) {
+        setState(() {
+          _isBoss = isBoss;
+        });
+      }
+    } catch (e) {
+      print('載入權限失敗: $e');
+    }
   }
 
   Future<void> _loadSkills() async {
@@ -210,6 +230,115 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     }
   }
 
+  /// 變更員工角色（僅老闆可用）
+  Future<void> _changeEmployeeRole() async {
+    if (!_isBoss) return;
+
+    final employee = currentEmployee!;
+    UserRole? selectedRole = employee.role;
+
+    final result = await showDialog<UserRole>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('變更員工角色'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('員工：${employee.name}'),
+              Text('當前角色：${employee.role.displayName}'),
+              const SizedBox(height: 16),
+              const Text(
+                '選擇新角色：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...UserRole.values.map(
+                (role) => RadioListTile<UserRole>(
+                  title: Text(role.displayName),
+                  subtitle: Text(_getRoleDescription(role)),
+                  value: role,
+                  groupValue: selectedRole,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedRole = value;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: selectedRole != null && selectedRole != employee.role
+                  ? () => Navigator.of(context).pop(selectedRole)
+                  : null,
+              child: const Text('確定變更'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null && result != employee.role) {
+      try {
+        final success = await _permissionService.updateEmployeeRole(
+          employee.id!,
+          result,
+        );
+
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已將 ${employee.name} 的角色變更為 ${result.displayName}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // 重新載入員工資料
+          final updatedEmployee = await _employeeService.getEmployeeById(
+            employee.id!,
+          );
+          if (updatedEmployee != null) {
+            setState(() {
+              currentEmployee = updatedEmployee;
+            });
+          }
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('變更角色失敗'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('變更角色失敗：$e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  /// 獲取角色說明
+  String _getRoleDescription(UserRole role) {
+    switch (role) {
+      case UserRole.boss:
+        return '最高權限，可管理所有功能和人員';
+      case UserRole.hr:
+        return '人事權限，可管理員工和出勤資料';
+      case UserRole.employee:
+        return '一般員工，僅能查看和編輯自己的資料';
+    }
+  }
+
   IconData _getThemeIcon() {
     switch (widget.currentThemeMode) {
       case ThemeMode.light:
@@ -231,6 +360,17 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         return Colors.red;
       case EmployeeStatus.terminated:
         return Colors.red.shade800;
+    }
+  }
+
+  Color _getRoleColor(UserRole role) {
+    switch (role) {
+      case UserRole.boss:
+        return Colors.purple;
+      case UserRole.hr:
+        return Colors.blue;
+      case UserRole.employee:
+        return Colors.grey;
     }
   }
 
@@ -355,6 +495,63 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                 _buildInfoRow('入職日期', '${employee.hireDate.year}/${employee.hireDate.month}/${employee.hireDate.day}'),
                 if (employee.salary != null)
                   _buildInfoRow('薪資', '\$${employee.salary!.toStringAsFixed(0)}'),
+                // 角色權限資訊
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(
+                        width: 100,
+                        child: Text(
+                          '權限角色：',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getRoleColor(employee.role),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                employee.role.displayName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            if (_isBoss) ...[
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: _changeEmployeeRole,
+                                icon: const Icon(
+                                  Icons.admin_panel_settings,
+                                  size: 16,
+                                ),
+                                label: const Text('變更角色'),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/employee.dart';
 import '../services/employee_service.dart';
+import '../services/permission_service.dart';
 import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
 import 'attendance_page.dart';
@@ -31,14 +32,32 @@ class SystemHomePage extends StatefulWidget {
 class _SystemHomePageState extends State<SystemHomePage> {
   final supabase = Supabase.instance.client;
   late final EmployeeService _employeeService;
+  late final PermissionService _permissionService;
   Employee? _currentEmployee;
   bool _isLoadingEmployee = true;
+  bool _canViewAllAttendance = false; // 是否可以查看所有出勤（HR/老闆）
 
   @override
   void initState() {
     super.initState();
     _employeeService = EmployeeService(supabase);
+    _permissionService = PermissionService();
     _loadCurrentEmployee();
+    _loadPermissions();
+  }
+
+  /// 載入用戶權限
+  Future<void> _loadPermissions() async {
+    try {
+      final canView = await _permissionService.canViewAllAttendance();
+      if (mounted) {
+        setState(() {
+          _canViewAllAttendance = canView;
+        });
+      }
+    } catch (e) {
+      print('載入權限失敗: $e');
+    }
   }
 
   /// 載入當前用戶的員工資料
@@ -289,7 +308,8 @@ class _SystemHomePageState extends State<SystemHomePage> {
               },
             ),
             
-                // 出勤管理（管理員功能）
+                // 出勤管理（僅 HR 和老闆可見）
+                if (_canViewAllAttendance)
                 _buildSystemCard(
                   context,
                   icon: Icons.admin_panel_settings,
@@ -335,63 +355,6 @@ class _SystemHomePageState extends State<SystemHomePage> {
           ],
             );
           },
-        ),
-        
-        const SizedBox(height: 32),
-        
-        // 快速操作區域
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '快速操作',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => PhotoRecordPage(
-                              title: '工地照片記錄系統',
-                              onThemeToggle: widget.onThemeToggle,
-                              currentThemeMode: widget.currentThemeMode,
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.add_a_photo),
-                      label: const Text('新增照片記錄'),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => EmployeeManagementPage(
-                              title: '員工管理系統',
-                              onThemeToggle: widget.onThemeToggle,
-                              currentThemeMode: widget.currentThemeMode,
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('新增員工'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );

@@ -32,6 +32,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
   List<Employee> allEmployees = []; // 儲存所有員工資料
   List<String> departments = [];
   bool _isLoading = true;
+  bool _hasCheckedSingleEmployee = false; // 是否已檢查過單一員工狀態
   String? _selectedDepartment;
   EmployeeStatus? _selectedStatus;
   String _searchQuery = '';
@@ -46,13 +47,71 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
   void initState() {
     super.initState();
     _employeeService = EmployeeService(supabase);
-    _loadData();
+    _checkAndLoadData();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// 檢查是否只有單一員工，如果是則直接跳轉到編輯頁面
+  Future<void> _checkAndLoadData() async {
+    if (_hasCheckedSingleEmployee) {
+      // 已經檢查過，只載入資料
+      await _loadData();
+      return;
+    }
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // 先載入員工列表
+      final employeeList = await _employeeService.getAllEmployees();
+
+      // 如果只有一個員工（一般員工只能看到自己）
+      if (employeeList.length == 1 && mounted) {
+        _hasCheckedSingleEmployee = true;
+        final employee = employeeList.first;
+
+        // 直接跳轉到編輯頁面（個人資料）
+        // 使用 pushReplacement 因為對於一般員工，列表頁面沒有意義
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => EmployeeFormPage(
+              employee: employee,
+              onThemeToggle: widget.onThemeToggle,
+              currentThemeMode: widget.currentThemeMode,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // 多個員工，顯示列表
+      _hasCheckedSingleEmployee = true;
+      setState(() {
+        allEmployees = employeeList;
+        _currentPage = 1;
+        _updateDisplayedEmployees();
+        _isLoading = false;
+      });
+
+      // 繼續載入部門資料
+      await _loadDepartments();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入員工資料失敗：$e')));
+      }
+    }
   }
 
   Future<void> _loadData() async {
