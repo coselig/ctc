@@ -404,4 +404,214 @@ class AttendanceService {
     final todayRecord = await getTodayAttendance(employeeId);
     return todayRecord?.checkOutTime != null;
   }
+
+  // ==================== 補打卡申請相關方法 ====================
+
+  /// 獲取指定日期的打卡記錄
+  Future<AttendanceRecord?> getAttendanceByDate({
+    required String employeeId,
+    required DateTime date,
+  }) async {
+    try {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final response = await _client
+          .from('attendance_records')
+          .select('*')
+          .eq('employee_id', employeeId)
+          .gte('check_in_time', startOfDay.toIso8601String())
+          .lt('check_in_time', endOfDay.toIso8601String())
+          .order('check_in_time', ascending: false)
+          .limit(1);
+
+      if (response.isNotEmpty) {
+        return AttendanceRecord.fromJson(response.first);
+      }
+      return null;
+    } catch (e) {
+      print('獲取指定日期打卡記錄失敗: $e');
+      rethrow;
+    }
+  }
+
+  /// 補上班打卡（用於補打卡申請核准後）
+  Future<AttendanceRecord> createManualCheckIn({
+    required String employeeId,
+    required String employeeName,
+    required String employeeEmail,
+    required DateTime checkInTime,
+    String? location,
+    String? notes,
+  }) async {
+    try {
+      // 檢查該日期是否已有打卡記錄
+      final existingRecord = await getAttendanceByDate(
+        employeeId: employeeId,
+        date: checkInTime,
+      );
+
+      if (existingRecord != null) {
+        throw Exception('該日期已有打卡記錄，請使用編輯功能');
+      }
+
+      final record = AttendanceRecord(
+        id: '',
+        employeeId: employeeId,
+        employeeName: employeeName,
+        employeeEmail: employeeEmail,
+        checkInTime: checkInTime,
+        location: location ?? '補打卡申請',
+        notes: notes ?? '補打卡申請已核准',
+        isManualEntry: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final response = await _client
+          .from('attendance_records')
+          .insert(record.toJsonForInsert())
+          .select()
+          .single();
+
+      return AttendanceRecord.fromJson(response);
+    } catch (e) {
+      print('補上班打卡失敗: $e');
+      rethrow;
+    }
+  }
+
+  /// 建立補下班打卡記錄（用於補打卡申請核准後）
+  ///
+  /// [checkInTime] 選填：如果提供，會同時修改上班時間
+  Future<void> createManualCheckOut({
+    required String employeeId,
+    required DateTime checkOutTime,
+    DateTime? checkInTime, // 新增：允許修改上班時間
+    String? location,
+    String? notes,
+  }) async {
+    try {
+      print('🔄 建立補下班打卡記錄...');
+      print('員工ID: $employeeId');
+      print('下班時間: $checkOutTime');
+      if (checkInTime != null) {
+        print('上班時間（修改）: $checkInTime');
+      }
+
+      // 1. 取得當天的打卡記錄
+      final existingRecord = await getAttendanceByDate(
+        employeeId: employeeId,
+        date: checkOutTime,
+      );
+
+      if (existingRecord == null) {
+        throw Exception('找不到該日期的上班打卡記錄，無法補下班打卡');
+      }
+
+      if (existingRecord.checkOutTime != null) {
+        print('⚠️ 該記錄已有下班時間: ${existingRecord.checkOutTime}');
+      }
+
+      // 2. 計算工作時數
+      // 如果有提供新的上班時間，使用新的；否則使用原有的
+      final actualCheckIn = checkInTime ?? existingRecord.checkInTime;
+      final duration = checkOutTime.difference(actualCheckIn);
+      final workHours = duration.inMinutes / 60.0;
+
+      print('上班時間: $actualCheckIn');
+      print('下班時間: $checkOutTime');
+      print('工作時數: $workHours 小時');
+
+      // 3. 更新打卡記錄
+      final updateData = {
+        'check_out_time': checkOutTime.toIso8601String(),
+        'work_hours': workHours,
+        'is_manual_entry': true,
+      };
+
+      // 如果有提供新的上班時間，也更新它
+      if (checkInTime != null) {
+        updateData['check_in_time'] = checkInTime.toIso8601String();
+      }
+
+      if (location != null) {
+        updateData['location'] = location;
+      }
+
+      if (notes != null) {
+        updateData['notes'] = notes;
+      }
+
+      final result = await _client
+          .from('attendance_records')
+          .update(updateData)
+          .eq('id', existingRecord.id)
+          .select()
+          .single();
+
+      print('✅ 補下班打卡記錄建立成功');
+      print('記錄ID: ${result['id']}');
+      if (checkInTime != null) {
+        print('已同時更新上班時間');
+      }
+    } catch (e, stack) {
+      print('❌ 建立補下班打卡記錄失敗: $e');
+      print('Stack trace: $stack');
+      rethrow;
+    }
+  }
+
+  /// 補整天打卡（用於補打卡申請核准後）
+  Future<AttendanceRecord> createManualFullDayRecord({
+    required String employeeId,
+    required String employeeName,
+    required String employeeEmail,
+    required DateTime checkInTime,
+    required DateTime checkOutTime,
+    String? location,
+    String? notes,
+  }) async {
+    try {
+      // 檢查該日期是否已有打卡記錄
+      final existingRecord = await getAttendanceByDate(
+        employeeId: employeeId,
+        date: checkInTime,
+      );
+
+      if (existingRecord != null) {
+        throw Exception('該日期已有打卡記錄，請使用編輯功能');
+      }
+
+      // 計算工作時數
+      final duration = checkOutTime.difference(checkInTime).inMinutes / 60.0;
+      final workHours = duration < 0 ? 0.0 : duration;
+
+      final record = AttendanceRecord(
+        id: '',
+        employeeId: employeeId,
+        employeeName: employeeName,
+        employeeEmail: employeeEmail,
+        checkInTime: checkInTime,
+        checkOutTime: checkOutTime,
+        workHours: workHours,
+        location: location ?? '補打卡申請',
+        notes: notes ?? '補打卡申請已核准',
+        isManualEntry: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final response = await _client
+          .from('attendance_records')
+          .insert(record.toJsonForInsert())
+          .select()
+          .single();
+
+      return AttendanceRecord.fromJson(response);
+    } catch (e) {
+      print('補整天打卡失敗: $e');
+      rethrow;
+    }
+  }
 }

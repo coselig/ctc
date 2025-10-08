@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/attendance_leave_request.dart';
 import '../models/employee.dart';
 import '../services/attendance_leave_request_service.dart';
+import '../services/attendance_service.dart';
 import '../services/employee_service.dart';
 import '../services/permission_service.dart';
 
@@ -26,6 +27,7 @@ class AttendanceRequestReviewPage extends StatefulWidget {
 class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPage> {
   final supabase = Supabase.instance.client;
   late final AttendanceLeaveRequestService _requestService;
+  late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
   late final PermissionService _permissionService;
 
@@ -44,6 +46,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
   void initState() {
     super.initState();
     _requestService = AttendanceLeaveRequestService(supabase);
+    _attendanceService = AttendanceService(supabase);
     _employeeService = EmployeeService(supabase);
     _permissionService = PermissionService();
     _checkPermissions();
@@ -174,13 +177,21 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         );
 
         // 核准後自動補打卡
-        await _createAttendanceRecord(request);
+        bool autoAttendanceSuccess = true;
+        try {
+          await _createAttendanceRecord(request);
+        } catch (e) {
+          autoAttendanceSuccess = false;
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('已核准申請並補打卡'),
+            SnackBar(
+              content: Text(
+                autoAttendanceSuccess ? '✅ 已核准申請並自動補打卡成功' : '✅ 已核准申請（請手動補打卡）',
+              ),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -213,19 +224,74 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
   }
 
   /// 創建打卡記錄（核准後）
-  /// 注意：這裡暫時不自動創建打卡記錄，因為 AttendanceService 沒有相應的方法
-  /// 管理員需要手動在打卡記錄頁面補打卡，或者需要擴展 AttendanceService
   Future<void> _createAttendanceRecord(AttendanceLeaveRequest request) async {
-    // TODO: 實現自動補打卡功能
-    // 目前需要管理員手動到打卡管理頁面補打卡
-    print('申請已核准，請手動補打卡記錄');
-    print('員工ID: ${request.employeeId}');
-    print('類型: ${request.requestType}');
-    if (request.requestType == AttendanceRequestType.fullDay) {
-      print('上班時間: ${request.checkInTime}');
-      print('下班時間: ${request.checkOutTime}');
-    } else {
-      print('時間: ${request.requestTime}');
+    try {
+      // 獲取申請人的員工資料
+      final employee = await _employeeService.getEmployeeById(
+        request.employeeId,
+      );
+      if (employee == null) {
+        throw Exception('找不到員工資料');
+      }
+
+      switch (request.requestType) {
+        case AttendanceRequestType.checkIn:
+          // 補上班打卡
+          await _attendanceService.createManualCheckIn(
+            employeeId: request.employeeId,
+            employeeName: request.employeeName,
+            employeeEmail: employee.email ?? '',
+            checkInTime: request.requestTime!,
+            location: '補打卡申請',
+            notes: '補打卡申請已核准\n原因：${request.reason}',
+          );
+          print('✅ 已自動補上班打卡');
+          break;
+
+        case AttendanceRequestType.checkOut:
+          // 補下班打卡（可能同時修改上班時間）
+          await _attendanceService.createManualCheckOut(
+            employeeId: request.employeeId,
+            checkOutTime: request.requestTime!,
+            checkInTime: request.checkInTime, // 傳入上班時間（如果有提供）
+            location: '補打卡申請',
+            notes: '補打卡申請已核准\n原因：${request.reason}',
+          );
+          print('✅ 已自動補下班打卡${request.checkInTime != null ? '（含上班時間修改）' : ''}');
+          break;
+
+        case AttendanceRequestType.fullDay:
+          // 補整天打卡
+          await _attendanceService.createManualFullDayRecord(
+            employeeId: request.employeeId,
+            employeeName: request.employeeName,
+            employeeEmail: employee.email ?? '',
+            checkInTime: request.checkInTime!,
+            checkOutTime: request.checkOutTime!,
+            location: '補打卡申請',
+            notes: '補打卡申請已核准\n原因：${request.reason}',
+          );
+          print('✅ 已自動補整天打卡');
+          break;
+      }
+    } catch (e) {
+      print('❌ 自動補打卡失敗: $e');
+      // 不拋出錯誤，因為申請已經核准了
+      // 顯示警告訊息給審核者
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('申請已核准，但自動補打卡失敗：$e\n請手動到「手動補打卡」頁面補打卡'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: '知道了',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
     }
   }
 

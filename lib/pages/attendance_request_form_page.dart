@@ -38,6 +38,7 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
   TimeOfDay _requestTime = TimeOfDay.now();
   TimeOfDay _checkInTime = const TimeOfDay(hour: 8, minute: 30);
   TimeOfDay _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
+  bool _modifyCheckIn = false; // 補下班打卡時，是否要同時修改上班時間
 
   Employee? _currentEmployee;
   bool _isLoading = false;
@@ -136,7 +137,9 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
             : null,
         checkInTime: _requestType == AttendanceRequestType.fullDay
             ? _combineDateAndTime(_requestDate, _checkInTime)
-            : null,
+            : (_requestType == AttendanceRequestType.checkOut && _modifyCheckIn
+                  ? _combineDateAndTime(_requestDate, _checkInTime)
+                  : null),
         checkOutTime: _requestType == AttendanceRequestType.fullDay
             ? _combineDateAndTime(_requestDate, _checkOutTime)
             : null,
@@ -305,6 +308,39 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                           onTap: () => _selectTime(null),
                         ),
+                        
+                        // 補下班打卡時：提供修改上班時間的選項
+                        if (_requestType == AttendanceRequestType.checkOut) ...[
+                          const Divider(),
+                          CheckboxListTile(
+                            secondary: const Icon(Icons.edit_calendar),
+                            title: const Text('同時修改上班時間'),
+                            subtitle: Text(
+                              _modifyCheckIn
+                                  ? '上班時間：${_checkInTime.format(context)}'
+                                  : '不修改上班時間（使用原有記錄）',
+                            ),
+                            value: _modifyCheckIn,
+                            onChanged: (value) {
+                              setState(() {
+                                _modifyCheckIn = value ?? false;
+                              });
+                            },
+                          ),
+                          if (_modifyCheckIn) ...[
+                            const Divider(),
+                            ListTile(
+                              leading: const Icon(Icons.login),
+                              title: const Text('修改上班時間為'),
+                              subtitle: Text(_checkInTime.format(context)),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                              ),
+                              onTap: () => _selectTime(true),
+                            ),
+                          ],
+                        ],
                       ],
                     ],
                   ),
@@ -321,7 +357,7 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '申請原因',
+                        '申請原因（選填）',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -332,16 +368,11 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                         maxLines: 4,
                         maxLength: 500,
                         decoration: const InputDecoration(
-                          hintText: '請詳細說明補打卡的原因...',
+                          hintText: '可填寫補打卡的原因（選填）...',
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return '請填寫申請原因';
-                          }
-                          if (value.trim().length < 10) {
-                            return '申請原因至少需要 10 個字';
-                          }
+                          // 原因改為選填，不強制要求
                           return null;
                         },
                       ),
