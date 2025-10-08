@@ -10,6 +10,7 @@ import 'attendance_stats_page.dart';
 import 'attendance_management_page.dart';
 import 'attendance_data_debug_page.dart';
 import 'employee_management_page.dart';
+import 'manual_attendance_page.dart';
 import 'photo_record_page.dart';
 import 'registered_users_debug_page.dart';
 import 'welcome_page.dart';
@@ -292,6 +293,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
                 );
               },
             ),
+            
+                // 補打卡
+                _buildSystemCard(
+                  context,
+                  icon: Icons.edit_calendar,
+                  title: '補打卡',
+                  subtitle: '補登忘記打卡的記錄',
+                  color: Colors.amber,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ManualAttendancePage(),
+                      ),
+                    );
+                  },
+                ),
             
                 // 出勤管理（管理員功能）
                 _buildSystemCard(

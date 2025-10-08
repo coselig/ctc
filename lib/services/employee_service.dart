@@ -63,6 +63,31 @@ class EmployeeService {
     }
   }
 
+  /// 根據Email獲取員工資料
+  Future<Employee?> getEmployeeByEmail(String email) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        throw Exception('必須登入才能查看員工資料');
+      }
+
+      final response = await _client
+          .from('employees')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (response == null) {
+        return null;
+      }
+
+      return Employee.fromJson(response);
+    } catch (e) {
+      print('根據Email獲取員工資料失敗: $e');
+      return null;
+    }
+  }
+
   /// 創建新員工
   Future<Employee> createEmployee(Employee employee) async {
     try {

@@ -202,17 +202,40 @@ class ExcelExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex))
           .value = DoubleCellValue(overtimeHours);
       
-      // 狀態
+      // 狀態 - 標示補打卡記錄
       String status;
-      if (record.checkOutTime == null) {
-        status = '工作中';
-      } else if (workHours >= 8.0) {
-        status = '正常';
+      if (record.isManualEntry) {
+        // 補打卡記錄
+        if (record.checkOutTime == null) {
+          status = '補登(未完成)';
+        } else if (workHours >= 8.0) {
+          status = '補登(正常)';
+        } else {
+          status = '補登(早退)';
+        }
       } else {
-        status = '早退';
+        // 正常打卡記錄
+        if (record.checkOutTime == null) {
+          status = '工作中';
+        } else if (workHours >= 8.0) {
+          status = '正常';
+        } else {
+          status = '早退';
+        }
       }
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex))
-          .value = TextCellValue(status);
+
+      final statusCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex),
+      );
+      statusCell.value = TextCellValue(status);
+
+      // 如果是補打卡,設定背景色為黃色提醒
+      if (record.isManualEntry) {
+        statusCell.cellStyle = CellStyle(
+          backgroundColorHex: ExcelColor.yellow,
+          bold: true,
+        );
+      }
       
       // 打卡地點
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: rowIndex))

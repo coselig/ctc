@@ -253,6 +253,72 @@ class AttendanceService {
     }
   }
 
+  /// 補登打卡記錄（手動輸入上下班時間）
+  Future<AttendanceRecord> createManualAttendance({
+    required Employee employee,
+    required DateTime checkInTime,
+    DateTime? checkOutTime,
+    String? location,
+    required String notes, // 補打卡必須填寫原因
+  }) async {
+    try {
+      // 檢查員工ID是否存在
+      if (employee.id == null) {
+        throw Exception('員工ID不能為空');
+      }
+
+      // 檢查該日期是否已經有打卡記錄
+      final targetDate = DateTime(
+        checkInTime.year,
+        checkInTime.month,
+        checkInTime.day,
+      );
+      final existingRecords = await getAllAttendanceRecords(
+        employeeId: employee.id!,
+        startDate: targetDate,
+        endDate: targetDate.add(const Duration(days: 1)),
+      );
+
+      if (existingRecords.isNotEmpty) {
+        throw Exception('該日期已經有打卡記錄，請使用編輯功能修改');
+      }
+
+      // 計算工作時數
+      double? workHours;
+      if (checkOutTime != null) {
+        final duration = checkOutTime.difference(checkInTime).inMinutes / 60.0;
+        workHours = duration < 0 ? 0.0 : duration;
+      }
+
+      final now = DateTime.now();
+      final record = AttendanceRecord(
+        id: '', // 資料庫會自動生成
+        employeeId: employee.id!,
+        employeeName: employee.name,
+        employeeEmail: employee.email ?? '',
+        checkInTime: checkInTime,
+        checkOutTime: checkOutTime,
+        workHours: workHours,
+        location: location,
+        notes: '【補打卡】$notes',
+        isManualEntry: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final response = await _client
+          .from('attendance_records')
+          .insert(record.toJsonForInsert())
+          .select()
+          .single();
+
+      return AttendanceRecord.fromJson(response);
+    } catch (e) {
+      print('補登打卡記錄失敗: $e');
+      rethrow;
+    }
+  }
+
   /// 獲取員工打卡統計
   Future<AttendanceStats> getAttendanceStats({
     required String employeeId,
