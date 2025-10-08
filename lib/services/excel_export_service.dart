@@ -187,13 +187,17 @@ class ExcelExportService {
             record.checkOutTime != null ? _formatTime(record.checkOutTime!) : '未打卡',
           );
       
-      // 工作時數
+      // 工作時數 - 確保不顯示負數,取絕對值且最小為0
+      final workHours = record.workHours != null
+          ? (record.workHours! < 0 ? 0.0 : record.workHours!)
+          : 0.0;
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex))
-          .value = DoubleCellValue(record.workHours ?? 0.0);
+          .value = DoubleCellValue(
+        workHours,
+      );
       
-      // 加班時數（假設超過8小時為加班）
-      final overtimeHours = (record.workHours ?? 0.0) > 8.0 
-          ? (record.workHours! - 8.0) 
+      // 加班時數（超過8小時為加班，且確保不為負數）
+      final overtimeHours = workHours > 8.0 ? (workHours - 8.0) 
           : 0.0;
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex))
           .value = DoubleCellValue(overtimeHours);
@@ -202,7 +206,7 @@ class ExcelExportService {
       String status;
       if (record.checkOutTime == null) {
         status = '工作中';
-      } else if ((record.workHours ?? 0) >= 8.0) {
+      } else if (workHours >= 8.0) {
         status = '正常';
       } else {
         status = '早退';
@@ -220,6 +224,11 @@ class ExcelExportService {
     }
     
     print('打卡記錄工作表完成，共寫入 ${records.length} 筆資料');
+    
+    // 在底部添加員工統計匯總
+    if (records.isNotEmpty) {
+      _addEmployeeSummarySection(sheet, records.length, employeeMap);
+    }
     
     // 設定欄寬
     sheet.setColumnWidth(0, 12);  // 日期
@@ -273,10 +282,16 @@ class ExcelExportService {
       
       final stats = employeeStats[employeeId]!;
       stats['totalDays'] += 1;
-      stats['totalHours'] += record.workHours ?? 0.0;
       
-      if ((record.workHours ?? 0.0) > 8.0) {
-        stats['totalOvertime'] += (record.workHours! - 8.0);
+      // 確保工作時數不為負數
+      final workHours = record.workHours != null
+          ? (record.workHours! < 0 ? 0.0 : record.workHours!)
+          : 0.0;
+      stats['totalHours'] += workHours;
+      
+      // 計算加班時數（確保不為負數）
+      if (workHours > 8.0) {
+        stats['totalOvertime'] += (workHours - 8.0);
       }
       
       if (record.checkOutTime != null) {
@@ -402,6 +417,231 @@ class ExcelExportService {
     for (var i = 0; i < headers.length; i++) {
       sheet.setColumnWidth(i, 15);
     }
+  }
+
+  /// 在打卡記錄工作表底部添加員工統計匯總（使用Excel公式）
+  void _addEmployeeSummarySection(
+    Sheet sheet,
+    int dataRowCount,
+    Map<String?, Employee> employeeMap,
+  ) {
+    print('添加員工統計匯總區...');
+
+    // 計算起始行（資料列 + 標題列 + 空行）
+    final summaryStartRow = dataRowCount + 2;
+
+    // 添加區塊標題
+    final titleCell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: summaryStartRow),
+    );
+    titleCell.value = TextCellValue('📊 員工統計匯總');
+    titleCell.cellStyle = CellStyle(
+      bold: true,
+      fontSize: 14,
+      backgroundColorHex: ExcelColor.blue,
+      fontColorHex: ExcelColor.white,
+    );
+
+    // 合併標題單元格（A到K列）
+    sheet.merge(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: summaryStartRow),
+      CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: summaryStartRow),
+    );
+
+    // 統計表標題列
+    final summaryHeaderRow = summaryStartRow + 2;
+    final summaryHeaders = [
+      '員工編號',
+      '員工姓名',
+      '部門',
+      '打卡天數',
+      '總工作時數',
+      '總加班時數',
+      '平均每日時數',
+      '完整打卡天數',
+      '未完整天數',
+    ];
+
+    for (var i = 0; i < summaryHeaders.length; i++) {
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: i, rowIndex: summaryHeaderRow),
+      );
+      cell.value = TextCellValue(summaryHeaders[i]);
+      cell.cellStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.green200,
+        horizontalAlign: HorizontalAlign.Center,
+      );
+    }
+
+    // 獲取唯一的員工列表
+    final uniqueEmployees = employeeMap.values.toSet().toList();
+    uniqueEmployees.sort((a, b) => a.employeeId.compareTo(b.employeeId));
+
+    print('開始寫入 ${uniqueEmployees.length} 位員工的統計公式...');
+
+    // 為每個員工創建一行統計資料（使用Excel公式）
+    for (var i = 0; i < uniqueEmployees.length; i++) {
+      final employee = uniqueEmployees[i];
+      final rowIndex = summaryHeaderRow + 1 + i;
+
+      // 員工編號
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex))
+          .value = TextCellValue(
+        employee.employeeId,
+      );
+
+      // 員工姓名
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex))
+          .value = TextCellValue(
+        employee.name,
+      );
+
+      // 部門
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex))
+          .value = TextCellValue(
+        employee.department,
+      );
+
+      // 打卡天數 - 使用COUNTIF公式統計該員工的記錄數
+      // 公式: =COUNTIF(B$2:B$[dataRowCount+1], A[rowIndex])
+      final countFormula = FormulaCellValue(
+        'COUNTIF(B\$2:B\$${dataRowCount + 1},A${rowIndex + 1})',
+      );
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
+              )
+              .value =
+          countFormula;
+
+      // 總工作時數 - 使用SUMIF公式加總該員工的工作時數
+      // 公式: =SUMIF(B$2:B$[dataRowCount+1], A[rowIndex], G$2:G$[dataRowCount+1])
+      final workHoursFormula = FormulaCellValue(
+        'SUMIF(B\$2:B\$${dataRowCount + 1},A${rowIndex + 1},G\$2:G\$${dataRowCount + 1})',
+      );
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex),
+              )
+              .value =
+          workHoursFormula;
+
+      // 總加班時數 - 使用SUMIF公式加總該員工的加班時數
+      // 公式: =SUMIF(B$2:B$[dataRowCount+1], A[rowIndex], H$2:H$[dataRowCount+1])
+      final overtimeFormula = FormulaCellValue(
+        'SUMIF(B\$2:B\$${dataRowCount + 1},A${rowIndex + 1},H\$2:H\$${dataRowCount + 1})',
+      );
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+              )
+              .value =
+          overtimeFormula;
+
+      // 平均每日時數 - 總工作時數除以打卡天數
+      // 公式: =IF(D[rowIndex]>0, E[rowIndex]/D[rowIndex], 0)
+      final avgFormula = FormulaCellValue(
+        'IF(D${rowIndex + 1}>0,E${rowIndex + 1}/D${rowIndex + 1},0)',
+      );
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+              )
+              .value =
+          avgFormula;
+
+      // 完整打卡天數 - 統計該員工"正常"或"早退"狀態的天數
+      // 公式: =COUNTIFS(B$2:B$[dataRowCount+1], A[rowIndex], I$2:I$[dataRowCount+1], "正常") +
+      //       COUNTIFS(B$2:B$[dataRowCount+1], A[rowIndex], I$2:I$[dataRowCount+1], "早退")
+      final completeDaysFormula = FormulaCellValue(
+        'COUNTIFS(B\$2:B\$${dataRowCount + 1},A${rowIndex + 1},I\$2:I\$${dataRowCount + 1},"正常")+COUNTIFS(B\$2:B\$${dataRowCount + 1},A${rowIndex + 1},I\$2:I\$${dataRowCount + 1},"早退")',
+      );
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex),
+              )
+              .value =
+          completeDaysFormula;
+
+      // 未完整天數 - 統計該員工"工作中"狀態的天數
+      // 公式: =COUNTIFS(B$2:B$[dataRowCount+1], A[rowIndex], I$2:I$[dataRowCount+1], "工作中")
+      final incompleteDaysFormula = FormulaCellValue(
+        'COUNTIFS(B\$2:B\$${dataRowCount + 1},A${rowIndex + 1},I\$2:I\$${dataRowCount + 1},"工作中")',
+      );
+      sheet
+              .cell(
+                CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex),
+              )
+              .value =
+          incompleteDaysFormula;
+
+      print('  ${employee.name}: 已添加統計公式');
+    }
+
+    // 添加總計行
+    final totalRow = summaryHeaderRow + uniqueEmployees.length + 1;
+
+    // "總計" 標籤
+    final totalLabelCell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: totalRow),
+    );
+    totalLabelCell.value = TextCellValue('📈 總計');
+    totalLabelCell.cellStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.yellow,
+    );
+
+    // 合併總計標籤（A到C列）
+    sheet.merge(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: totalRow),
+      CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: totalRow),
+    );
+
+    // 總打卡天數 - SUM公式
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: totalRow))
+        .value = FormulaCellValue(
+      'SUM(D${summaryHeaderRow + 2}:D${summaryHeaderRow + uniqueEmployees.length + 1})',
+    );
+
+    // 總工作時數 - SUM公式
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: totalRow))
+        .value = FormulaCellValue(
+      'SUM(E${summaryHeaderRow + 2}:E${summaryHeaderRow + uniqueEmployees.length + 1})',
+    );
+
+    // 總加班時數 - SUM公式
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: totalRow))
+        .value = FormulaCellValue(
+      'SUM(F${summaryHeaderRow + 2}:F${summaryHeaderRow + uniqueEmployees.length + 1})',
+    );
+
+    // 平均每日時數 - AVERAGE公式
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: totalRow))
+        .value = FormulaCellValue(
+      'AVERAGE(G${summaryHeaderRow + 2}:G${summaryHeaderRow + uniqueEmployees.length + 1})',
+    );
+
+    // 應用樣式到總計行
+    for (var col = 3; col < 7; col++) {
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: totalRow),
+          )
+          .cellStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.yellow,
+      );
+    }
+
+    print('✓ 員工統計匯總完成（共 ${uniqueEmployees.length} 位員工 + 總計行）');
   }
 
   /// 下載Excel檔案

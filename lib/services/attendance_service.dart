@@ -143,8 +143,10 @@ class AttendanceService {
         throw Exception('已經打過下班卡了');
       }
 
-      // 計算工作時數
-      final workHours = now.difference(existingRecord.checkInTime).inMinutes / 60.0;
+      // 計算工作時數 - 確保不為負數
+      final duration =
+          now.difference(existingRecord.checkInTime).inMinutes / 60.0;
+      final workHours = duration < 0 ? 0.0 : duration;
 
       final updateData = {
         'check_out_time': now.toIso8601String(),
@@ -218,7 +220,9 @@ class AttendanceService {
         final newCheckOut = checkOutTime ?? existingRecord.checkOutTime;
         
         if (newCheckOut != null) {
-          final workHours = newCheckOut.difference(newCheckIn).inMinutes / 60.0;
+          final duration = newCheckOut.difference(newCheckIn).inMinutes / 60.0;
+          // 確保工作時數不為負數
+          final workHours = duration < 0 ? 0.0 : duration;
           updateData['work_hours'] = workHours;
         }
       }
