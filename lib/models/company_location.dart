@@ -1,32 +1,32 @@
 /// 公司位置配置類
 class CompanyLocationConfig {
   static const String defaultCompanyName = '光悅科技股份有限公司';
-  static const double defaultLatitude = 24.202445;   // 光悅科技實際GPS座標
-  static const double defaultLongitude = 120.655053;
-  static const double defaultRadius = 100.0; // 100公尺
+  static const double defaultLatitude = 24.1925295; // 根據實際測試修正的GPS座標
+  static const double defaultLongitude = 120.6648565;
+  static const double defaultRadius = 80.0; // 80公尺（覆蓋WiFi和手機網路誤差）
 
   // 預設的公司位置列表
   static const List<CompanyLocation> predefinedLocations = [
     CompanyLocation(
       name: '光悅科技股份有限公司',
       address: '406台中市北屯區后庄七街215號',
-      latitude: 24.202445,
-      longitude: 120.655053,
-      radius: 100.0,
+      latitude: 24.1925295, // 根據實際測試修正
+      longitude: 120.6648565,
+      radius: 80.0, // 適中範圍
     ),
     CompanyLocation(
       name: '光悅科技總部',
       address: '406台中市北屯區后庄七街215號',
-      latitude: 24.202445,
-      longitude: 120.655053,
-      radius: 150.0,
+      latitude: 24.1925295,
+      longitude: 120.6648565,
+      radius: 120.0, // 較大範圍
     ),
     CompanyLocation(
       name: '光悅科技 (擴大範圍)',
       address: '406台中市北屯區后庄七街215號',
-      latitude: 24.202445,
-      longitude: 120.655053,
-      radius: 200.0,
+      latitude: 24.1925295,
+      longitude: 120.6648565,
+      radius: 200.0, // 最大範圍
     ),
   ];
 }

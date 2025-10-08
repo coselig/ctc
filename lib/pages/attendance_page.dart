@@ -42,6 +42,10 @@ class _AttendancePageState extends State<AttendancePage> {
   
   // 公司位置設定 (從本地存儲讀取)
   CompanyLocation? _companyLocation;
+  
+  // 位置快取機制
+  Position? _cachedPosition;
+  DateTime? _cachedPositionTime;
 
   @override
   void initState() {
@@ -58,13 +62,13 @@ class _AttendancePageState extends State<AttendancePage> {
     try {
       const address = '406台中市北屯區后庄七街215號';
       
-      // 先使用實際的精確座標
+      // 先使用實際測試修正的精確座標
       const preciseLocation = CompanyLocation(
         name: '光悅科技股份有限公司',
         address: address,
-        latitude: 24.202445,  // 光悅科技實際GPS座標
-        longitude: 120.655053,
-        radius: 100.0,
+        latitude: 24.1925295, // 根據實際手機測試修正的GPS座標
+        longitude: 120.6648565,
+        radius: 80.0, // 80公尺範圍，涵蓋WiFi和手機網路誤差
       );
       
       // 保存座標
@@ -223,10 +227,16 @@ class _AttendancePageState extends State<AttendancePage> {
         return;
       }
 
-      // 獲取當前位置
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+      // 獲取當前位置（使用快取機制）
+      Position? position = await _getCachedPosition();
+      if (position == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('無法獲取位置信息')));
+        }
+        return;
+      }
 
       // 檢查是否在公司範圍內 (如果公司位置已載入)
       double? distanceToCompany;
@@ -544,6 +554,11 @@ class _AttendancePageState extends State<AttendancePage> {
         }
 
         final isInCompany = snapshot.data ?? false;
+        final now = DateTime.now();
+        final cacheAge = _cachedPositionTime != null
+            ? now.difference(_cachedPositionTime!).inSeconds
+            : 0;
+            
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -553,32 +568,46 @@ class _AttendancePageState extends State<AttendancePage> {
               color: isInCompany ? Colors.green.shade300 : Colors.orange.shade300,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                isInCompany ? Icons.business : Icons.location_on,
-                size: 16,
-                color: isInCompany ? Colors.green.shade700 : Colors.orange.shade700,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isInCompany 
-                    ? '✓ 您目前在公司範圍內'
-                    : '⚠ 您目前不在公司範圍內',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isInCompany ? Colors.green.shade700 : Colors.orange.shade700,
+              Row(
+                children: [
+                  Icon(
+                    isInCompany ? Icons.business : Icons.location_on,
+                    size: 16,
+                    color: isInCompany
+                        ? Colors.green.shade700
+                        : Colors.orange.shade700,
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isInCompany ? '✓ 您目前在公司範圍內' : '⚠ 您目前不在公司範圍內',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isInCompany
+                            ? Colors.green.shade700
+                            : Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                  if (!isInCompany)
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: Colors.orange.shade700,
+                    ),
+                ],
               ),
-              if (!isInCompany)
-                Icon(
-                  Icons.info_outline,
-                  size: 14,
-                  color: Colors.orange.shade700,
+              if (cacheAge > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '位置更新於 ${cacheAge}秒前',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                 ),
+              ],
             ],
           ),
         );
@@ -586,33 +615,73 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
+  /// 獲取位置（使用快取機制）
+  Future<Position?> _getCachedPosition() async {
+    final now = DateTime.now();
+
+    // 如果快取存在且不超過 30 秒，使用快取
+    if (_cachedPosition != null &&
+        _cachedPositionTime != null &&
+        now.difference(_cachedPositionTime!).inSeconds < 30) {
+      return _cachedPosition;
+    }
+    
+    try {
+      // 檢查位置權限
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+
+      // 獲取新位置
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      // 更新快取
+      _cachedPosition = position;
+      _cachedPositionTime = now;
+
+      return position;
+    } catch (e) {
+      print('獲取位置失敗: $e');
+      return null;
+    }
+  }
+
   /// 檢查當前位置是否在公司範圍內
   Future<bool> _isCurrentLocationInCompany() async {
     try {
       if (_companyLocation == null) return false;
 
-      // 檢查位置權限
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied || 
-          permission == LocationPermission.deniedForever) {
-        return false;
-      }
-
-      // 獲取當前位置
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-      ).timeout(const Duration(seconds: 5));
+      // 獲取位置（使用快取）
+      Position? position = await _getCachedPosition();
+      if (position == null) return false;
 
       // 計算距離
       double distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
         _companyLocation!.latitude,
-        _companyLocation!.longitude,
+        _companyLocation!.longitude,  
+      );
+
+      // 記錄調試信息
+      print(
+        '位置檢查 - 當前座標: (${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)})',
+      );
+      print(
+        '位置檢查 - 公司座標: (${_companyLocation!.latitude.toStringAsFixed(6)}, ${_companyLocation!.longitude.toStringAsFixed(6)})',
+      );
+      print(
+        '位置檢查 - 距離公司: ${distance.round()}公尺, 範圍: ${_companyLocation!.radius}公尺',
       );
 
       return distance <= _companyLocation!.radius;
     } catch (e) {
+      print('位置檢查失敗: $e');
       return false;
     }
   }
@@ -637,7 +706,7 @@ class _AttendancePageState extends State<AttendancePage> {
             _buildLocationStatusIndicator(),
             const SizedBox(height: 12),
             
-            // 地點輸入
+            // 地點輸入和位置控制按鈕
             Row(
               children: [
                 Expanded(
@@ -652,8 +721,19 @@ class _AttendancePageState extends State<AttendancePage> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                // 整合的定位按鈕
                 IconButton(
-                  onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                  onPressed: _isGettingLocation
+                      ? null
+                      : () async {
+                          // 先清除快取，確保獲取最新位置
+                          _cachedPosition = null;
+                          _cachedPositionTime = null;
+                          // 然後獲取當前位置
+                          await _getCurrentLocation();
+                          // 觸發位置狀態指示器重建
+                          setState(() {});
+                        },
                   icon: _isGettingLocation 
                     ? const SizedBox(
                         width: 20,
@@ -663,8 +743,8 @@ class _AttendancePageState extends State<AttendancePage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.my_location, color: Colors.white),
-                  tooltip: '獲取當前位置',
+                      : const Icon(Icons.my_location),
+                  tooltip: '獲取當前位置並刷新狀態',
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.blue.shade600,
                     foregroundColor: Colors.white,
