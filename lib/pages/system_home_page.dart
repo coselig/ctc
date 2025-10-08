@@ -7,6 +7,8 @@ import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
 import 'attendance_page.dart';
 import 'attendance_stats_page.dart';
+import 'attendance_management_page.dart';
+import 'attendance_data_debug_page.dart';
 import 'employee_management_page.dart';
 import 'photo_record_page.dart';
 import 'registered_users_debug_page.dart';
@@ -280,7 +282,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
               context,
               icon: Icons.analytics,
               title: '打卡統計',
-              subtitle: '考勤統計與報表',
+                  subtitle: '個人考勤統計',
               color: Colors.purple,
               onTap: () {
                 Navigator.of(context).push(
@@ -290,6 +292,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
                 );
               },
             ),
+            
+                // 出勤管理（管理員功能）
+                _buildSystemCard(
+                  context,
+                  icon: Icons.admin_panel_settings,
+                  title: '出勤管理',
+                  subtitle: '所有員工出勤資料匯出',
+                  color: Colors.indigo,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AttendanceManagementPage(),
+                      ),
+                    );
+                  },
+                ),
             
             // 系統報表
             _buildSystemCard(
@@ -334,6 +352,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
                 );
               },
             ),
+            
+                // 打卡資料調試
+                _buildSystemCard(
+                  context,
+                  icon: Icons.data_usage,
+                  title: '打卡資料診斷',
+                  subtitle: '檢查打卡記錄資料',
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AttendanceDataDebugPage(),
+                      ),
+                    );
+                  },
+                ),
           ],
             );
           },
