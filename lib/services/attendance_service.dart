@@ -280,7 +280,7 @@ class AttendanceService {
       );
 
       if (existingRecords.isNotEmpty) {
-        throw Exception('該日期已經有打卡記錄，請使用編輯功能修改');
+        throw Exception('該日期已經有打卡記錄\n請在頁面上選擇該日期後使用編輯模式修改');
       }
 
       // 計算工作時數
@@ -342,19 +342,21 @@ class AttendanceService {
       final averageHours = workDays > 0 ? totalHours / workDays : 0.0;
       final attendanceRate = totalDays > 0 ? (workDays / totalDays) * 100 : 0.0;
 
-      // 計算遲到和早退次數 (假設標準工時是 9:00-18:00)
+      // 計算遲到和早退次數 (假設標準工時是 8:30-17:30)
       int lateCount = 0;
       int earlyLeaveCount = 0;
 
       for (final record in records) {
         final checkInHour = record.checkInTime.hour + record.checkInTime.minute / 60.0;
-        if (checkInHour > 9.0) {
+        if (checkInHour > 8.5) {
+          // 8:30 = 8.5小時
           lateCount++;
         }
 
         if (record.checkOutTime != null) {
           final checkOutHour = record.checkOutTime!.hour + record.checkOutTime!.minute / 60.0;
-          if (checkOutHour < 18.0) {
+          if (checkOutHour < 17.5) {
+            // 17:30 = 17.5小時
             earlyLeaveCount++;
           }
         }

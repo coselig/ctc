@@ -20,14 +20,16 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   late final EmployeeService _employeeService;
 
   Employee? _currentEmployee;
+  AttendanceRecord? _existingRecord; // 當天是否已有打卡記錄
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _checkInTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay _checkInTime = const TimeOfDay(hour: 8, minute: 30);
   TimeOfDay? _checkOutTime;
   bool _hasCheckOut = false;
   String _location = '';
   String _notes = '';
   bool _isLoading = true; // 初始化時應該是 true，表示正在載入
   bool _isSubmitting = false;
+  bool _isCheckingRecord = false;
 
   @override
   void initState() {
@@ -55,6 +57,9 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
       setState(() {
         _currentEmployee = employee;
       });
+      
+      // 載入完員工資料後,檢查今天是否已有打卡記錄
+      await _checkExistingRecord();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,7 +90,83 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _existingRecord = null; // 清除舊的記錄
       });
+      // 檢查該日期是否已有打卡記錄
+      await _checkExistingRecord();
+    }
+  }
+
+  /// 檢查選定日期是否已有打卡記錄
+  Future<void> _checkExistingRecord() async {
+    if (_currentEmployee?.id == null) return;
+
+    setState(() => _isCheckingRecord = true);
+
+    try {
+      final targetDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+      );
+
+      final records = await _attendanceService.getAllAttendanceRecords(
+        employeeId: _currentEmployee!.id!,
+        startDate: targetDate,
+        endDate: targetDate.add(const Duration(days: 1)),
+      );
+
+      if (records.isNotEmpty) {
+        final record = records.first;
+        setState(() {
+          _existingRecord = record;
+          // 載入現有資料
+          _checkInTime = TimeOfDay(
+            hour: record.checkInTime.hour,
+            minute: record.checkInTime.minute,
+          );
+          if (record.checkOutTime != null) {
+            _checkOutTime = TimeOfDay(
+              hour: record.checkOutTime!.hour,
+              minute: record.checkOutTime!.minute,
+            );
+            _hasCheckOut = true;
+          } else {
+            _checkOutTime = null;
+            _hasCheckOut = false;
+          }
+          _location = record.location ?? '';
+          _notes = record.notes?.replaceAll('【補打卡】', '') ?? '';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                record.checkOutTime == null
+                    ? '⚠️ 該日期已有上班打卡記錄，您可以補登下班時間'
+                    : '⚠️ 該日期已有完整打卡記錄，您可以編輯修改',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _existingRecord = null;
+          // 重置為預設值
+          _checkInTime = const TimeOfDay(hour: 8, minute: 30);
+          _checkOutTime = null;
+          _hasCheckOut = false;
+          _location = '';
+          _notes = '';
+        });
+      }
+    } catch (e) {
+      print('檢查打卡記錄失敗: $e');
+    } finally {
+      setState(() => _isCheckingRecord = false);
     }
   }
 
@@ -110,7 +191,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   Future<void> _selectCheckOutTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _checkOutTime ?? const TimeOfDay(hour: 18, minute: 0),
+      initialTime: _checkOutTime ?? const TimeOfDay(hour: 17, minute: 30),
       helpText: '選擇下班時間',
       cancelText: '取消',
       confirmText: '確定',
@@ -177,25 +258,49 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
         }
       }
 
-      // 提交補打卡記錄
-      await _attendanceService.createManualAttendance(
-        employee: _currentEmployee!,
-        checkInTime: checkInDateTime,
-        checkOutTime: checkOutDateTime,
-        location: _location.trim().isEmpty ? null : _location.trim(),
-        notes: _notes.trim(),
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ 補打卡成功'),
-            backgroundColor: Colors.green,
-          ),
+      // 判斷是更新現有記錄還是創建新記錄
+      if (_existingRecord != null) {
+        // 更新現有記錄
+        await _attendanceService.updateAttendanceRecord(
+          id: _existingRecord!.id,
+          checkInTime: checkInDateTime,
+          checkOutTime: checkOutDateTime,
+          location: _location.trim().isEmpty ? null : _location.trim(),
+          notes: '【補打卡】${_notes.trim()}',
         );
 
-        // 返回上一頁
-        Navigator.of(context).pop(true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ 打卡記錄已更新'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // 返回上一頁
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        // 創建新的補打卡記錄
+        await _attendanceService.createManualAttendance(
+          employee: _currentEmployee!,
+          checkInTime: checkInDateTime,
+          checkOutTime: checkOutDateTime,
+          location: _location.trim().isEmpty ? null : _location.trim(),
+          notes: _notes.trim(),
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ 補打卡成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // 返回上一頁
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -318,29 +423,57 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
               const SizedBox(height: 24),
 
               // 提示訊息
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange.shade700),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '補打卡功能用於補登忘記打卡的記錄\n請如實填寫並說明原因',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.orange.shade900,
+              if (_existingRecord != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_note, color: Colors.blue.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _existingRecord!.checkOutTime == null
+                              ? '✏️ 編輯模式：該日期已有上班打卡記錄\n您可以補登下班時間或修改打卡資料'
+                              : '✏️ 編輯模式：該日期已有完整打卡記錄\n您可以修改上下班時間',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue.shade900,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '補打卡功能用於補登忘記打卡的記錄\n請如實填寫並說明原因',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 24),
 
               // 選擇日期
@@ -399,7 +532,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                     setState(() {
                       _hasCheckOut = value;
                       if (value && _checkOutTime == null) {
-                        _checkOutTime = const TimeOfDay(hour: 18, minute: 0);
+                        _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
                       }
                     });
                   },
@@ -502,9 +635,9 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                               AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : const Text(
-                        '提交補打卡申請',
-                        style: TextStyle(
+                    : Text(
+                        _existingRecord != null ? '更新打卡記錄' : '提交補打卡申請',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -577,7 +710,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                   ],
                 ),
               ),
-              if (workHours > 8)
+              if (workHours > 9)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -588,7 +721,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    '加班 ${(workHours - 8).toStringAsFixed(1)}h',
+                    '加班 ${(workHours - 9).toStringAsFixed(1)}h',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,

@@ -127,37 +127,357 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     required IconData icon,
     required Color color,
   }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 根據可用寬度和高度動態調整大小，使用較小的值作為基準
+        final cardWidth = constraints.maxWidth;
+        final cardHeight = constraints.maxHeight;
+        final baseSize = cardWidth < cardHeight ? cardWidth : cardHeight;
+
+        // 調整比例，確保內容不會超出卡片
+        final iconSize = (baseSize * 0.20).clamp(16.0, 32.0);
+        final valueSize = (baseSize * 0.15).clamp(14.0, 24.0);
+        final titleSize = (baseSize * 0.10).clamp(11.0, 14.0);
+        final subtitleSize = (baseSize * 0.08).clamp(9.0, 12.0);
+        final padding = (baseSize * 0.06).clamp(8.0, 12.0);
+        
+        return Card(
+          child: Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: iconSize, color: color),
+                SizedBox(height: padding * 0.3),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: valueSize,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+                SizedBox(height: padding * 0.2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: titleSize,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+                SizedBox(height: padding * 0.2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: subtitleSize,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 建構月曆視圖
+  Widget _buildCalendarView() {
+    // 計算本月第一天是星期幾
+    final firstDayOfMonth = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month,
+      1,
+    );
+    final lastDayOfMonth = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+      0,
+    );
+    final firstWeekday = firstDayOfMonth.weekday; // 1=Monday, 7=Sunday
+    final daysInMonth = lastDayOfMonth.day;
+
+    // 建立打卡記錄對應表
+    final recordsMap = <int, AttendanceRecord>{};
+    for (final record in _monthlyRecords) {
+      recordsMap[record.checkInTime.day] = record;
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 32, color: color),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '月曆視圖',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildLegendItem(Colors.green, '正常'),
+                    const SizedBox(width: 8),
+                    _buildLegendItem(Colors.orange, '異常'),
+                    const SizedBox(width: 8),
+                    _buildLegendItem(Colors.grey.shade300, '未打卡'),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 星期標題
+            Row(
+              children: ['一', '二', '三', '四', '五', '六', '日']
+                  .map(
+                    (day) => Expanded(
+                      child: Center(
+                        child: Text(
+                          day,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
             const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-              textAlign: TextAlign.center,
-            ),
+
+            // 日期網格
+            ...List.generate((daysInMonth + firstWeekday) ~/ 7 + 1, (
+              weekIndex,
+            ) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: List.generate(7, (dayIndex) {
+                    final dayNumber =
+                        weekIndex * 7 + dayIndex + 1 - firstWeekday;
+
+                    if (dayNumber < 1 || dayNumber > daysInMonth) {
+                      return const Expanded(child: SizedBox(height: 48));
+                    }
+
+                    final date = DateTime(
+                      _selectedMonth.year,
+                      _selectedMonth.month,
+                      dayNumber,
+                    );
+                    final record = recordsMap[dayNumber];
+                    final isToday =
+                        DateTime.now().year == date.year &&
+                        DateTime.now().month == date.month &&
+                        DateTime.now().day == date.day;
+
+                    return Expanded(
+                      child: _buildCalendarDay(dayNumber, record, isToday),
+                    );
+                  }),
+                ),
+              );
+            }),
           ],
         ),
       ),
+    );
+  }
+
+  /// 建構日曆日期格子
+  Widget _buildCalendarDay(int day, AttendanceRecord? record, bool isToday) {
+    Color backgroundColor;
+    Color textColor = Colors.black87;
+    IconData? icon;
+
+    if (record != null) {
+      // 有打卡記錄
+      // 標準上班時間 8:30-17:30
+      final isLate =
+          record.checkInTime.hour > 8 ||
+          (record.checkInTime.hour == 8 && record.checkInTime.minute > 30);
+      final isEarlyLeave =
+          record.checkOutTime != null &&
+          (record.checkOutTime!.hour < 17 ||
+              (record.checkOutTime!.hour == 17 &&
+                  record.checkOutTime!.minute < 30));
+      final isIncomplete = record.checkOutTime == null;
+
+      if (isIncomplete || isLate || isEarlyLeave) {
+        backgroundColor = Colors.orange.shade100;
+        textColor = Colors.orange.shade900;
+        icon = Icons.warning_amber;
+      } else {
+        backgroundColor = Colors.green.shade100;
+        textColor = Colors.green.shade900;
+        icon = Icons.check_circle;
+      }
+    } else {
+      // 沒有打卡記錄
+      backgroundColor = Colors.grey.shade100;
+      textColor = Colors.grey.shade600;
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        border: isToday ? Border.all(color: Colors.blue, width: 2) : null,
+      ),
+      child: InkWell(
+        onTap: record != null ? () => _showDayDetail(day, record) : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 48,
+          child: Stack(
+            children: [
+              Center(
+                child: Text(
+                  '$day',
+                  style: TextStyle(
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                    color: textColor,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              if (icon != null)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: Icon(icon, size: 12, color: textColor),
+                ),
+              if (record?.isManualEntry == true)
+                Positioned(
+                  bottom: 2,
+                  left: 4,
+                  child: Icon(
+                    Icons.edit,
+                    size: 10,
+                    color: textColor.withOpacity(0.7),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 建構圖例項目
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+
+  /// 顯示日期詳情
+  void _showDayDetail(int day, AttendanceRecord record) {
+    final dateStr = '${_selectedMonth.year}年${_selectedMonth.month}月${day}日';
+    final checkInStr = _formatTime(record.checkInTime);
+    final checkOutStr = record.checkOutTime != null
+        ? _formatTime(record.checkOutTime!)
+        : '未打卡';
+    final workHoursStr = record.workHours != null
+        ? '${record.workHours!.toStringAsFixed(1)}小時'
+        : '--';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(dateStr),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('上班時間', checkInStr, Icons.login),
+            const SizedBox(height: 8),
+            _buildDetailRow('下班時間', checkOutStr, Icons.logout),
+            const SizedBox(height: 8),
+            _buildDetailRow('工作時數', workHoursStr, Icons.access_time),
+            if (record.location != null) ...[
+              const SizedBox(height: 8),
+              _buildDetailRow('打卡地點', record.location!, Icons.location_on),
+            ],
+            if (record.notes != null) ...[
+              const SizedBox(height: 8),
+              _buildDetailRow('備註', record.notes!, Icons.note),
+            ],
+            if (record.isManualEntry) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.yellow.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 16, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '補打卡記錄',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('關閉'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 建構詳情行
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade600),
+        const SizedBox(width: 8),
+        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w500)),
+        Expanded(child: Text(value)),
+      ],
     );
   }
 
@@ -168,6 +488,40 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     }
 
     final stats = _monthlyStats!;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // 根據螢幕寬度動態計算列數
+    int crossAxisCount;
+    double cardHeight;
+    double spacing;
+
+    if (screenWidth > 1200) {
+      // 大螢幕：4列
+      crossAxisCount = 4;
+      cardHeight = 140;
+      spacing = 16;
+    } else if (screenWidth > 800) {
+      // 平板：3列
+      crossAxisCount = 3;
+      cardHeight = 130;
+      spacing = 14;
+    } else if (screenWidth > 600) {
+      // 小平板：2列
+      crossAxisCount = 2;
+      cardHeight = 120;
+      spacing = 12;
+    } else {
+      // 手機：2列（較小）
+      crossAxisCount = 2;
+      cardHeight = 110;
+      spacing = 10;
+    }
+
+    // 計算卡片寬度
+    final totalSpacing = spacing * (crossAxisCount - 1);
+    final availableWidth = screenWidth - 32 - totalSpacing; // 32 是頁面左右 padding
+    final cardWidth = availableWidth / crossAxisCount;
+    final childAspectRatio = cardWidth / cardHeight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,10 +536,10 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.2,
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          childAspectRatio: childAspectRatio,
           children: [
             _buildStatCard(
               title: '出勤天數',
@@ -288,12 +642,14 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
         ? '${record.workHours!.toStringAsFixed(1)}h'
         : '--';
 
-    // 計算是否遲到或早退
-    final isLate = record.checkInTime.hour > 9 || 
-        (record.checkInTime.hour == 9 && record.checkInTime.minute > 0);
+    // 計算是否遲到或早退 (標準上班時間 8:30-17:30)
+    final isLate =
+        record.checkInTime.hour > 8 ||
+        (record.checkInTime.hour == 8 && record.checkInTime.minute > 30);
     final isEarlyLeave = record.checkOutTime != null &&
-        (record.checkOutTime!.hour < 18 || 
-         (record.checkOutTime!.hour == 18 && record.checkOutTime!.minute < 0));
+        (record.checkOutTime!.hour < 17 ||
+            (record.checkOutTime!.hour == 17 &&
+                record.checkOutTime!.minute < 30));
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -372,6 +728,10 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // 月曆視圖
+                _buildCalendarView(),
+                const SizedBox(height: 24),
 
                 // 統計概覽
                 _buildStatsOverview(),

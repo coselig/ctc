@@ -8,6 +8,7 @@ import '../services/attendance_service.dart';
 import '../services/company_location_service.dart';
 import '../services/employee_service.dart';
 import '../widgets/general_page.dart';
+import 'manual_attendance_page.dart';
 
 class AttendancePage extends StatefulWidget {
   const AttendancePage({
@@ -559,6 +560,18 @@ class _AttendancePageState extends State<AttendancePage> {
     }
   }
 
+  /// 打開補打卡/編輯記錄頁面
+  Future<void> _openManualAttendance() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const ManualAttendancePage()),
+    );
+
+    // 如果補打卡成功,重新載入資料
+    if (result == true) {
+      _loadData();
+    }
+  }
+
   /// 建構今日打卡狀態卡片
   Widget _buildTodayStatusCard() {
     return Card(
@@ -1046,6 +1059,18 @@ class _AttendancePageState extends State<AttendancePage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+
+            // 補打卡/編輯記錄按鈕
+            OutlinedButton.icon(
+              onPressed: _openManualAttendance,
+              icon: const Icon(Icons.edit_calendar),
+              label: const Text('補打卡 / 編輯記錄'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: BorderSide(color: Colors.blue.shade300),
+              ),
             ),
           ],
         ),

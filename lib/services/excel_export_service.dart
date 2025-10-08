@@ -196,8 +196,8 @@ class ExcelExportService {
         workHours,
       );
       
-      // 加班時數（超過8小時為加班，且確保不為負數）
-      final overtimeHours = workHours > 8.0 ? (workHours - 8.0) 
+      // 加班時數（標準工時9小時,超過9小時為加班，且確保不為負數）
+      final overtimeHours = workHours > 9.0 ? (workHours - 9.0) 
           : 0.0;
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex))
           .value = DoubleCellValue(overtimeHours);
@@ -208,7 +208,7 @@ class ExcelExportService {
         // 補打卡記錄
         if (record.checkOutTime == null) {
           status = '補登(未完成)';
-        } else if (workHours >= 8.0) {
+        } else if (workHours >= 9.0) {
           status = '補登(正常)';
         } else {
           status = '補登(早退)';
@@ -217,7 +217,7 @@ class ExcelExportService {
         // 正常打卡記錄
         if (record.checkOutTime == null) {
           status = '工作中';
-        } else if (workHours >= 8.0) {
+        } else if (workHours >= 9.0) {
           status = '正常';
         } else {
           status = '早退';
@@ -312,9 +312,9 @@ class ExcelExportService {
           : 0.0;
       stats['totalHours'] += workHours;
       
-      // 計算加班時數（確保不為負數）
-      if (workHours > 8.0) {
-        stats['totalOvertime'] += (workHours - 8.0);
+      // 計算加班時數（標準工時9小時,確保不為負數）
+      if (workHours > 9.0) {
+        stats['totalOvertime'] += (workHours - 9.0);
       }
       
       if (record.checkOutTime != null) {

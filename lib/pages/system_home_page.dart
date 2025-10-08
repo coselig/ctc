@@ -8,11 +8,8 @@ import '../widgets/widgets.dart';
 import 'attendance_page.dart';
 import 'attendance_stats_page.dart';
 import 'attendance_management_page.dart';
-import 'attendance_data_debug_page.dart';
 import 'employee_management_page.dart';
-import 'manual_attendance_page.dart';
 import 'photo_record_page.dart';
-import 'registered_users_debug_page.dart';
 import 'welcome_page.dart';
 
 class SystemHomePage extends StatefulWidget {
@@ -294,22 +291,6 @@ class _SystemHomePageState extends State<SystemHomePage> {
               },
             ),
             
-                // 補打卡
-                _buildSystemCard(
-                  context,
-                  icon: Icons.edit_calendar,
-                  title: '補打卡',
-                  subtitle: '補登忘記打卡的記錄',
-                  color: Colors.amber,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ManualAttendancePage(),
-                      ),
-                    );
-                  },
-                ),
-            
                 // 出勤管理（管理員功能）
                 _buildSystemCard(
                   context,
@@ -352,38 +333,6 @@ class _SystemHomePageState extends State<SystemHomePage> {
                   const SnackBar(content: Text('系統設定功能開發中...')),
                 );
               },
-            ),
-            
-            // 用戶調試工具
-            _buildSystemCard(
-              context,
-              icon: Icons.bug_report,
-              title: '用戶調試工具',
-              subtitle: '檢查註冊用戶狀態',
-              color: Colors.red,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const RegisteredUsersDebugPage(),
-                  ),
-                );
-              },
-            ),
-            
-                // 打卡資料調試
-                _buildSystemCard(
-                  context,
-                  icon: Icons.data_usage,
-                  title: '打卡資料診斷',
-                  subtitle: '檢查打卡記錄資料',
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AttendanceDataDebugPage(),
-                      ),
-                    );
-                  },
                 ),
           ],
             );
