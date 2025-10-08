@@ -188,6 +188,146 @@ class _AttendancePageState extends State<AttendancePage> {
     }
   }
 
+  /// 獲取當前位置（強制獲取新GPS位置）
+  Future<void> _getCurrentLocationForced() async {
+    try {
+      setState(() => _isGettingLocation = true);
+
+      // 檢查位置服務是否啟用
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('請開啟位置服務')));
+        }
+        return;
+      }
+
+      // 檢查位置權限
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('位置權限被拒絕')));
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('位置權限被永久拒絕，請到設定中開啟')));
+        }
+        return;
+      }
+
+      // 強制獲取新的GPS位置
+      Position? position = await _getCachedPosition(forceRefresh: true);
+      if (position == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '無法獲取位置信息\n請確認：\n1. 瀏覽器允許位置權限\n2. 使用HTTPS連線\n3. 位置服務已開啟',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 檢查是否在公司範圍內 (如果公司位置已載入)
+      double? distanceToCompany;
+      if (_companyLocation != null) {
+        distanceToCompany = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          _companyLocation!.latitude,
+          _companyLocation!.longitude,
+        );
+
+        // 如果在公司範圍內，直接顯示公司名稱
+        if (distanceToCompany <= _companyLocation!.radius) {
+          setState(() {
+            _locationController.text = _companyLocation!.name;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '已偵測到在公司範圍內 (距離: ${distanceToCompany.round()}公尺)',
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      // 不在公司範圍內，進行反向地理編碼獲取地址
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+
+        if (placemarks.isNotEmpty) {
+          final placemark = placemarks[0];
+          final address = [
+            placemark.street,
+            placemark.subLocality,
+            placemark.locality,
+            placemark.administrativeArea,
+          ].where((part) => part != null && part.isNotEmpty).join(', ');
+
+          setState(() {
+            _locationController.text = address;
+          });
+
+          if (mounted) {
+            final distanceText = distanceToCompany != null
+                ? ' (距離公司: ${(distanceToCompany / 1000).toStringAsFixed(1)}公里)'
+                : '';
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('已獲取最新GPS位置$distanceText')));
+          }
+        }
+      } catch (e) {
+        // 如果地理編碼失敗，使用經緯度
+        setState(() {
+          _locationController.text =
+              '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已獲取最新GPS座標')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('獲取位置失敗: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGettingLocation = false);
+      }
+    }
+  }
+
   /// 獲取當前位置
   Future<void> _getCurrentLocation() async {
     try {
@@ -227,13 +367,18 @@ class _AttendancePageState extends State<AttendancePage> {
         return;
       }
 
-      // 獲取當前位置（使用快取機制）
+      // 獲取當前位置（使用快取機制或最後已知位置）
       Position? position = await _getCachedPosition();
       if (position == null) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('無法獲取位置信息')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '無法獲取位置信息\n請確認：\n1. 瀏覽器允許位置權限\n2. 使用HTTPS連線\n3. 位置服務已開啟',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
         }
         return;
       }
@@ -616,30 +761,69 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   /// 獲取位置（使用快取機制）
-  Future<Position?> _getCachedPosition() async {
+  Future<Position?> _getCachedPosition({bool forceRefresh = false}) async {
     final now = DateTime.now();
 
-    // 如果快取存在且不超過 30 秒，使用快取
-    if (_cachedPosition != null &&
+    // 如果不是強制刷新且快取存在且不超過 30 秒，使用快取
+    if (!forceRefresh &&
+        _cachedPosition != null &&
         _cachedPositionTime != null &&
         now.difference(_cachedPositionTime!).inSeconds < 30) {
+      final cacheAge = now.difference(_cachedPositionTime!).inSeconds;
+      print('使用快取位置（${cacheAge}秒前）');
       return _cachedPosition;
     }
     
     try {
       // 檢查位置權限
       LocationPermission permission = await Geolocator.checkPermission();
+      print('位置權限狀態: $permission');
+
+      if (permission == LocationPermission.denied) {
+        print('請求位置權限...');
+        permission = await Geolocator.requestPermission();
+        print('權限請求結果: $permission');
+      }
+      
       if (permission == LocationPermission.denied || 
           permission == LocationPermission.deniedForever) {
+        print('位置權限被拒絕');
         return null;
       }
 
-      // 獲取新位置
+      // 先嘗試獲取最後已知位置（非常快速）
+      Position? lastKnownPosition;
+      try {
+        lastKnownPosition = await Geolocator.getLastKnownPosition();
+        print('最後已知位置: ${lastKnownPosition != null ? "找到" : "無"}');
+      } catch (e) {
+        print('獲取最後已知位置失敗: $e');
+      }
+
+      // 如果有最後已知位置且不是太舊（5分鐘內），先使用它
+      if (lastKnownPosition != null && !forceRefresh) {
+        final lastKnownAge = now
+            .difference(lastKnownPosition.timestamp)
+            .inMinutes;
+        if (lastKnownAge < 5) {
+          // 更新快取
+          _cachedPosition = lastKnownPosition;
+          _cachedPositionTime = now;
+
+          print('使用最後已知位置（${lastKnownAge}分鐘前）');
+          return lastKnownPosition;
+        }
+      }
+
+      // 獲取新位置 - 使用平衡精度以提升速度
+      print('正在獲取新GPS位置...');
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10), // Web環境延長超時
       );
 
+      print('成功獲取GPS位置: ${position.latitude}, ${position.longitude}');
+      
       // 更新快取
       _cachedPosition = position;
       _cachedPositionTime = now;
@@ -647,6 +831,23 @@ class _AttendancePageState extends State<AttendancePage> {
       return position;
     } catch (e) {
       print('獲取位置失敗: $e');
+      print('錯誤類型: ${e.runtimeType}');
+      
+      // 如果獲取失敗，嘗試使用最後已知位置作為後備
+      try {
+        print('嘗試使用最後已知位置作為後備...');
+        Position? lastKnownPosition = await Geolocator.getLastKnownPosition();
+        if (lastKnownPosition != null) {
+          print('使用最後已知位置作為後備');
+          _cachedPosition = lastKnownPosition;
+          _cachedPositionTime = now;
+          return lastKnownPosition;
+        }
+        print('沒有最後已知位置');
+      } catch (e2) {
+        print('獲取最後已知位置也失敗: $e2');
+      }
+      
       return null;
     }
   }
@@ -722,37 +923,63 @@ class _AttendancePageState extends State<AttendancePage> {
                 ),
                 const SizedBox(width: 8),
                 // 整合的定位按鈕
-                IconButton(
-                  onPressed: _isGettingLocation
+                Tooltip(
+                  message: '點擊: 快速定位\n長按: 強制獲取新GPS位置',
+                  child: GestureDetector(
+                    onTap: _isGettingLocation
                       ? null
                       : () async {
-                          // 先清除快取，確保獲取最新位置
-                          _cachedPosition = null;
-                          _cachedPositionTime = null;
-                          // 然後獲取當前位置
+                            // 獲取當前位置（會自動使用快取或最後已知位置）
                           await _getCurrentLocation();
                           // 觸發位置狀態指示器重建
                           setState(() {});
                         },
-                  icon: _isGettingLocation 
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                      : const Icon(Icons.my_location),
-                  tooltip: '獲取當前位置並刷新狀態',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    onLongPress: _isGettingLocation
+                        ? null
+                        : () async {
+                            // 長按強制獲取新GPS位置
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('正在獲取最新GPS位置...'),
+                                  duration: Duration(milliseconds: 800),
+                                ),
+                              );
+                            }
+                            await _getCurrentLocationForced();
+                            // 觸發位置狀態指示器重建
+                            setState(() {});
+                          },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _isGettingLocation
+                            ? Colors.grey.shade400
+                            : Colors.blue.shade600,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: _isGettingLocation
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.my_location,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                     ),
-                    elevation: 2,
                   ),
                 ),
               ],
