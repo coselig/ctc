@@ -45,11 +45,9 @@ class _SystemHomePageState extends State<SystemHomePage> {
   Future<void> _loadCurrentEmployee() async {
     try {
       final user = supabase.auth.currentUser;
-      if (user?.email != null) {
-        final employees = await _employeeService.getAllEmployees();
-        final employee = employees.where(
-          (e) => e.email?.toLowerCase() == user!.email!.toLowerCase(),
-        ).firstOrNull;
+      if (user != null) {
+        // 直接用當前用戶的 ID 查詢自己的員工資料（避免 RLS 權限問題）
+        final employee = await _employeeService.getEmployeeById(user.id);
         
         if (mounted) {
           setState(() {

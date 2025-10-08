@@ -1,3 +1,5 @@
+import 'user_role.dart';
+
 class Employee {
   final String? id;
   final String employeeId; // 員工編號
@@ -9,6 +11,7 @@ class Employee {
   final DateTime hireDate;
   final double? salary;
   final EmployeeStatus status;
+  final UserRole role; // 員工角色
   final String? managerId;
   final String? avatarUrl;
   final String? address;
@@ -30,6 +33,7 @@ class Employee {
     required this.hireDate,
     this.salary,
     this.status = EmployeeStatus.active,
+    this.role = UserRole.employee,
     this.managerId,
     this.avatarUrl,
     this.address,
@@ -53,6 +57,7 @@ class Employee {
       hireDate: DateTime.parse(json['hire_date'] as String),
       salary: json['salary'] != null ? (json['salary'] as num).toDouble() : null,
       status: EmployeeStatus.fromString(json['status'] as String? ?? 'active'),
+      role: UserRole.fromString(json['role'] as String? ?? 'employee'),
       managerId: json['manager_id'] as String?,
       avatarUrl: json['avatar_url'] as String?,
       address: json['address'] as String?,
@@ -77,6 +82,7 @@ class Employee {
       'hire_date': hireDate.toIso8601String(),
       'salary': salary,
       'status': status.value,
+      'role': role.value,
       'manager_id': managerId,
       'avatar_url': avatarUrl,
       'address': address,
@@ -102,6 +108,7 @@ class Employee {
       'hire_date': hireDate.toIso8601String(),
       'salary': salary,
       'status': status.value,
+      'role': role.value,
       'manager_id': managerId,
       'avatar_url': avatarUrl,
       'address': address,
@@ -129,6 +136,7 @@ class Employee {
     DateTime? hireDate,
     double? salary,
     EmployeeStatus? status,
+    UserRole? role,
     String? managerId,
     String? avatarUrl,
     String? address,
@@ -150,6 +158,7 @@ class Employee {
       hireDate: hireDate ?? this.hireDate,
       salary: salary ?? this.salary,
       status: status ?? this.status,
+      role: role ?? this.role,
       managerId: managerId ?? this.managerId,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       address: address ?? this.address,

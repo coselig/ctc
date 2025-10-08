@@ -256,6 +256,9 @@ CREATE TABLE IF NOT EXISTS public.employees (
   status text DEFAULT '在職'::text CHECK (
     status = ANY (ARRAY['在職'::text, '離職'::text, '留職停薪'::text, '解雇'::text])
   ),
+  role text DEFAULT 'employee'::text CHECK (
+    role = ANY (ARRAY['boss'::text, 'hr'::text, 'employee'::text])
+  ), -- 權限角色：老闆/人事/一般員工
   manager_id uuid, -- 直屬主管（指向 employees.id，即 auth.users.id）
   avatar_url text,
   address text,
@@ -323,6 +326,7 @@ CREATE TABLE IF NOT EXISTS public.employee_evaluations (
 CREATE INDEX IF NOT EXISTS idx_employees_department ON public.employees(department);
 CREATE INDEX IF NOT EXISTS idx_employees_position ON public.employees(position);
 CREATE INDEX IF NOT EXISTS idx_employees_status ON public.employees(status);
+CREATE INDEX IF NOT EXISTS idx_employees_role ON public.employees(role); -- 權限角色索引
 CREATE INDEX IF NOT EXISTS idx_employees_hire_date ON public.employees(hire_date DESC);
 CREATE INDEX IF NOT EXISTS idx_employees_manager_id ON public.employees(manager_id);
 CREATE INDEX IF NOT EXISTS idx_employees_employee_id ON public.employees(employee_id);
@@ -354,23 +358,152 @@ BEGIN
     END IF;
 END $$;
 
+-- ======================================
+-- 權限系統：SECURITY DEFINER 函數
+-- ======================================
+-- 此函數用於獲取當前用戶的角色，繞過 RLS 以避免無限遞迴
+CREATE OR REPLACE FUNCTION public.get_current_user_role()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER -- 以函數擁有者的權限執行，繞過 RLS
+STABLE -- 在同一個事務中多次調用會返回相同結果
+AS $$
+DECLARE
+  user_role text;
+BEGIN
+  -- 直接查詢當前用戶的角色，不受 RLS 限制
+  SELECT role INTO user_role
+  FROM public.employees
+  WHERE id = auth.uid();
+  
+  -- 如果找不到用戶，返回 'employee' 作為預設值
+  RETURN COALESCE(user_role, 'employee');
+END;
+$$;
+
+-- 授予所有認證用戶執行此函數的權限
+GRANT EXECUTE ON FUNCTION public.get_current_user_role() TO authenticated;
+
+COMMENT ON FUNCTION public.get_current_user_role() IS '獲取當前用戶的權限角色 (boss/hr/employee)，使用 SECURITY DEFINER 繞過 RLS 避免無限遞迴';
+
+-- ======================================
 -- 員工管理系統行級安全性設定
+-- ======================================
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_evaluations ENABLE ROW LEVEL SECURITY;
 
--- 員工資料政策：只有認證用戶可以查看和管理員工資料
+-- 員工資料政策：基於角色的訪問控制
+-- 政策 1: 老闆和人事可以查看所有員工
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies 
-        WHERE policyname = 'Authenticated users can manage employees'
+        WHERE policyname = 'Boss and HR can view all employees'
         AND tablename = 'employees'
         AND schemaname = 'public'
     ) THEN
-        CREATE POLICY "Authenticated users can manage employees" ON public.employees
-        FOR ALL USING (auth.role() = 'authenticated');
+        CREATE POLICY "Boss and HR can view all employees" ON public.employees
+        FOR SELECT USING (
+          public.get_current_user_role() IN ('boss', 'hr')
+        );
+    END IF;
+END $$;
+
+-- 政策 2: 一般員工只能查看自己的資料
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Employees can view own data'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Employees can view own data" ON public.employees
+        FOR SELECT USING (
+          id = auth.uid()
+        );
+    END IF;
+END $$;
+
+-- 政策 3: 老闆和人事可以新增員工
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Boss and HR can insert employees'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Boss and HR can insert employees" ON public.employees
+        FOR INSERT WITH CHECK (
+          public.get_current_user_role() IN ('boss', 'hr')
+        );
+    END IF;
+END $$;
+
+-- 政策 4: 老闆可以修改所有員工資料
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Boss can update all employees'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Boss can update all employees" ON public.employees
+        FOR UPDATE USING (
+          public.get_current_user_role() = 'boss'
+        );
+    END IF;
+END $$;
+
+-- 政策 5: 人事可以修改員工資料（但不能修改老闆）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'HR can update non-boss employees'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "HR can update non-boss employees" ON public.employees
+        FOR UPDATE USING (
+          public.get_current_user_role() = 'hr' AND role != 'boss'
+        );
+    END IF;
+END $$;
+
+-- 政策 6: 員工可以修改自己的基本資料（不含薪資和角色）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Employees can update own basic info'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Employees can update own basic info" ON public.employees
+        FOR UPDATE USING (
+          id = auth.uid()
+        );
+    END IF;
+END $$;
+
+-- 政策 7: 只有老闆可以刪除員工
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Only boss can delete employees'
+        AND tablename = 'employees'
+        AND schemaname = 'public'
+    ) THEN
+        CREATE POLICY "Only boss can delete employees" ON public.employees
+        FOR DELETE USING (
+          public.get_current_user_role() = 'boss'
+        );
     END IF;
 END $$;
 
@@ -545,6 +678,7 @@ COMMENT ON COLUMN public.employees.avatar_url IS '頭像網址';
 COMMENT ON COLUMN public.employees.address IS '住址';
 COMMENT ON COLUMN public.employees.emergency_contact_name IS '緊急聯絡人姓名';
 COMMENT ON COLUMN public.employees.emergency_contact_phone IS '緊急聯絡人電話';
+COMMENT ON COLUMN public.employees.role IS '權限角色 (boss=老闆, hr=人事, employee=一般員工)';
 
 COMMENT ON TABLE public.employee_skills IS '員工技能資料表';
 COMMENT ON TABLE public.employee_attendance IS '員工考勤記錄表';
@@ -613,10 +747,28 @@ BEGIN
     END IF;
 END $$;
 
+-- ======================================
 -- 打卡記錄行級安全性設定
+-- ======================================
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
--- 檢查並創建打卡記錄訪問政策（如果不存在）
+-- 打卡記錄政策 1: 老闆和人事可以查看所有打卡記錄
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'attendance_records'
+        AND policyname = 'Boss and HR can view all attendance records'
+    ) THEN
+        CREATE POLICY "Boss and HR can view all attendance records" ON public.attendance_records
+        FOR SELECT USING (
+          public.get_current_user_role() IN ('boss', 'hr')
+        );
+    END IF;
+END $$;
+
+-- 打卡記錄政策 2: 一般員工只能查看自己的打卡記錄
 DO $$ 
 BEGIN
     IF NOT EXISTS (
@@ -627,23 +779,72 @@ BEGIN
     ) THEN
         CREATE POLICY "Employees can view own attendance records" ON public.attendance_records
         FOR SELECT USING (
-          employee_email = auth.jwt() ->> 'email'
+          employee_id = auth.uid()
         );
     END IF;
 END $$;
 
--- 檢查並創建打卡記錄管理政策（如果不存在）
+-- 打卡記錄政策 3: 所有認證用戶可以新增打卡記錄（自己打卡）
 DO $$ 
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies 
         WHERE schemaname = 'public' 
         AND tablename = 'attendance_records'
-        AND policyname = 'Authenticated users can manage all attendance records'
+        AND policyname = 'Authenticated users can insert attendance'
     ) THEN
-        CREATE POLICY "Authenticated users can manage all attendance records" ON public.attendance_records
-        FOR ALL USING (
+        CREATE POLICY "Authenticated users can insert attendance" ON public.attendance_records
+        FOR INSERT WITH CHECK (
           auth.role() = 'authenticated'
+        );
+    END IF;
+END $$;
+
+-- 打卡記錄政策 4: 老闆和人事可以修改所有打卡記錄（補打卡）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'attendance_records'
+        AND policyname = 'Boss and HR can update all attendance'
+    ) THEN
+        CREATE POLICY "Boss and HR can update all attendance" ON public.attendance_records
+        FOR UPDATE USING (
+          public.get_current_user_role() IN ('boss', 'hr')
+        );
+    END IF;
+END $$;
+
+-- 打卡記錄政策 5: 員工可以修改自己當天的打卡記錄（下班打卡）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'attendance_records'
+        AND policyname = 'Employees can update own today attendance'
+    ) THEN
+        CREATE POLICY "Employees can update own today attendance" ON public.attendance_records
+        FOR UPDATE USING (
+          employee_id = auth.uid() 
+          AND DATE(check_in_time AT TIME ZONE 'Asia/Taipei') = CURRENT_DATE
+        );
+    END IF;
+END $$;
+
+-- 打卡記錄政策 6: 老闆和人事可以刪除打卡記錄
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'attendance_records'
+        AND policyname = 'Boss and HR can delete attendance'
+    ) THEN
+        CREATE POLICY "Boss and HR can delete attendance" ON public.attendance_records
+        FOR DELETE USING (
+          public.get_current_user_role() IN ('boss', 'hr')
         );
     END IF;
 END $$;

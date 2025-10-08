@@ -40,17 +40,25 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
       // 載入當前用戶的員工資料
       final user = supabase.auth.currentUser;
-      if (user?.email != null) {
-        final employees = await _employeeService.getAllEmployees();
-        _currentEmployee = employees.where(
-          (e) => e.email?.toLowerCase() == user!.email!.toLowerCase(),
-        ).firstOrNull;
+      if (user != null) {
+        // 直接用當前用戶的 ID 查詢自己的員工資料（避免 RLS 權限問題）
+        _currentEmployee = await _employeeService.getEmployeeById(user.id);
 
         if (_currentEmployee?.id != null) {
           await _loadMonthlyData();
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('找不到員工資料，請聯絡管理員'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
+      print('載入資料失敗: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('載入資料失敗: $e')),
