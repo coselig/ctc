@@ -5,6 +5,8 @@ library models;
 export 'attendance_leave_request.dart';
 // ==================== 出勤相關模型 ====================
 export 'attendance_record.dart';
+// ==================== 請假相關模型 ====================
+export 'leave_request.dart';
 // ==================== 公司相關模型 ====================
 export 'company_location.dart';
 // ==================== 員工相關模型 ====================

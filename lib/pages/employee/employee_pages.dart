@@ -13,6 +13,10 @@ export 'attendance_stats_page.dart';
 export 'attendance_request_page.dart';
 export 'attendance_request_form_page.dart';
 
+// ==================== 請假管理頁面 ====================
+export 'leave_request_form_page.dart';
+export 'leave_record_page.dart';
+
 // ==================== 個人資料頁面 ====================
 export 'user_profile_page.dart';
 export 'user_settings_page.dart';

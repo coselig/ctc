@@ -323,6 +323,38 @@ class _SystemHomePageState extends State<SystemHomePage> {
                   },
                 ),
             
+                // 請假申請
+                _buildSystemCard(
+                  context,
+                  icon: Icons.event_busy,
+                  title: '請假申請',
+                  subtitle: '申請各類假別',
+                  color: Colors.pink,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const LeaveRequestFormPage(),
+                      ),
+                    );
+                  },
+                ),
+
+                // 請假記錄
+                _buildSystemCard(
+                  context,
+                  icon: Icons.event_available,
+                  title: '請假記錄',
+                  subtitle: '查看請假記錄與額度',
+                  color: Colors.lime,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const LeaveRecordPage(),
+                      ),
+                    );
+                  },
+                ),
+            
                 // 出勤管理（僅 HR 和老闆可見）
                 if (_canViewAllAttendance)
                 _buildSystemCard(
@@ -355,6 +387,23 @@ class _SystemHomePageState extends State<SystemHomePage> {
                             onThemeToggle: widget.onThemeToggle,
                             currentThemeMode: widget.currentThemeMode,
                           ),
+                        ),
+                      );
+                    },
+                  ),
+            
+                // 請假審核（僅 HR 和老闆可見）
+                if (_canViewAllAttendance)
+                  _buildSystemCard(
+                    context,
+                    icon: Icons.approval,
+                    title: '請假審核',
+                    subtitle: '審核員工請假申請',
+                    color: Colors.amber,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const LeaveRequestReviewPage(),
                         ),
                       );
                     },
