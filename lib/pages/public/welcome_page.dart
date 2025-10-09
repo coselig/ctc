@@ -226,8 +226,9 @@ class _WelcomePageState extends State<WelcomePage> {
                   case 'settings':
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) =>
-                            UserSettingsPage(onThemeChanged: widget.onThemeToggle),
+                        builder: (context) => UserSettingsPage(
+                          onThemeChanged: widget.onThemeToggle,
+                        ),
                       ),
                     );
                     break;
@@ -362,18 +363,24 @@ class _WelcomePageState extends State<WelcomePage> {
                           const SizedBox(height: 12),
                           Text(
                             '您尚未被加入到員工列表',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             '請聯繫管理員將您的帳號 (${user.email}) 加入員工管理系統，即可使用系統功能',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                ),
                           ),
                         ],
                       ),
@@ -518,18 +525,26 @@ class _WelcomePageState extends State<WelcomePage> {
                           ],
                         ),
                         const SizedBox(height: 32),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Text(
+                          '產品目錄',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 1,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.7,
                           children: [
-                            Text(
-                              '價值理念 Our Mission',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.lightbulb_outline),
-                              label: const Text('25週年介紹'),
-                              onPressed: () {
+                            UnifiedCard(
+                              imageName: 'customize_service.jpg',
+                              title: '產品目錄 2025',
+                              subtitle: '查看光悅科技最新產品與解決方案',
+                              cardType: CardType.product,
+                              onTap: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -539,6 +554,12 @@ class _WelcomePageState extends State<WelcomePage> {
                               },
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          '價值理念 Our Mission',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 16),
                         GridView.count(
