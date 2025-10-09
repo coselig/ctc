@@ -4,11 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../services/employee_service.dart';
-import '../../services/leave_request_service.dart';
 import '../../services/holiday_service.dart';
+import '../../services/leave_request_service.dart';
 import '../../widgets/month_year_picker.dart';
-import 'leave_request_form_page.dart';
 import 'attendance_request_page.dart';
+import 'leave_record_page.dart';
 
 /// 個人出勤中心頁面 - 整合出勤統計、請假記錄和補打卡申請
 class AttendanceStatsPage extends StatefulWidget {
@@ -53,7 +53,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage>
         controller: _tabController,
         children: [
           const AttendanceStatsTab(),
-          const LeaveRequestFormPage(),
+          const LeaveRecordPage(),
           AttendanceRequestPage(
             onThemeToggle: () {}, // 不需要主題切換功能
             currentThemeMode: ThemeMode.system,
