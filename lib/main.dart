@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ctc/app.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   // 全域錯誤處理
@@ -13,6 +14,11 @@ void main() async {
 
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    
+      // 初始化日期格式化 (支援中文和英文)
+      await initializeDateFormatting('zh_TW', null);
+      await initializeDateFormatting('en_US', null);
+    
     await Supabase.initialize(
         url: 'https://coselig.com/api',
       anonKey:

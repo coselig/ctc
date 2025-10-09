@@ -177,6 +177,9 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
         reason: _reasonController.text.trim(),
       );
 
+      // 除錯：印出要送出的資料
+      debugPrint('準備提交請假申請: ${request.toJsonForInsert()}');
+      
       await _leaveRequestService.createLeaveRequest(request);
 
       if (mounted) {
@@ -188,12 +191,16 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
         );
         Navigator.pop(context, true); // 返回並刷新
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('提交請假申請失敗: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('提交失敗: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }

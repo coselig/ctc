@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../services/employee_service.dart';
+import '../../services/leave_request_service.dart';
 import '../../widgets/general_page.dart';
 
 class AttendanceStatsPage extends StatefulWidget {
@@ -17,10 +18,12 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   final supabase = Supabase.instance.client;
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
+  late final LeaveRequestService _leaveRequestService;
 
   Employee? _currentEmployee;
   AttendanceStats? _monthlyStats;
   List<AttendanceRecord> _monthlyRecords = [];
+  List<LeaveRequest> _monthlyLeaveRequests = [];
   bool _isLoading = true;
 
   DateTime _selectedMonth = DateTime.now();
@@ -30,6 +33,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     super.initState();
     _attendanceService = AttendanceService(supabase);
     _employeeService = EmployeeService(supabase);
+    _leaveRequestService = LeaveRequestService();
     _loadData();
   }
 
@@ -82,6 +86,14 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     // 載入月度記錄
     _monthlyRecords = await _attendanceService.getAllAttendanceRecords(
       employeeId: _currentEmployee!.id,
+      startDate: startOfMonth,
+      endDate: endOfMonth,
+    );
+
+    // 載入月度請假記錄（只顯示已核准的）
+    _monthlyLeaveRequests = await _leaveRequestService.getEmployeeLeaveRequests(
+      _currentEmployee!.id!,
+      status: LeaveRequestStatus.approved,
       startDate: startOfMonth,
       endDate: endOfMonth,
     );
@@ -224,6 +236,22 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     for (final record in _monthlyRecords) {
       recordsMap[record.checkInTime.day] = record;
     }
+    
+    // 建立請假記錄對應表（一個日期可能對應多筆請假）
+    final leaveDaysMap = <int, List<LeaveRequest>>{};
+    for (final leave in _monthlyLeaveRequests) {
+      // 計算請假期間的所有日期
+      for (
+        var date = leave.startDate;
+        date.isBefore(leave.endDate) || date.isAtSameMomentAs(leave.endDate);
+        date = date.add(const Duration(days: 1))
+      ) {
+        if (date.year == _selectedMonth.year &&
+            date.month == _selectedMonth.month) {
+          leaveDaysMap.putIfAbsent(date.day, () => []).add(leave);
+        }
+      }
+    }
 
     return Card(
       child: Padding(
@@ -246,6 +274,8 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                     _buildLegendItem(Colors.green, '正常'),
                     const SizedBox(width: 8),
                     _buildLegendItem(Colors.orange, '異常'),
+                    const SizedBox(width: 8),
+                    _buildLegendItem(Colors.pink, '請假'),
                     const SizedBox(width: 8),
                     _buildLegendItem(Colors.grey.shade300, '未打卡'),
                   ],
@@ -295,13 +325,19 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                       dayNumber,
                     );
                     final record = recordsMap[dayNumber];
+                    final leaveRequests = leaveDaysMap[dayNumber];
                     final isToday =
                         DateTime.now().year == date.year &&
                         DateTime.now().month == date.month &&
                         DateTime.now().day == date.day;
 
                     return Expanded(
-                      child: _buildCalendarDay(dayNumber, record, isToday),
+                      child: _buildCalendarDay(
+                        dayNumber,
+                        record,
+                        leaveRequests,
+                        isToday,
+                      ),
                     );
                   }),
                 ),
@@ -314,12 +350,22 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   }
 
   /// 建構日曆日期格子
-  Widget _buildCalendarDay(int day, AttendanceRecord? record, bool isToday) {
+  Widget _buildCalendarDay(
+    int day,
+    AttendanceRecord? record,
+    List<LeaveRequest>? leaveRequests,
+    bool isToday,
+  ) {
     Color backgroundColor;
     Color textColor = Colors.black87;
     IconData? icon;
 
-    if (record != null) {
+    // 優先顯示請假狀態
+    if (leaveRequests != null && leaveRequests.isNotEmpty) {
+      backgroundColor = Colors.pink.shade100;
+      textColor = Colors.pink.shade900;
+      icon = Icons.event_busy;
+    } else if (record != null) {
       // 有打卡記錄
       // 標準上班時間 8:30-17:30
       final isLate =
@@ -355,7 +401,9 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
         border: isToday ? Border.all(color: Colors.blue, width: 2) : null,
       ),
       child: InkWell(
-        onTap: record != null ? () => _showDayDetail(day, record) : null,
+        onTap: (record != null || leaveRequests != null)
+            ? () => _showDayDetail(day, record, leaveRequests)
+            : null,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: 48,
@@ -387,6 +435,32 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                     color: textColor.withOpacity(0.7),
                   ),
                 ),
+              // 顯示請假數量
+              if (leaveRequests != null && leaveRequests.length > 1)
+                Positioned(
+                  bottom: 2,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: textColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 14,
+                      minHeight: 14,
+                    ),
+                    child: Text(
+                      '${leaveRequests.length}',
+                      style: TextStyle(
+                        color: backgroundColor,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -414,58 +488,171 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   }
 
   /// 顯示日期詳情
-  void _showDayDetail(int day, AttendanceRecord record) {
+  void _showDayDetail(
+    int day,
+    AttendanceRecord? record,
+    List<LeaveRequest>? leaveRequests,
+  ) {
     final dateStr = '${_selectedMonth.year}年${_selectedMonth.month}月$day日';
-    final checkInStr = _formatTime(record.checkInTime);
-    final checkOutStr = record.checkOutTime != null
-        ? _formatTime(record.checkOutTime!)
-        : '未打卡';
-    final workHoursStr = record.workHours != null
-        ? '${record.workHours!.toStringAsFixed(1)}小時'
-        : '--';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(dateStr),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow('上班時間', checkInStr, Icons.login),
-            const SizedBox(height: 8),
-            _buildDetailRow('下班時間', checkOutStr, Icons.logout),
-            const SizedBox(height: 8),
-            _buildDetailRow('工作時數', workHoursStr, Icons.access_time),
-            if (record.location != null) ...[
-              const SizedBox(height: 8),
-              _buildDetailRow('打卡地點', record.location!, Icons.location_on),
-            ],
-            if (record.notes != null) ...[
-              const SizedBox(height: 8),
-              _buildDetailRow('備註', record.notes!, Icons.note),
-            ],
-            if (record.isManualEntry) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.yellow.shade100,
-                  borderRadius: BorderRadius.circular(4),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 請假資訊
+              if (leaveRequests != null && leaveRequests.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.pink.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.pink.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.event_busy,
+                            size: 20,
+                            color: Colors.pink.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '請假記錄',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.pink.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...leaveRequests.map(
+                        (leave) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                leave.leaveType.displayName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_formatDate(leave.startDate)} ${leave.startPeriod.displayName} ~ '
+                                '${_formatDate(leave.endDate)} ${leave.endPeriod.displayName}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              Text(
+                                '共 ${leave.totalDays} 天',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              if (leave.reason.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '原因：${leave.reason}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, size: 16, color: Colors.orange.shade700),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '補打卡記錄',
-                      style: TextStyle(fontWeight: FontWeight.w500),
+                const SizedBox(height: 12),
+              ],
+
+              // 打卡資訊
+              if (record != null) ...[
+                if (leaveRequests != null && leaveRequests.isNotEmpty)
+                  const Divider(),
+                _buildDetailRow(
+                  '上班時間',
+                  _formatTime(record.checkInTime),
+                  Icons.login,
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  '下班時間',
+                  record.checkOutTime != null
+                      ? _formatTime(record.checkOutTime!)
+                      : '未打卡',
+                  Icons.logout,
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  '工作時數',
+                  record.workHours != null
+                      ? '${record.workHours!.toStringAsFixed(1)}小時'
+                      : '--',
+                  Icons.access_time,
+                ),
+                if (record.location != null) ...[
+                  const SizedBox(height: 8),
+                  _buildDetailRow('打卡地點', record.location!, Icons.location_on),
+                ],
+                if (record.notes != null) ...[
+                  const SizedBox(height: 8),
+                  _buildDetailRow('備註', record.notes!, Icons.note),
+                ],
+                if (record.isManualEntry) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.yellow.shade100,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Colors.orange.shade700,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '補打卡記錄',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ] else if (leaveRequests == null || leaveRequests.isEmpty) ...[
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      '當日無打卡及請假記錄',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -497,6 +684,12 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
     final stats = _monthlyStats!;
     final screenWidth = MediaQuery.of(context).size.width;
+    
+    // 計算請假總天數
+    final totalLeaveDays = _monthlyLeaveRequests.fold<double>(
+      0,
+      (sum, leave) => sum + leave.totalDays,
+    );
 
     // 根據螢幕寬度動態計算列數
     int crossAxisCount;
@@ -504,8 +697,8 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     double spacing;
 
     if (screenWidth > 1200) {
-      // 大螢幕：4列
-      crossAxisCount = 4;
+      // 大螢幕：5列（加入請假統計）
+      crossAxisCount = 5;
       cardHeight = 140;
       spacing = 16;
     } else if (screenWidth > 800) {
@@ -576,6 +769,13 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
               subtitle: '每日平均',
               icon: Icons.schedule,
               color: Colors.purple,
+            ),
+            _buildStatCard(
+              title: '請假天數',
+              value: '${totalLeaveDays.toStringAsFixed(1)}',
+              subtitle: '${_monthlyLeaveRequests.length} 筆請假',
+              icon: Icons.event_busy,
+              color: Colors.pink,
             ),
           ],
         ),

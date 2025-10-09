@@ -355,87 +355,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
                   },
                 ),
             
-                // 出勤管理（僅 HR 和老闆可見）
-                if (_canViewAllAttendance)
-                _buildSystemCard(
-                  context,
-                  icon: Icons.admin_panel_settings,
-                  title: '出勤管理',
-                  subtitle: '所有員工出勤資料匯出',
-                  color: Colors.indigo,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AttendanceManagementPage(),
-                      ),
-                    );
-                  },
-                ),
-            
-                // 補打卡審核（僅 HR 和老闆可見）
+                // 人事管理（僅 HR 和老闆可見）
                 if (_canViewAllAttendance)
                   _buildSystemCard(
                     context,
-                    icon: Icons.fact_check,
-                    title: '補打卡審核',
-                    subtitle: '審核補打卡申請',
-                    color: Colors.deepOrange,
+                    icon: Icons.badge,
+                    title: '人事管理',
+                    subtitle: '出勤管理、請假與補打卡審核',
+                    color: Colors.indigo,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => AttendanceRequestReviewPage(
-                            onThemeToggle: widget.onThemeToggle,
-                            currentThemeMode: widget.currentThemeMode,
-                          ),
+                          builder: (context) => const HRReviewPage(),
                         ),
                       );
                     },
                   ),
-            
-                // 請假審核（僅 HR 和老闆可見）
-                if (_canViewAllAttendance)
-                  _buildSystemCard(
-                    context,
-                    icon: Icons.approval,
-                    title: '請假審核',
-                    subtitle: '審核員工請假申請',
-                    color: Colors.amber,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const LeaveRequestReviewPage(),
-                        ),
-                      );
-                    },
-                  ),
-            
-            // 系統報表
-            _buildSystemCard(
-              context,
-              icon: Icons.assessment,
-              title: '系統報表',
-              subtitle: '綜合數據分析統計',
-              color: Colors.teal,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('系統報表功能開發中...')),
-                );
-              },
-            ),
-            
-            // 系統設定
-            _buildSystemCard(
-              context,
-              icon: Icons.settings,
-              title: '系統設定',
-              subtitle: '系統配置與管理',
-              color: Colors.purple,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('系統設定功能開發中...')),
-                );
-              },
-                ),
           ],
             );
           },

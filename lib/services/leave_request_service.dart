@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 
@@ -12,14 +13,19 @@ class LeaveRequestService {
     try {
       final data = request.toJsonForInsert();
       
+      debugPrint('準備插入資料: $data');
+      
       final response = await _supabase
           .from('leave_requests')
           .insert(data)
           .select()
           .single();
 
+      debugPrint('插入成功: $response');
       return LeaveRequest.fromJson(response);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('建立請假申請失敗: $e');
+      debugPrint('Stack trace: $stackTrace');
       throw Exception('建立請假申請失敗: $e');
     }
   }
