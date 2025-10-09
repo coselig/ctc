@@ -1,22 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 國定假日資料
 class Holiday {
   final DateTime date;
   final String name;
+  final String? description;
   final Color color;
 
   Holiday({
     required this.date,
     required this.name,
+    this.description,
     this.color = Colors.red,
   });
+  
+  /// 從資料庫記錄建立 Holiday 物件
+  factory Holiday.fromDatabase(Map<String, dynamic> data) {
+    return Holiday(
+      date: DateTime.parse(data['date'] as String),
+      name: data['name'] as String,
+      description: data['description'] as String?,
+      color: Colors.red,
+    );
+  }
 }
 
 /// 國定假日服務
 class HolidayService {
-  /// 台灣 2025 年國定假日
-  static final Map<int, List<Holiday>> _holidays = {
+  final SupabaseClient? _supabase;
+
+  /// 資料庫載入的假日快取
+  static final Map<int, List<Holiday>> _databaseCache = {};
+
+  /// 是否已從資料庫載入
+  static bool _isLoadedFromDatabase = false;
+
+  HolidayService([SupabaseClient? supabase]) : _supabase = supabase;
+
+  /// 台灣國定假日（靜態備份資料，當資料庫無法連線時使用）
+  static final Map<int, List<Holiday>> _fallbackHolidays = {
     2025: [
       // 元旦
       Holiday(date: DateTime(2025, 1, 1), name: '中華民國開國紀念日'),
@@ -81,12 +104,58 @@ class HolidayService {
     ],
   };
 
+  /// 從資料庫載入假日資料
+  Future<void> loadFromDatabase() async {
+    if (_supabase == null) return;
+    if (_isLoadedFromDatabase) return; // 避免重複載入
+
+    try {
+      print('📥 正在從資料庫載入國定假日資料...');
+
+      final response = await _supabase
+          .from('holidays')
+          .select()
+          .eq('is_workday', false)
+          .order('date', ascending: true);
+
+      final data = response as List<dynamic>;
+
+      // 清空快取
+      _databaseCache.clear();
+
+      // 按年份分組
+      for (final item in data) {
+        final holiday = Holiday.fromDatabase(item as Map<String, dynamic>);
+        final year = holiday.date.year;
+        _databaseCache.putIfAbsent(year, () => []).add(holiday);
+      }
+
+      _isLoadedFromDatabase = true;
+      print('✅ 成功載入 ${data.length} 筆假日資料，涵蓋 ${_databaseCache.length} 個年度');
+    } catch (e) {
+      print('⚠️  從資料庫載入假日失敗: $e');
+      print('   將使用內建的備份資料');
+    }
+  }
+
+  /// 獲取假日資料（優先從資料庫快取，其次使用備份資料）
+  Map<int, List<Holiday>> get _holidays {
+    if (_databaseCache.isNotEmpty) {
+      return _databaseCache;
+    }
+    return _fallbackHolidays;
+  }
+  
   /// 獲取指定年份的所有國定假日
-  List<Holiday> getHolidays(int year) {
+  Future<List<Holiday>> getHolidays(int year) async {
+    // 如果還沒從資料庫載入，先載入
+    if (!_isLoadedFromDatabase && _supabase != null) {
+      await loadFromDatabase();
+    }
     return _holidays[year] ?? [];
   }
 
-  /// 檢查指定日期是否為國定假日
+  /// 檢查指定日期是否為國定假日（同步版本，使用快取）
   Holiday? isHoliday(DateTime date) {
     final normalizedDate = DateTime(date.year, date.month, date.day);
     final yearHolidays = _holidays[date.year] ?? [];

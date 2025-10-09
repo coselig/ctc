@@ -20,7 +20,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
   late final LeaveRequestService _leaveRequestService;
-  final _holidayService = HolidayService();
+  late final HolidayService _holidayService;
 
   Employee? _currentEmployee;
   AttendanceStats? _monthlyStats;
@@ -36,7 +36,14 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     _attendanceService = AttendanceService(supabase);
     _employeeService = EmployeeService(supabase);
     _leaveRequestService = LeaveRequestService();
+    _holidayService = HolidayService(supabase);
+    _initializeHolidays();
     _loadData();
+  }
+  
+  /// 初始化假日資料
+  Future<void> _initializeHolidays() async {
+    await _holidayService.loadFromDatabase();
   }
 
   /// 載入統計資料

@@ -63,7 +63,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
       if (user != null) {
         // 直接用當前用戶的 ID 查詢自己的員工資料（避免 RLS 權限問題）
         final employee = await _employeeService.getEmployeeById(user.id);
-        
+
         if (mounted) {
           setState(() {
             _currentEmployee = employee;
@@ -94,9 +94,9 @@ class _SystemHomePageState extends State<SystemHomePage> {
           const SizedBox(width: 8),
           Text(
             '載入用戶資料中...',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.grey.shade600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
           ),
         ],
       );
@@ -113,9 +113,9 @@ class _SystemHomePageState extends State<SystemHomePage> {
 
     return Text(
       displayText,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: Colors.grey.shade600,
-      ),
+      style: Theme.of(
+        context,
+      ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
     );
   }
 
@@ -133,7 +133,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
-    
+
     return GeneralPage(
       actions: [
         IconButton(
@@ -178,22 +178,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
           ),
         ),
         const SizedBox(height: 24),
-        
+
         // 系統功能選單
         Text(
           '系統功能',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        
+
         LayoutBuilder(
           builder: (context, constraints) {
             // 根據螢幕寬度動態計算列數
             int crossAxisCount;
             double childAspectRatio;
-            
+
             if (constraints.maxWidth >= 1600) {
               // 超大螢幕（1600px 以上）：6 列
               crossAxisCount = 6;
@@ -219,7 +219,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
               crossAxisCount = 1;
               childAspectRatio = 2.5;
             }
-            
+
             return GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -228,82 +228,82 @@ class _SystemHomePageState extends State<SystemHomePage> {
               crossAxisSpacing: 16,
               childAspectRatio: childAspectRatio,
               children: [
-            // 照片記錄系統
-            _buildSystemCard(
-              context,
-              icon: Icons.camera_alt,
-              title: '照片記錄',
-              subtitle: '工地照片記錄管理',
-              color: Colors.blue,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => PhotoRecordPage(
-                      title: '工地照片記錄系統',
-                      onThemeToggle: widget.onThemeToggle,
-                      currentThemeMode: widget.currentThemeMode,
-                    ),
-                  ),
-                );
-              },
-            ),
-            
-            // 員工管理系統
-            _buildSystemCard(
-              context,
-              icon: Icons.people,
-              title: '員工管理',
-              subtitle: '人力資源管理系統',
-              color: Colors.green,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => EmployeeManagementPage(
-                      title: '員工管理系統',
-                      onThemeToggle: widget.onThemeToggle,
-                      currentThemeMode: widget.currentThemeMode,
-                    ),
-                  ),
-                );
-              },
-            ),
-            
-            // 打卡系統
-            _buildSystemCard(
-              context,
-              icon: Icons.access_time,
-              title: '打卡系統',
-              subtitle: '員工考勤打卡管理',
-              color: Colors.orange,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => AttendancePage(
-                      title: '打卡系統',
-                      onThemeToggle: widget.onThemeToggle,
-                      currentThemeMode: widget.currentThemeMode,
-                    ),
-                  ),
-                );
-              },
-            ),
-            
-            // 打卡統計
-            _buildSystemCard(
-              context,
-              icon: Icons.analytics,
-              title: '打卡統計',
+                // 照片記錄系統
+                _buildSystemCard(
+                  context,
+                  icon: Icons.camera_alt,
+                  title: '照片記錄',
+                  subtitle: '工地照片記錄管理',
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => PhotoRecordPage(
+                          title: '工地照片記錄系統',
+                          onThemeToggle: widget.onThemeToggle,
+                          currentThemeMode: widget.currentThemeMode,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // 員工管理系統
+                _buildSystemCard(
+                  context,
+                  icon: Icons.people,
+                  title: '員工管理',
+                  subtitle: '人力資源管理系統',
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => EmployeeManagementPage(
+                          title: '員工管理系統',
+                          onThemeToggle: widget.onThemeToggle,
+                          currentThemeMode: widget.currentThemeMode,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // 打卡系統
+                _buildSystemCard(
+                  context,
+                  icon: Icons.access_time,
+                  title: '打卡系統',
+                  subtitle: '員工考勤打卡管理',
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AttendancePage(
+                          title: '打卡系統',
+                          onThemeToggle: widget.onThemeToggle,
+                          currentThemeMode: widget.currentThemeMode,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // 打卡統計
+                _buildSystemCard(
+                  context,
+                  icon: Icons.analytics,
+                  title: '打卡統計',
                   subtitle: '個人考勤統計',
-              color: Colors.purple,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AttendanceStatsPage(),
-                  ),
-                );
-              },
-            ),
-            
+                  color: Colors.purple,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AttendanceStatsPage(),
+                      ),
+                    );
+                  },
+                ),
+
                 // 補打卡申請
                 _buildSystemCard(
                   context,
@@ -322,7 +322,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
                     );
                   },
                 ),
-            
+
                 // 請假申請
                 _buildSystemCard(
                   context,
@@ -354,7 +354,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
                     );
                   },
                 ),
-            
+
                 // 人事管理（僅 HR 和老闆可見）
                 if (_canViewAllAttendance)
                   _buildSystemCard(
@@ -371,7 +371,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
                       );
                     },
                   ),
-          ],
+              ],
             );
           },
         ),
@@ -402,26 +402,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  size: 32,
-                  color: color,
-                ),
+                child: Icon(icon, size: 32, color: color),
               ),
               const SizedBox(height: 12),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
