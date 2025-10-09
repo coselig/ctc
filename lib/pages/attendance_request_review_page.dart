@@ -534,7 +534,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
             const Text('選擇員工：'),
             const SizedBox(height: 8),
             DropdownButtonFormField<String?>(
-              value: _selectedEmployeeId,
+              initialValue: _selectedEmployeeId,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: '全部員工',

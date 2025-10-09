@@ -787,7 +787,7 @@ class _AttendancePageState extends State<AttendancePage> {
               if (cacheAge > 0) ...[
                 const SizedBox(height: 4),
                 Text(
-                  '位置更新於 ${cacheAge}秒前',
+                  '位置更新於 $cacheAge秒前',
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                 ),
               ],
@@ -808,7 +808,7 @@ class _AttendancePageState extends State<AttendancePage> {
         _cachedPositionTime != null &&
         now.difference(_cachedPositionTime!).inSeconds < 30) {
       final cacheAge = now.difference(_cachedPositionTime!).inSeconds;
-      print('使用快取位置（${cacheAge}秒前）');
+      print('使用快取位置（$cacheAge秒前）');
       return _cachedPosition;
     }
     
@@ -848,7 +848,7 @@ class _AttendancePageState extends State<AttendancePage> {
           _cachedPosition = lastKnownPosition;
           _cachedPositionTime = now;
 
-          print('使用最後已知位置（${lastKnownAge}分鐘前）');
+          print('使用最後已知位置（$lastKnownAge分鐘前）');
           return lastKnownPosition;
         }
       }

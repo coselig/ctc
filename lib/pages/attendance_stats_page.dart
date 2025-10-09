@@ -415,7 +415,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
   /// 顯示日期詳情
   void _showDayDetail(int day, AttendanceRecord record) {
-    final dateStr = '${_selectedMonth.year}年${_selectedMonth.month}月${day}日';
+    final dateStr = '${_selectedMonth.year}年${_selectedMonth.month}月$day日';
     final checkInStr = _formatTime(record.checkInTime);
     final checkOutStr = record.checkOutTime != null
         ? _formatTime(record.checkOutTime!)

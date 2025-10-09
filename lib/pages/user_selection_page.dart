@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/employee_service.dart';
 import '../services/registered_user_service.dart';
-import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
 
 class UserSelectionPage extends StatefulWidget {

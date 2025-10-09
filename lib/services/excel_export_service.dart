@@ -1,10 +1,12 @@
 import 'dart:html' as html;
+
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/models.dart';
 import '../services/attendance_service.dart';
 import '../services/employee_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ExcelExportService {
   final SupabaseClient supabase;
@@ -154,7 +156,7 @@ class ExcelExportService {
       final rowIndex = i + 1;
       
       print(
-        '寫入第 ${rowIndex} 列: ${employee?.name ?? "未知"} - ${_formatDate(record.checkInTime)}',
+        '寫入第 $rowIndex 列: ${employee?.name ?? "未知"} - ${_formatDate(record.checkInTime)}',
       );
       
       // 日期
