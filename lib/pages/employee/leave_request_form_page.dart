@@ -276,7 +276,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<LeaveType>(
-              value: _selectedLeaveType,
+              initialValue: _selectedLeaveType,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -404,7 +404,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<LeavePeriod>(
-                    value: _startPeriod,
+                    initialValue: _startPeriod,
                     decoration: const InputDecoration(
                       labelText: '開始時段',
                       border: OutlineInputBorder(),
@@ -426,7 +426,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<LeavePeriod>(
-                    value: _endPeriod,
+                    initialValue: _endPeriod,
                     decoration: const InputDecoration(
                       labelText: '結束時段',
                       border: OutlineInputBorder(),

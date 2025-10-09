@@ -7,19 +7,43 @@ class CompassBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // 背景 Canvas
-        Positioned.fill(
-          child: CustomPaint(
-            painter: CompassBackgroundPainter(
-              isDarkMode: Theme.of(context).brightness == Brightness.dark,
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: double.infinity),
+      decoration: BoxDecoration(
+        // 使用漸層背景，讓整個容器都有背景色
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [
+                  const Color(0xFF1A1A1A),
+                  const Color(0xFF2C2C2C),
+                  const Color(0xFF3D3D3D),
+                  const Color(0xFF4A4A4A),
+                ]
+              : [
+                  const Color(0xFFF8F6F4),
+                  const Color(0xFFF0EDE8),
+                  const Color(0xFFE8E0D6),
+                  const Color(0xFFDDD4C7),
+                ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // 裝飾性背景圖形
+          Positioned.fill(
+            child: CustomPaint(
+              painter: CompassBackgroundPainter(
+                isDarkMode: Theme.of(context).brightness == Brightness.dark,
+              ),
             ),
           ),
-        ),
-        // 子組件內容
-        child,
-      ],
+          // 子組件內容
+          child,
+        ],
+      ),
     );
   }
 }
@@ -33,32 +57,6 @@ class CompassBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
-
-    // 根據主題選擇不同的背景漸層
-    final gradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: isDarkMode
-          ? [
-              // 暗色模式背景
-              const Color(0xFF1A1A1A), // 深灰色
-              const Color(0xFF2C2C2C), // 中灰色
-              const Color(0xFF3D3D3D), // 較亮的灰色
-              const Color(0xFF4A4A4A), // 更亮的灰色
-            ]
-          : [
-              // 亮色模式背景
-              const Color(0xFFF8F6F4), // 淺米色
-              const Color(0xFFF0EDE8), // 稍深米色
-              const Color(0xFFE8E0D6), // 中等米色
-              const Color(0xFFDDD4C7), // 深一點的米色
-            ],
-    );
-
-    paint.shader = gradient.createShader(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-    );
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
 
     // 繪製幾何圖形 - 左上角三角形
     final trianglePath = Path();
