@@ -6,14 +6,7 @@ import '../services/employee_service.dart';
 import '../services/permission_service.dart';
 import '../widgets/general_page.dart';
 import '../widgets/widgets.dart';
-import 'attendance_page.dart';
-import 'attendance_stats_page.dart';
-import 'attendance_management_page.dart';
-import 'attendance_request_page.dart';
-import 'attendance_request_review_page.dart';
-import 'employee_management_page.dart';
-import 'photo_record_page.dart';
-import 'welcome_page.dart';
+import 'pages.dart'; // 統一匯入所有頁面
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({
