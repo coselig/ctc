@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/attendance_record.dart';
 import '../models/employee.dart';
+import 'holiday_service.dart';
 
 /// 打卡記錄服務類
 class AttendanceService {
@@ -332,6 +333,29 @@ class AttendanceService {
         endDate: endDate,
       );
 
+      // 計算工作日天數（週一至週五），但只計算到今天
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      // 計算結束日期：取 endDate 和 today 中較早的那個
+      final calculationEndDate = endDate.isBefore(today) ? endDate : today;
+
+      // 建立國定假日服務
+      final holidayService = HolidayService();
+
+      int expectedWorkDays = 0;
+      DateTime currentDate = startDate;
+      while (currentDate.isBefore(calculationEndDate) ||
+          currentDate.isAtSameMomentAs(calculationEndDate)) {
+        // 1 = Monday, 5 = Friday
+        if (currentDate.weekday >= 1 && currentDate.weekday <= 5) {
+          // 檢查是否為國定假日
+          if (holidayService.isHoliday(currentDate) == null) {
+            expectedWorkDays++;
+          }
+        }
+        currentDate = currentDate.add(const Duration(days: 1));
+      }
+
       // 計算統計資料
       final totalDays = endDate.difference(startDate).inDays + 1;
       final workDays = records.length;
@@ -340,7 +364,10 @@ class AttendanceService {
           .fold<double>(0.0, (sum, r) => sum + (r.workHours ?? 0));
       
       final averageHours = workDays > 0 ? totalHours / workDays : 0.0;
-      final attendanceRate = totalDays > 0 ? (workDays / totalDays) * 100 : 0.0;
+      // 使用工作日計算出勤率（只計算到今天）
+      final attendanceRate = expectedWorkDays > 0
+          ? (workDays / expectedWorkDays) * 100
+          : 0.0;
 
       // 計算遲到和早退次數 (假設標準工時是 8:30-17:30)
       int lateCount = 0;

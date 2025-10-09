@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../services/attendance_service.dart';
 import '../../services/employee_service.dart';
 import '../../services/leave_request_service.dart';
+import '../../services/holiday_service.dart';
 import '../../widgets/general_page.dart';
 
 class AttendanceStatsPage extends StatefulWidget {
@@ -19,6 +20,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
   late final LeaveRequestService _leaveRequestService;
+  final _holidayService = HolidayService();
 
   Employee? _currentEmployee;
   AttendanceStats? _monthlyStats;
@@ -108,17 +110,21 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
   /// 選擇月份
   Future<void> _selectMonth() async {
-    final picked = await showDatePicker(
+    final currentYear = _selectedMonth.year;
+    final currentMonth = _selectedMonth.month;
+
+    // 顯示年份和月份選擇對話框
+    final result = await showDialog<DateTime>(
       context: context,
-      initialDate: _selectedMonth,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDatePickerMode: DatePickerMode.year,
+      builder: (context) => _MonthYearPickerDialog(
+        initialYear: currentYear,
+        initialMonth: currentMonth,
+      ),
     );
-    
-    if (picked != null && picked != _selectedMonth) {
+
+    if (result != null && result != _selectedMonth) {
       setState(() {
-        _selectedMonth = picked;
+        _selectedMonth = result;
       });
       _loadData();
     }
@@ -277,6 +283,8 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                     const SizedBox(width: 8),
                     _buildLegendItem(Colors.pink, '請假'),
                     const SizedBox(width: 8),
+                    _buildLegendItem(Colors.red.shade50, '國定假日'),
+                    const SizedBox(width: 8),
                     _buildLegendItem(Colors.grey.shade300, '未打卡'),
                   ],
                 ),
@@ -287,18 +295,25 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
             // 星期標題
             Row(
               children: ['一', '二', '三', '四', '五', '六', '日']
+                  .asMap().entries
                   .map(
-                    (day) => Expanded(
-                      child: Center(
-                        child: Text(
-                          day,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
-                          ),
+                (entry) {
+                  final index = entry.key;
+                  final day = entry.value;
+                  // 週六(index=5)和週日(index=6)用紅色
+                  final isWeekend = index >= 5;
+                  return Expanded(
+                    child: Center(
+                      child: Text(
+                        day,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isWeekend ? Colors.red : Colors.grey.shade600,
                         ),
                       ),
                     ),
+                  );
+                },
                   )
                   .toList(),
             ),
@@ -331,12 +346,19 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                         DateTime.now().month == date.month &&
                         DateTime.now().day == date.day;
 
+                    // 檢查是否為國定假日
+                    final holiday = _holidayService.isHoliday(date);
+                    // 檢查是否為週末
+                    final isWeekend = date.weekday == 6 || date.weekday == 7;
+                    
                     return Expanded(
                       child: _buildCalendarDay(
                         dayNumber,
                         record,
                         leaveRequests,
                         isToday,
+                        holiday,
+                        isWeekend,
                       ),
                     );
                   }),
@@ -355,13 +377,21 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     AttendanceRecord? record,
     List<LeaveRequest>? leaveRequests,
     bool isToday,
+    Holiday? holiday,
+    bool isWeekend,
   ) {
     Color backgroundColor;
     Color textColor = Colors.black87;
     IconData? icon;
 
-    // 優先顯示請假狀態
-    if (leaveRequests != null && leaveRequests.isNotEmpty) {
+    // 優先顯示國定假日
+    if (holiday != null) {
+      backgroundColor = Colors.red.shade50;
+      textColor = Colors.red;
+      icon = Icons.celebration;
+    }
+    // 其次顯示請假狀態
+    else if (leaveRequests != null && leaveRequests.isNotEmpty) {
       backgroundColor = Colors.pink.shade100;
       textColor = Colors.pink.shade900;
       icon = Icons.event_busy;
@@ -401,8 +431,8 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
         border: isToday ? Border.all(color: Colors.blue, width: 2) : null,
       ),
       child: InkWell(
-        onTap: (record != null || leaveRequests != null)
-            ? () => _showDayDetail(day, record, leaveRequests)
+        onTap: (record != null || leaveRequests != null || holiday != null)
+            ? () => _showDayDetail(day, record, leaveRequests, holiday)
             : null,
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -414,7 +444,14 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                   '$day',
                   style: TextStyle(
                     fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                    color: textColor,
+                    // 週末或國定假日用紅色，否則用原本的 textColor
+                    color:
+                        (isWeekend &&
+                            holiday == null &&
+                            record == null &&
+                            leaveRequests == null)
+                        ? Colors.red
+                        : textColor,
                     fontSize: 16,
                   ),
                 ),
@@ -492,6 +529,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     int day,
     AttendanceRecord? record,
     List<LeaveRequest>? leaveRequests,
+    Holiday? holiday,
   ) {
     final dateStr = '${_selectedMonth.year}年${_selectedMonth.month}月$day日';
 
@@ -504,6 +542,51 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 國定假日資訊
+              if (holiday != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.celebration,
+                        size: 24,
+                        color: Colors.red.shade700,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '國定假日',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              holiday.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               // 請假資訊
               if (leaveRequests != null && leaveRequests.isNotEmpty) ...[
                 Container(
@@ -950,6 +1033,176 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
               ],
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// 自定義月份年份選擇器對話框
+class _MonthYearPickerDialog extends StatefulWidget {
+  final int initialYear;
+  final int initialMonth;
+
+  const _MonthYearPickerDialog({
+    required this.initialYear,
+    required this.initialMonth,
+  });
+
+  @override
+  State<_MonthYearPickerDialog> createState() => _MonthYearPickerDialogState();
+}
+
+class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
+  late int selectedYear;
+  late int selectedMonth;
+  final now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    selectedYear = widget.initialYear;
+    selectedMonth = widget.initialMonth;
+  }
+
+  bool _isMonthDisabled(int year, int month) {
+    // 如果是未來的月份，則禁用
+    if (year > now.year) return true;
+    if (year == now.year && month > now.month) return true;
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentYear = now.year;
+    final years = List.generate(
+      currentYear - 2020 + 1,
+      (index) => currentYear - index,
+    );
+
+    return AlertDialog(
+      title: const Text('選擇月份'),
+      content: SizedBox(
+        width: 300,
+        height: 300,
+        child: Row(
+          children: [
+            // 年份選擇
+            Expanded(
+              child: Column(
+                children: [
+                  Text(
+                    '年份',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: years.length,
+                      itemBuilder: (context, index) {
+                        final year = years[index];
+                        final isSelected = year == selectedYear;
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            '$year',
+                            style: TextStyle(
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : null,
+                            ),
+                          ),
+                          selected: isSelected,
+                          onTap: () {
+                            setState(() {
+                              selectedYear = year;
+                              // 如果選擇的月份在新年份中是未來月份，重置為當前月份
+                              if (_isMonthDisabled(
+                                selectedYear,
+                                selectedMonth,
+                              )) {
+                                selectedMonth = now.month;
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const VerticalDivider(),
+            // 月份選擇
+            Expanded(
+              child: Column(
+                children: [
+                  Text(
+                    '月份',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: 12,
+                      itemBuilder: (context, index) {
+                        final month = index + 1;
+                        final isSelected = month == selectedMonth;
+                        final isDisabled = _isMonthDisabled(
+                          selectedYear,
+                          month,
+                        );
+                        return ListTile(
+                          dense: true,
+                          enabled: !isDisabled,
+                          title: Text(
+                            '$month 月',
+                            style: TextStyle(
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isDisabled
+                                  ? Colors.grey
+                                  : isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : null,
+                            ),
+                          ),
+                          selected: isSelected,
+                          onTap: isDisabled
+                              ? null
+                              : () {
+                                  setState(() {
+                                    selectedMonth = month;
+                                  });
+                                },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop(DateTime(selectedYear, selectedMonth, 1));
+          },
+          child: const Text('確認'),
+        ),
       ],
     );
   }
