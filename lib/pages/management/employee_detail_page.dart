@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/employee.dart';
-import '../models/user_role.dart';
-import '../services/employee_service.dart';
-import '../services/permission_service.dart';
-import '../widgets/widgets.dart';
+import '../../models/employee.dart';
+import '../../models/user_role.dart';
+import '../../services/employee_service.dart';
+import '../../services/permission_service.dart';
+import '../../widgets/widgets.dart';
 import 'employee_form_page.dart';
 
 class EmployeeDetailPage extends StatefulWidget {

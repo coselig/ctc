@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/models.dart';
-import '../services/attendance_service.dart';
-import '../services/employee_service.dart';
-import '../widgets/general_page.dart';
+import '../../models/models.dart';
+import '../../services/attendance_service.dart';
+import '../../services/employee_service.dart';
+import '../../widgets/general_page.dart';
 
 class AttendanceStatsPage extends StatefulWidget {
   const AttendanceStatsPage({super.key});

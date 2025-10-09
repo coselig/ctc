@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/models.dart';
-import '../services/attendance_service.dart';
-import '../services/employee_service.dart';
-import '../services/permission_service.dart';
+import '../../models/models.dart';
+import '../../services/attendance_service.dart';
+import '../../services/employee_service.dart';
+import '../../services/permission_service.dart';
 
 /// 手動補打卡頁面（僅 HR/老闆可用）
 class ManualAttendancePage extends StatefulWidget {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../services/employee_service.dart';
-import '../services/registered_user_service.dart';
-import '../widgets/widgets.dart';
+import '../../services/employee_service.dart';
+import '../../services/registered_user_service.dart';
+import '../../widgets/widgets.dart';
 
 class UserSelectionPage extends StatefulWidget {
   const UserSelectionPage({

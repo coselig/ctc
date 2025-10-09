@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/employee.dart';
-import '../services/employee_service.dart';
-import '../services/permission_service.dart';
-import '../widgets/widgets.dart';
-import 'pages.dart'; // 統一匯入所有頁面
+import '../../models/models.dart';
+import '../../services/services.dart';
+import '../../widgets/widgets.dart';
+import '../pages.dart'; // 統一匯入所有頁面
+import '../management/management_pages.dart'; // 管理頁面（HR/老闆）
+import 'employee_pages.dart'; // 員工頁面
+import '../public/public_pages.dart'; // 公開頁面（用於登出跳轉）
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({

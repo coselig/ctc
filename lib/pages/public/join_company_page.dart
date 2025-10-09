@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/job_vacancy.dart';
-import '../services/job_vacancy_service.dart';
+import '../../models/job_vacancy.dart';
+import '../../services/job_vacancy_service.dart';
 
 class JoinCompanyPage extends StatefulWidget {
   const JoinCompanyPage({

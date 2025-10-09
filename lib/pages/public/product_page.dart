@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/compass_background.dart';
-import '../widgets/feature_card.dart';
-import '../widgets/feature_item.dart';
+import '../../widgets/compass_background.dart';
+import '../../widgets/feature_card.dart';
+import '../../widgets/feature_item.dart';
 
 class ProductPage extends StatefulWidget {
   const ProductPage({super.key});

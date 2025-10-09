@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../services/image_service.dart';
-import '../widgets/category_section.dart';
-import '../widgets/compass_background.dart';
-import '../widgets/product_section.dart';
+import '../../services/image_service.dart';
+import '../../widgets/category_section.dart';
+import '../../widgets/compass_background.dart';
+import '../../widgets/product_section.dart';
 
 class ProductCompassPage extends StatefulWidget {
   const ProductCompassPage({super.key});

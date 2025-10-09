@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'pages/system_home_page.dart';
-import 'pages/welcome_page.dart';
-import 'services/user_permission_service.dart';
-import 'services/user_preferences_service.dart';
+import 'pages/employee/employee_pages.dart';
+import 'pages/public/public_pages.dart';
+import 'services/services.dart';
 import 'theme/app_theme.dart';
 
 

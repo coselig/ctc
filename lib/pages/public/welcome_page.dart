@@ -1,24 +1,13 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ctc/pages/ha_page.dart';
-import 'package:ctc/pages/intro_page.dart';
-import 'package:ctc/pages/join_company_page.dart';
-import 'package:ctc/pages/product_compass.dart';
-import 'package:ctc/pages/user_settings_page.dart';
-import 'package:ctc/services/image_service.dart';
-import 'package:ctc/services/user_permission_service.dart';
-import 'package:ctc/widgets/company_info_footer.dart';
-import 'package:ctc/widgets/compass_background.dart';
-import 'package:ctc/widgets/responsive_container.dart';
-import 'package:ctc/widgets/transparent_app_bar.dart';
-import 'package:ctc/widgets/unified_card.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'auth_page.dart';
-import 'product_page.dart';
-import 'system_home_page.dart';
+import '../../services/services.dart';
+import '../../widgets/widgets.dart';
+import '../employee/employee_pages.dart'; // 引用 user_settings_page
+import 'public_pages.dart'; // 引用同資料夾的其他頁面
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user_profile.dart';
-import '../services/user_service.dart';
+import '../../models/user_profile.dart';
+import '../../services/user_service.dart';
 
 /// 用戶資料管理頁面
 /// 展示如何使用 UserService 進行 CRUD 操作
