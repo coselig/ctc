@@ -1,26 +1,52 @@
-// Widget exports
-// 通用對話框
-export 'category_section.dart';
-// 背景和佈局
+/// 統一匯出所有 Widget 元件
+/// 使用方式: import 'package:ctc/widgets/widgets.dart';
+library widgets;
+
+// ==================== 通用佈局元件 ====================
+export 'general_page.dart';
+export 'responsive_container.dart';
+export 'app_bar_spacer.dart';
+export 'transparent_app_bar.dart';
+
+// ==================== 背景元件 ====================
 export 'compass_background.dart';
+export 'triangle_background.dart';
+
+// ==================== 對話框元件 ====================
 export 'confirmation_dialog.dart';
-export 'custom_text_field.dart';
-export 'empty_state.dart';
-// 功能相關
-export 'feature_card.dart';
-export 'feature_item.dart';
-// 樓層平面圖
-export 'floor_plan_view.dart';
-export 'loading_overlay.dart';
-export 'logout_button.dart';
-export 'marker_painter.dart';
-export 'message_helper.dart';
+export 'coselig_fix_dialog.dart';
+export 'info_dialog.dart';
 export 'name_input_dialog.dart';
 export 'photo_dialog.dart';
-// 產品相關
-export 'product_section.dart';
-export 'responsive_container.dart';
-export 'theme_toggle_button.dart';
-// 通用 UI 元件
-export 'transparent_app_bar.dart';
+
+// ==================== 表單元件 ====================
+export 'custom_text_field.dart';
+
+// ==================== 狀態元件 ====================
+export 'empty_state.dart';
+export 'loading_overlay.dart';
+export 'error_boundary.dart';
+
+// ==================== 功能卡片元件 ====================
+export 'feature_card.dart';
+export 'feature_item.dart';
 export 'unified_card.dart';
+export 'ha_page_card.dart';
+
+// ==================== 產品相關元件 ====================
+export 'product_section.dart';
+export 'category_section.dart';
+export 'company_info_footer.dart';
+
+// ==================== 樓層平面圖元件 ====================
+export 'floor_plan_view.dart';
+export 'floor_plan_upload_widget.dart';
+export 'marker_painter.dart';
+
+// ==================== 使用者相關元件 ====================
+export 'user_info_example.dart';
+export 'logout_button.dart';
+export 'theme_toggle_button.dart';
+
+// ==================== 輔助元件 ====================
+export 'message_helper.dart';

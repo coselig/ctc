@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/attendance_leave_request.dart';
-import '../models/employee.dart';
-import '../services/attendance_leave_request_service.dart';
-import '../services/attendance_service.dart';
-import '../services/employee_service.dart';
-import '../services/permission_service.dart';
+import '../models/models.dart'; // 統一匯入所有模型
+import '../services/services.dart'; // 統一匯入所有服務
 
 /// 補打卡審核頁面 - HR/老闆審核申請
 class AttendanceRequestReviewPage extends StatefulWidget {

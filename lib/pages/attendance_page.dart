@@ -4,12 +4,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
-import '../services/attendance_service.dart';
-import '../services/company_location_service.dart';
-import '../services/employee_service.dart';
-import '../services/permission_service.dart';
-import '../widgets/general_page.dart';
-import 'manual_attendance_page.dart';
+import '../services/services.dart'; // 統一匯入所有服務
+import '../widgets/widgets.dart'; // 統一匯入所有元件
+import 'pages.dart'; // 統一匯入所有頁面
 
 class AttendancePage extends StatefulWidget {
   const AttendancePage({
