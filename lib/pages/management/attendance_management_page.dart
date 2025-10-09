@@ -6,6 +6,7 @@ import '../../services/attendance_service.dart';
 import '../../services/employee_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../widgets/general_page.dart';
+import '../../widgets/month_year_picker.dart';
 
 /// 出勤管理頁面（管理員使用）
 class AttendanceManagementPage extends StatefulWidget {
@@ -175,12 +176,10 @@ class _AttendanceManagementPageState extends State<AttendanceManagementPage> {
 
   /// 選擇月份
   Future<void> _selectMonth() async {
-    final picked = await showDatePicker(
+    final picked = await showMonthYearPicker(
       context: context,
-      initialDate: _selectedMonth,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDatePickerMode: DatePickerMode.year,
+      initialYear: _selectedMonth.year,
+      initialMonth: _selectedMonth.month,
     );
 
     if (picked != null && picked != _selectedMonth) {

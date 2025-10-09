@@ -7,6 +7,7 @@ import '../../services/employee_service.dart';
 import '../../services/leave_request_service.dart';
 import '../../services/holiday_service.dart';
 import '../../widgets/general_page.dart';
+import '../../widgets/month_year_picker.dart';
 
 class AttendanceStatsPage extends StatefulWidget {
   const AttendanceStatsPage({super.key});
@@ -121,12 +122,10 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     final currentMonth = _selectedMonth.month;
 
     // 顯示年份和月份選擇對話框
-    final result = await showDialog<DateTime>(
+    final result = await showMonthYearPicker(
       context: context,
-      builder: (context) => _MonthYearPickerDialog(
-        initialYear: currentYear,
-        initialMonth: currentMonth,
-      ),
+      initialYear: currentYear,
+      initialMonth: currentMonth,
     );
 
     if (result != null && result != _selectedMonth) {
@@ -241,7 +240,10 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
       _selectedMonth.month + 1,
       0,
     );
-    final firstWeekday = firstDayOfMonth.weekday; // 1=Monday, 7=Sunday
+    // Dart: 1=Monday, 7=Sunday
+    // 我們的月曆: 0=Sunday, 1=Monday, ..., 6=Saturday
+    // 轉換: weekday==7 -> 0, weekday==1 -> 1, ..., weekday==6 -> 6
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 轉換為從週日開始的索引
     final daysInMonth = lastDayOfMonth.day;
 
     // 建立打卡記錄對應表
@@ -301,14 +303,14 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
             // 星期標題
             Row(
-              children: ['一', '二', '三', '四', '五', '六', '日']
+              children: ['日', '一', '二', '三', '四', '五', '六']
                   .asMap().entries
                   .map(
                 (entry) {
                   final index = entry.key;
                   final day = entry.value;
-                  // 週六(index=5)和週日(index=6)用紅色
-                  final isWeekend = index >= 5;
+                  // 週日(index=0)和週六(index=6)用紅色
+                  final isWeekend = index == 0 || index == 6;
                   return Expanded(
                     child: Center(
                       child: Text(
@@ -1040,176 +1042,6 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
               ],
             ),
           ),
-      ],
-    );
-  }
-}
-
-/// 自定義月份年份選擇器對話框
-class _MonthYearPickerDialog extends StatefulWidget {
-  final int initialYear;
-  final int initialMonth;
-
-  const _MonthYearPickerDialog({
-    required this.initialYear,
-    required this.initialMonth,
-  });
-
-  @override
-  State<_MonthYearPickerDialog> createState() => _MonthYearPickerDialogState();
-}
-
-class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
-  late int selectedYear;
-  late int selectedMonth;
-  final now = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    selectedYear = widget.initialYear;
-    selectedMonth = widget.initialMonth;
-  }
-
-  bool _isMonthDisabled(int year, int month) {
-    // 如果是未來的月份，則禁用
-    if (year > now.year) return true;
-    if (year == now.year && month > now.month) return true;
-    return false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final currentYear = now.year;
-    final years = List.generate(
-      currentYear - 2020 + 1,
-      (index) => currentYear - index,
-    );
-
-    return AlertDialog(
-      title: const Text('選擇月份'),
-      content: SizedBox(
-        width: 300,
-        height: 300,
-        child: Row(
-          children: [
-            // 年份選擇
-            Expanded(
-              child: Column(
-                children: [
-                  Text(
-                    '年份',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Divider(),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: years.length,
-                      itemBuilder: (context, index) {
-                        final year = years[index];
-                        final isSelected = year == selectedYear;
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            '$year',
-                            style: TextStyle(
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                            ),
-                          ),
-                          selected: isSelected,
-                          onTap: () {
-                            setState(() {
-                              selectedYear = year;
-                              // 如果選擇的月份在新年份中是未來月份，重置為當前月份
-                              if (_isMonthDisabled(
-                                selectedYear,
-                                selectedMonth,
-                              )) {
-                                selectedMonth = now.month;
-                              }
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const VerticalDivider(),
-            // 月份選擇
-            Expanded(
-              child: Column(
-                children: [
-                  Text(
-                    '月份',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Divider(),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: 12,
-                      itemBuilder: (context, index) {
-                        final month = index + 1;
-                        final isSelected = month == selectedMonth;
-                        final isDisabled = _isMonthDisabled(
-                          selectedYear,
-                          month,
-                        );
-                        return ListTile(
-                          dense: true,
-                          enabled: !isDisabled,
-                          title: Text(
-                            '$month 月',
-                            style: TextStyle(
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isDisabled
-                                  ? Colors.grey
-                                  : isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                            ),
-                          ),
-                          selected: isSelected,
-                          onTap: isDisabled
-                              ? null
-                              : () {
-                                  setState(() {
-                                    selectedMonth = month;
-                                  });
-                                },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop(DateTime(selectedYear, selectedMonth, 1));
-          },
-          child: const Text('確認'),
-        ),
       ],
     );
   }

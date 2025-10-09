@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
 import '../../services/services.dart';
+import '../../widgets/month_year_picker.dart';
 
 /// 人事審核頁面 - 整合補打卡審核和請假審核
 class HRReviewPage extends StatefulWidget {
@@ -936,12 +937,10 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
     final currentMonth = _selectedMonth.month;
 
     // 顯示年份和月份選擇對話框
-    final result = await showDialog<DateTime>(
+    final result = await showMonthYearPicker(
       context: context,
-      builder: (context) => _MonthYearPickerDialog(
-        initialYear: currentYear,
-        initialMonth: currentMonth,
-      ),
+      initialYear: currentYear,
+      initialMonth: currentMonth,
     );
 
     if (result != null && result != _selectedMonth) {
@@ -1206,169 +1205,6 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
           color: Theme.of(context).primaryColor,
         ),
       ),
-    );
-  }
-}
-
-/// 月份年份選擇對話框
-class _MonthYearPickerDialog extends StatefulWidget {
-  final int initialYear;
-  final int initialMonth;
-
-  const _MonthYearPickerDialog({
-    required this.initialYear,
-    required this.initialMonth,
-  });
-
-  @override
-  State<_MonthYearPickerDialog> createState() => _MonthYearPickerDialogState();
-}
-
-class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
-  late int _selectedYear;
-  late int _selectedMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedYear = widget.initialYear;
-    _selectedMonth = widget.initialMonth;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final currentYear = now.year;
-
-    // 生成年份列表 (2020 ~ 當前年份)
-    final years = List.generate(
-      currentYear - 2020 + 1,
-      (index) => 2020 + index,
-    ).reversed.toList();
-
-    // 月份列表
-    final months = List.generate(12, (index) => index + 1);
-
-    return AlertDialog(
-      title: const Text('選擇月份'),
-      content: SizedBox(
-        width: 300,
-        height: 300,
-        child: Row(
-          children: [
-            // 年份選擇
-            Expanded(
-              child: Column(
-                children: [
-                  const Text(
-                    '年份',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: years.length,
-                      itemBuilder: (context, index) {
-                        final year = years[index];
-                        final isSelected = year == _selectedYear;
-
-                        return ListTile(
-                          title: Text(
-                            '$year',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                            ),
-                          ),
-                          selected: isSelected,
-                          onTap: () {
-                            setState(() {
-                              _selectedYear = year;
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const VerticalDivider(),
-
-            // 月份選擇
-            Expanded(
-              child: Column(
-                children: [
-                  const Text(
-                    '月份',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: months.length,
-                      itemBuilder: (context, index) {
-                        final month = months[index];
-                        final isSelected = month == _selectedMonth;
-
-                        // 檢查是否為未來月份
-                        final isFuture =
-                            _selectedYear > currentYear ||
-                            (_selectedYear == currentYear && month > now.month);
-
-                        return ListTile(
-                          title: Text(
-                            '$month月',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isFuture
-                                  ? Colors.grey
-                                  : isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                            ),
-                          ),
-                          selected: isSelected && !isFuture,
-                          enabled: !isFuture,
-                          onTap: isFuture
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _selectedMonth = month;
-                                  });
-                                },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final selectedDate = DateTime(_selectedYear, _selectedMonth, 1);
-            Navigator.pop(context, selectedDate);
-          },
-          child: const Text('確定'),
-        ),
-      ],
     );
   }
 }
