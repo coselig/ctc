@@ -288,68 +288,17 @@ class _SystemHomePageState extends State<SystemHomePage> {
                   },
                 ),
 
-                // 打卡統計
+                // 個人出勤中心（整合打卡統計、請假申請、補打卡申請）
                 _buildSystemCard(
                   context,
-                  icon: Icons.analytics,
-                  title: '打卡統計',
-                  subtitle: '個人考勤統計',
+                  icon: Icons.assessment,
+                  title: '個人出勤中心',
+                  subtitle: '出勤統計、請假、補打卡申請',
                   color: Colors.purple,
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const AttendanceStatsPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                // 補打卡申請
-                _buildSystemCard(
-                  context,
-                  icon: Icons.event_note,
-                  title: '補打卡申請',
-                  subtitle: '提交補打卡申請',
-                  color: Colors.cyan,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => AttendanceRequestPage(
-                          onThemeToggle: widget.onThemeToggle,
-                          currentThemeMode: widget.currentThemeMode,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // 請假申請
-                _buildSystemCard(
-                  context,
-                  icon: Icons.event_busy,
-                  title: '請假申請',
-                  subtitle: '申請各類假別',
-                  color: Colors.pink,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const LeaveRequestFormPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                // 請假記錄
-                _buildSystemCard(
-                  context,
-                  icon: Icons.event_available,
-                  title: '請假記錄',
-                  subtitle: '查看請假記錄與額度',
-                  color: Colors.lime,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const LeaveRecordPage(),
                       ),
                     );
                   },

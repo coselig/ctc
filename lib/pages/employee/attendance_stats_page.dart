@@ -6,9 +6,11 @@ import '../../services/attendance_service.dart';
 import '../../services/employee_service.dart';
 import '../../services/leave_request_service.dart';
 import '../../services/holiday_service.dart';
-import '../../widgets/general_page.dart';
 import '../../widgets/month_year_picker.dart';
+import 'leave_request_form_page.dart';
+import 'attendance_request_page.dart';
 
+/// 個人出勤中心頁面 - 整合出勤統計、請假記錄和補打卡申請
 class AttendanceStatsPage extends StatefulWidget {
   const AttendanceStatsPage({super.key});
 
@@ -16,7 +18,64 @@ class AttendanceStatsPage extends StatefulWidget {
   State<AttendanceStatsPage> createState() => _AttendanceStatsPageState();
 }
 
-class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
+class _AttendanceStatsPageState extends State<AttendanceStatsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('個人出勤中心'),
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.analytics), text: '出勤統計'),
+            Tab(icon: Icon(Icons.event_available), text: '請假記錄'),
+            Tab(icon: Icon(Icons.event_note), text: '補打卡申請'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          const AttendanceStatsTab(),
+          const LeaveRequestFormPage(),
+          AttendanceRequestPage(
+            onThemeToggle: () {}, // 不需要主題切換功能
+            currentThemeMode: ThemeMode.system,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 出勤統計分頁
+class AttendanceStatsTab extends StatefulWidget {
+  const AttendanceStatsTab({super.key});
+
+  @override
+  State<AttendanceStatsTab> createState() => _AttendanceStatsTabState();
+}
+
+class _AttendanceStatsTabState extends State<AttendanceStatsTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final supabase = Supabase.instance.client;
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
@@ -41,7 +100,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     _initializeHolidays();
     _loadData();
   }
-  
+
   /// 初始化假日資料
   Future<void> _initializeHolidays() async {
     await _holidayService.loadFromDatabase();
@@ -74,9 +133,9 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     } catch (e) {
       print('載入資料失敗: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入資料失敗: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入資料失敗: $e')));
       }
     } finally {
       if (mounted) {
@@ -91,7 +150,14 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
     // 計算月度範圍
     final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final endOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+    final endOfMonth = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
     // 載入月度記錄
     _monthlyRecords = await _attendanceService.getAllAttendanceRecords(
@@ -172,7 +238,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
         final titleSize = (baseSize * 0.10).clamp(11.0, 14.0);
         final subtitleSize = (baseSize * 0.08).clamp(9.0, 12.0);
         final padding = (baseSize * 0.06).clamp(8.0, 12.0);
-        
+
         return Card(
           child: Padding(
             padding: EdgeInsets.all(padding),
@@ -251,7 +317,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     for (final record in _monthlyRecords) {
       recordsMap[record.checkInTime.day] = record;
     }
-    
+
     // 建立請假記錄對應表（一個日期可能對應多筆請假）
     final leaveDaysMap = <int, List<LeaveRequest>>{};
     for (final leave in _monthlyLeaveRequests) {
@@ -303,9 +369,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
             // 星期標題
             Row(
-              children: ['日', '一', '二', '三', '四', '五', '六']
-                  .asMap().entries
-                  .map(
+              children: ['日', '一', '二', '三', '四', '五', '六'].asMap().entries.map(
                 (entry) {
                   final index = entry.key;
                   final day = entry.value;
@@ -323,8 +387,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                     ),
                   );
                 },
-                  )
-                  .toList(),
+              ).toList(),
             ),
             const SizedBox(height: 8),
 
@@ -359,7 +422,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
                     final holiday = _holidayService.isHoliday(date);
                     // 檢查是否為週末
                     final isWeekend = date.weekday == 6 || date.weekday == 7;
-                    
+
                     return Expanded(
                       child: _buildCalendarDay(
                         dayNumber,
@@ -776,7 +839,7 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
     final stats = _monthlyStats!;
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // 計算請假總天數
     final totalLeaveDays = _monthlyLeaveRequests.fold<double>(
       0,
@@ -821,9 +884,9 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
       children: [
         Text(
           '統計概覽',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         GridView.count(
@@ -882,12 +945,12 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
       children: [
         Text(
           '打卡記錄',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        
+
         if (_monthlyRecords.isEmpty)
           Card(
             child: Padding(
@@ -935,10 +998,10 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
   Widget _buildRecordListTile(AttendanceRecord record) {
     final dateStr = _formatDate(record.checkInTime);
     final checkInStr = _formatTime(record.checkInTime);
-    final checkOutStr = record.checkOutTime != null 
-        ? _formatTime(record.checkOutTime!) 
+    final checkOutStr = record.checkOutTime != null
+        ? _formatTime(record.checkOutTime!)
         : '--:--';
-    final workHoursStr = record.workHours != null 
+    final workHoursStr = record.workHours != null
         ? '${record.workHours!.toStringAsFixed(1)}h'
         : '--';
 
@@ -946,7 +1009,8 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     final isLate =
         record.checkInTime.hour > 8 ||
         (record.checkInTime.hour == 8 && record.checkInTime.minute > 30);
-    final isEarlyLeave = record.checkOutTime != null &&
+    final isEarlyLeave =
+        record.checkOutTime != null &&
         (record.checkOutTime!.hour < 17 ||
             (record.checkOutTime!.hour == 17 &&
                 record.checkOutTime!.minute < 30));
@@ -954,22 +1018,21 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8),
       leading: CircleAvatar(
-        backgroundColor: record.isCheckedOut 
-            ? (isLate || isEarlyLeave ? Colors.orange.shade100 : Colors.green.shade100)
+        backgroundColor: record.isCheckedOut
+            ? (isLate || isEarlyLeave
+                  ? Colors.orange.shade100
+                  : Colors.green.shade100)
             : Colors.blue.shade100,
         child: Icon(
-          record.isCheckedOut 
+          record.isCheckedOut
               ? (isLate || isEarlyLeave ? Icons.warning : Icons.check)
               : Icons.work,
-          color: record.isCheckedOut 
+          color: record.isCheckedOut
               ? (isLate || isEarlyLeave ? Colors.orange : Colors.green)
               : Colors.blue,
         ),
       ),
-      title: Text(
-        dateStr,
-        style: const TextStyle(fontWeight: FontWeight.w500),
-      ),
+      title: Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -993,56 +1056,51 @@ class _AttendanceStatsPageState extends State<AttendanceStatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return GeneralPage(
-      title: '打卡統計',
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.date_range),
-          onPressed: _selectMonth,
-          tooltip: '選擇月份',
+    super.build(context); // 必須調用以支持 AutomaticKeepAliveClientMixin
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_currentEmployee == null) {
+      return const Center(
+        child: Text('請先在員工管理中設定您的員工資料', style: TextStyle(fontSize: 16)),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 月份選擇器
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('統計月份'),
+                subtitle: Text(_formatMonth(_selectedMonth)),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: _selectMonth,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 月曆視圖
+            _buildCalendarView(),
+            const SizedBox(height: 24),
+
+            // 統計概覽
+            _buildStatsOverview(),
+            const SizedBox(height: 24),
+
+            // 記錄列表
+            _buildRecordsList(),
+          ],
         ),
-      ],
-      children: [
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator())
-        else if (_currentEmployee == null)
-          const Center(
-            child: Text(
-              '請先在員工管理中設定您的員工資料',
-              style: TextStyle(fontSize: 16),
-            ),
-          )
-        else
-          RefreshIndicator(
-            onRefresh: _loadData,
-            child: Column(
-              children: [
-                // 月份選擇器
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.calendar_month),
-                    title: const Text('統計月份'),
-                    subtitle: Text(_formatMonth(_selectedMonth)),
-                    trailing: const Icon(Icons.arrow_drop_down),
-                    onTap: _selectMonth,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 月曆視圖
-                _buildCalendarView(),
-                const SizedBox(height: 24),
-
-                // 統計概覽
-                _buildStatsOverview(),
-                const SizedBox(height: 24),
-
-                // 記錄列表
-                _buildRecordsList(),
-              ],
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
