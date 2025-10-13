@@ -22,7 +22,8 @@ class AttendanceRequestFormPage extends StatefulWidget {
   final AttendanceLeaveRequest? request;
 
   @override
-  State<AttendanceRequestFormPage> createState() => _AttendanceRequestFormPageState();
+  State<AttendanceRequestFormPage> createState() =>
+      _AttendanceRequestFormPageState();
 }
 
 class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
@@ -50,7 +51,7 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
     _requestService = AttendanceLeaveRequestService(supabase);
     _employeeService = EmployeeService(supabase);
     _loadCurrentEmployee();
-    
+
     // 如果是編輯模式，載入現有資料
     if (widget.request != null) {
       _isEditing = true;
@@ -97,26 +98,26 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_currentEmployee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('無法取得員工資料，請重新登入')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('無法取得員工資料，請重新登入')));
       return;
     }
 
     // 檢查日期不能是未來
     if (_requestDate.isAfter(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('不能申請未來日期的補打卡')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('不能申請未來日期的補打卡')));
       return;
     }
 
     // 檢查日期不能超過 30 天前
     final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
     if (_requestDate.isBefore(thirtyDaysAgo)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('只能申請 30 天內的補打卡')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('只能申請 30 天內的補打卡')));
       return;
     }
 
@@ -151,17 +152,17 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
         // 更新現有申請
         await _requestService.updateRequest(request);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已更新申請')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已更新申請')));
         }
       } else {
         // 創建新申請
         await _requestService.createRequest(request);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已提交申請')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已提交申請')));
         }
       }
 
@@ -173,22 +174,16 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('提交失敗：$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('提交失敗：$e')));
       }
     }
   }
 
   /// 合併日期和時間
   DateTime _combineDateAndTime(DateTime date, TimeOfDay time) {
-    return DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
   @override
@@ -216,9 +211,8 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                     children: [
                       Text(
                         '申請類型',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       _buildRequestTypeRadio(
@@ -255,17 +249,18 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                     children: [
                       Text(
                         '日期與時間',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // 日期選擇
                       ListTile(
                         leading: const Icon(Icons.calendar_today),
                         title: const Text('補打卡日期'),
-                        subtitle: Text(DateFormat('yyyy-MM-dd').format(_requestDate)),
+                        subtitle: Text(
+                          DateFormat('yyyy-MM-dd').format(_requestDate),
+                        ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: _selectDate,
                       ),
@@ -279,7 +274,10 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                           leading: const Icon(Icons.login),
                           title: const Text('上班時間'),
                           subtitle: Text(_checkInTime.format(context)),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: () => _selectTime(true),
                         ),
                         const Divider(),
@@ -288,7 +286,10 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                           leading: const Icon(Icons.logout),
                           title: const Text('下班時間'),
                           subtitle: Text(_checkOutTime.format(context)),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: () => _selectTime(false),
                         ),
                       ] else ...[
@@ -305,10 +306,13 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                                 : '下班時間',
                           ),
                           subtitle: Text(_requestTime.format(context)),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: () => _selectTime(null),
                         ),
-                        
+
                         // 補下班打卡時：提供修改上班時間的選項
                         if (_requestType == AttendanceRequestType.checkOut) ...[
                           const Divider(),
@@ -358,9 +362,8 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
                     children: [
                       Text(
                         '申請原因（選填）',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -444,7 +447,6 @@ class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
       initialDate: _requestDate,
       firstDate: thirtyDaysAgo,
       lastDate: now,
-      locale: const Locale('zh', 'TW'),
       helpText: '選擇補打卡日期',
       cancelText: '取消',
       confirmText: '確定',

@@ -91,16 +91,13 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
       setState(() {
         _currentEmployee = employee;
       });
-      
+
       // 載入完員工資料後,檢查今天是否已有打卡記錄
       await _checkExistingRecord();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('載入員工資料失敗: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('載入員工資料失敗: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -115,7 +112,6 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
       initialDate: _selectedDate,
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now(),
-      locale: const Locale('zh', 'TW'),
       helpText: '選擇補打卡日期',
       cancelText: '取消',
       confirmText: '確定',
@@ -246,10 +242,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
 
     if (_currentEmployee == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('找不到員工資料'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('找不到員工資料'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -392,30 +385,21 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('手動補打卡'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        appBar: AppBar(title: const Text('手動補打卡')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_currentEmployee == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('手動補打卡'),
-        ),
+        appBar: AppBar(title: const Text('手動補打卡')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              const Text(
-                '無法載入員工資料',
-                style: TextStyle(fontSize: 18),
-              ),
+              const Text('無法載入員工資料', style: TextStyle(fontSize: 18)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _loadCurrentEmployee,
@@ -429,10 +413,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('手動補打卡（管理員）'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('手動補打卡（管理員）'), elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -700,8 +681,9 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : Text(
@@ -758,10 +740,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                   children: [
                     const Text(
                       '預計工作時數',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                     const SizedBox(height: 4),
                     Text(
