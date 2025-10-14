@@ -1,4 +1,4 @@
-import 'package:ctc/widgets/triangle_background.dart';
+import 'package:ctc/widgets/backgrounds/triangle_background.dart';
 import 'package:flutter/material.dart';
 
 class IntroPage extends StatefulWidget {

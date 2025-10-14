@@ -40,7 +40,7 @@ export 'product_section.dart';
 export 'responsive_container.dart';
 export 'theme_toggle_button.dart';
 export 'transparent_app_bar.dart';
-export 'triangle_background.dart';
+export 'backgrounds/triangle_background.dart';
 export 'cards/unified_card.dart';
 // ==================== 使用者相關元件 ====================
 export 'user_info_example.dart';

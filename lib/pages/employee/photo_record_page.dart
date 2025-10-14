@@ -880,11 +880,132 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('記錄已更新')));
+
+      // 關閉當前對話框
+      Navigator.of(context).pop();
+
+      // 短暫延遲後重新打開對話框以顯示更新後的內容
+      await Future.delayed(const Duration(milliseconds: 100));
+      _showPhotoDialog();
     } catch (e) {
       print('更新照片記錄失敗: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('更新失敗：$e')));
+    }
+  }
+
+  /// 更換照片記錄的照片
+  Future<void> _replacePhoto() async {
+    if (selectedRecord == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未選中任何記錄')));
+      return;
+    }
+
+    // 顯示選擇方式對話框
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('更換照片'),
+        content: const Text('請選擇照片來源'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('camera'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.camera_alt),
+                SizedBox(width: 8),
+                Text('拍攝照片'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('gallery'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.photo_library),
+                SizedBox(width: 8),
+                Text('選擇相簿'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null) return;
+
+    try {
+      // 顯示載入指示器
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      String? newPhotoUrl;
+
+      if (choice == 'camera') {
+        newPhotoUrl = await _photoUploadService.takePhotoAndUpload();
+      } else if (choice == 'gallery') {
+        newPhotoUrl = await _photoUploadService.pickPhotoAndUpload();
+      }
+
+      // 關閉載入指示器
+      Navigator.of(context).pop();
+
+      if (newPhotoUrl == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未選擇照片')));
+        return;
+      }
+
+      print('新照片上傳成功：$newPhotoUrl');
+
+      final service = PhotoRecordService(supabase);
+      final updatedRecord = await service.update(
+        selectedRecord!.id!,
+        imageUrl: newPhotoUrl,
+      );
+
+      // 更新本地記錄
+      setState(() {
+        final index = records.indexWhere((r) => r.id == selectedRecord!.id);
+        if (index != -1) {
+          records[index] = updatedRecord;
+          selectedRecord = updatedRecord;
+        }
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('照片已更換')));
+
+      // 關閉當前對話框
+      Navigator.of(context).pop();
+
+      // 短暫延遲後重新打開對話框以顯示更新後的照片
+      await Future.delayed(const Duration(milliseconds: 100));
+      _showPhotoDialog();
+    } catch (e) {
+      // 確保關閉載入指示器
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      print('更換照片失敗: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更換照片失敗：$e')));
     }
   }
 
@@ -960,8 +1081,15 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
     PhotoDialog.show(
       context: context,
-      title: '現場照片',
+      title: selectedRecord!.imageUrl.isNotEmpty ? '現場照片' : '記錄備註',
       actions: [
+        if (selectedRecord!.imageUrl.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.photo_camera),
+            onPressed: _replacePhoto,
+            tooltip: '更換照片',
+            color: Colors.green,
+          ),
         IconButton(
           icon: const Icon(Icons.delete),
           onPressed: _deletePhotoRecord,
@@ -973,75 +1101,78 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 顯示照片
-            Container(
-              constraints: BoxConstraints(
-                maxWidth: maxWidth,
-                maxHeight: maxHeight,
-                minWidth: 200, // 最小寬度
-                minHeight: 150, // 最小高度
-              ),
-              decoration: BoxDecoration(
-                color: Colors.transparent, // 透明背景
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  color: Colors.transparent, // 容器透明背景
-                  child: InteractiveViewer(
-                    panEnabled: true, // 允許平移
-                    scaleEnabled: true, // 允許縮放
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.network(
-                      selectedRecord!.imageUrl,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 200,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                  : null,
+            // 只在有照片時顯示照片區域
+            if (selectedRecord!.imageUrl.isNotEmpty) ...[
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: maxWidth,
+                  maxHeight: maxHeight,
+                  minWidth: 200, // 最小寬度
+                  minHeight: 150, // 最小高度
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.transparent, // 透明背景
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    color: Colors.transparent, // 容器透明背景
+                    child: InteractiveViewer(
+                      panEnabled: true, // 允許平移
+                      scaleEnabled: true, // 允許縮放
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Image.network(
+                        selectedRecord!.imageUrl,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 200,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        print('照片載入失敗: $error');
-                        return Container(
-                          height: 200,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error, color: Colors.red),
-                                const SizedBox(height: 8),
-                                Text('照片載入失敗'),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'URL: ${selectedRecord!.imageUrl}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          print('照片載入失敗: $error');
+                          return Container(
+                            height: 200,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.error, color: Colors.red),
+                                  const SizedBox(height: 8),
+                                  Text('照片載入失敗'),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'URL: ${selectedRecord!.imageUrl}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
             // 顯示記錄資訊
             Container(
               padding: const EdgeInsets.all(12),

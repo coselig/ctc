@@ -55,7 +55,11 @@ class PhotoRecordService {
     }
   }
 
-  Future<PhotoRecord> update(String id, {String? description}) async {
+  Future<PhotoRecord> update(
+    String id, {
+    String? description,
+    String? imageUrl,
+  }) async {
     try {
       // 確保用戶已登入
       final user = _client.auth.currentUser;
@@ -68,6 +72,9 @@ class PhotoRecordService {
       final updateData = <String, dynamic>{};
       if (description != null) {
         updateData['description'] = description;
+      }
+      if (imageUrl != null) {
+        updateData['image_url'] = imageUrl;
       }
 
       if (updateData.isEmpty) {
