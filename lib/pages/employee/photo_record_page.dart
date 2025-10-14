@@ -2,6 +2,7 @@ import 'package:ctc/models/photo_record.dart';
 import 'package:ctc/services/floor_plans_service.dart';
 import 'package:ctc/services/photo_record_service.dart';
 import 'package:ctc/services/photo_upload_service.dart';
+import 'package:ctc/widgets/dialogs/edit_description_dialog.dart';
 import 'package:ctc/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,12 +26,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   final supabase = Supabase.instance.client;
   late final FloorPlansService _floorPlansService;
   late final PhotoUploadService _photoUploadService;
-  
+
   bool _isRecordMode = false;
   bool _isLoading = true;
   Offset? selectedPoint;
   PhotoRecord? selectedRecord;
-  
+
   // 設計圖相關
   List<Map<String, dynamic>> _floorPlans = [];
   String? _currentFloorPlanId;
@@ -53,18 +54,18 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       });
 
       final floorPlans = await _floorPlansService.getUserFloorPlans();
-      
+
       setState(() {
         _floorPlans = floorPlans;
         _isLoading = false;
-        
+
         // 如果有設計圖，選擇第一個
         if (_floorPlans.isNotEmpty) {
           final firstPlan = _floorPlans.first;
           _currentFloorPlanId = firstPlan['id'] as String;
           _currentFloorPlanUrl = firstPlan['image_url'] as String;
           _currentFloorPlanName = firstPlan['name'] as String;
-          
+
           // 載入這個設計圖的記錄
           _loadRecords();
         }
@@ -87,7 +88,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   /// 載入當前設計圖的照片記錄
   Future<void> _loadRecords() async {
     if (_currentFloorPlanId == null) return;
-    
+
     try {
       final response = await supabase
           .from('photo_records')
@@ -124,13 +125,18 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   }
 
   /// 刪除設計圖
-  Future<void> _deleteFloorPlan(String floorPlanId, String floorPlanName) async {
+  Future<void> _deleteFloorPlan(
+    String floorPlanId,
+    String floorPlanName,
+  ) async {
     // 顯示確認對話框
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('刪除設計圖'),
-        content: Text('確定要刪除設計圖「$floorPlanName」嗎？\n\n⚠️ 此操作將會：\n• 刪除設計圖檔案\n• 刪除所有相關的照片記錄\n• 此操作無法復原'),
+        content: Text(
+          '確定要刪除設計圖「$floorPlanName」嗎？\n\n⚠️ 此操作將會：\n• 刪除設計圖檔案\n• 刪除所有相關的照片記錄\n• 此操作無法復原',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -155,9 +161,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       // 刪除設計圖
@@ -179,17 +183,17 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       // 重新載入設計圖列表
       await _loadFloorPlans();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('設計圖「$floorPlanName」已刪除')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('設計圖「$floorPlanName」已刪除')));
     } catch (e) {
       // 關閉載入指示器
       Navigator.of(context).pop();
 
       print('刪除設計圖失敗: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('刪除失敗：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('刪除失敗：$e')));
     }
   }
 
@@ -208,7 +212,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               itemBuilder: (context, index) {
                 final plan = _floorPlans[index];
                 final isSelected = plan['id'] == _currentFloorPlanId;
-                
+
                 return ListTile(
                   leading: Icon(
                     Icons.architecture,
@@ -217,7 +221,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   title: Text(
                     plan['name'] as String,
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                   subtitle: Text('創建於 ${_formatDate(plan['created_at'])}'),
@@ -284,9 +290,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey.shade300,
-                      ),
+                      bottom: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
                   child: Row(
@@ -308,17 +312,13 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   ),
                 ),
                 // 內容區域
-                const Flexible(
-                  child: FloorPlanUploadWidget(),
-                ),
+                const Flexible(child: FloorPlanUploadWidget()),
                 // 底部按鈕
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     border: Border(
-                      top: BorderSide(
-                        color: Colors.grey.shade300,
-                      ),
+                      top: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
                   child: Row(
@@ -364,17 +364,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     setState(() {
       selectedPoint = offset;
     });
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: 500,
-            ),
+            constraints: BoxConstraints(maxWidth: 400, maxHeight: 500),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
@@ -415,14 +412,19 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
                               ),
                             ),
                             Text(
                               '座標: (${offset.dx.toStringAsFixed(1)}, ${offset.dy.toStringAsFixed(1)})',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.7),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer
+                                    .withOpacity(0.7),
                               ),
                             ),
                           ],
@@ -431,7 +433,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                       IconButton(
                         icon: Icon(
                           Icons.close,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                         onPressed: () {
                           setState(() {
@@ -443,7 +447,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                     ],
                   ),
                 ),
-                
+
                 // 操作選項
                 Padding(
                   padding: const EdgeInsets.all(20),
@@ -461,7 +465,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                         color: Colors.blue,
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // 選擇相簿選項
                       _buildActionButton(
                         icon: Icons.photo_library,
@@ -474,7 +478,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                         color: Colors.green,
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // 添加備註選項
                       _buildActionButton(
                         icon: Icons.note_add,
@@ -487,7 +491,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                         color: Colors.orange,
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // 查看附近記錄選項
                       _buildActionButton(
                         icon: Icons.search,
@@ -540,11 +544,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
+                child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -563,7 +563,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                       subtitle,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.color?.withOpacity(0.7),
                       ),
                     ),
                   ],
@@ -629,9 +631,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           selectedPoint = null; // 清除選擇點
         });
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('成功創建照片記錄：${offset.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('成功創建照片記錄：${offset.toString()}')),
+        );
       } catch (e) {
         print('Error details: $e'); // 印出詳細錯誤
         ScaffoldMessenger.of(
@@ -650,9 +652,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     try {
       final user = supabase.auth.currentUser;
       if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('請先登入')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('請先登入')));
         return;
       }
 
@@ -660,9 +662,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       final photoUrl = await _photoUploadService.pickPhotoAndUpload();
 
       if (photoUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未選擇照片')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未選擇照片')));
         return;
       }
 
@@ -684,14 +686,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         records.add(createdRecord);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('成功創建照片記錄：${offset.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('成功創建照片記錄：${offset.toString()}')));
     } catch (e) {
       print('Error details: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('創建記錄失敗：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('創建記錄失敗：$e')));
     }
   }
 
@@ -706,7 +708,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('位置: (${offset.dx.toStringAsFixed(1)}, ${offset.dy.toStringAsFixed(1)})'),
+            Text(
+              '位置: (${offset.dx.toStringAsFixed(1)}, ${offset.dy.toStringAsFixed(1)})',
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: noteController,
@@ -727,9 +731,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           FilledButton(
             onPressed: () async {
               if (noteController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('請輸入備註內容')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('請輸入備註內容')));
                 return;
               }
 
@@ -738,9 +742,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               try {
                 final user = supabase.auth.currentUser;
                 if (user == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('請先登入')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('請先登入')));
                   return;
                 }
 
@@ -761,14 +765,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   selectedPoint = null; // 清除選擇點
                 });
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('備註已添加')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('備註已添加')));
               } catch (e) {
                 print('添加備註失敗: $e');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('添加備註失敗：$e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('添加備註失敗：$e')));
               }
             },
             child: const Text('保存'),
@@ -795,9 +799,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           width: double.maxFinite,
           height: 300,
           child: nearbyRecords.isEmpty
-              ? const Center(
-                  child: Text('此位置附近沒有記錄'),
-                )
+              ? const Center(child: Text('此位置附近沒有記錄'))
               : ListView.builder(
                   itemCount: nearbyRecords.length,
                   itemBuilder: (context, index) {
@@ -807,14 +809,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                       leading: record.imageUrl.isNotEmpty
                           ? const Icon(Icons.photo, color: Colors.blue)
                           : const Icon(Icons.note, color: Colors.orange),
-                      title: Text(
-                        record.imageUrl.isNotEmpty ? '照片記錄' : '文字備註',
-                      ),
+                      title: Text(record.imageUrl.isNotEmpty ? '照片記錄' : '文字備註'),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('距離: ${distance.toStringAsFixed(1)} 像素'),
-                          Text('位置: (${record.point.dx.toStringAsFixed(1)}, ${record.point.dy.toStringAsFixed(1)})'),
+                          Text(
+                            '位置: (${record.point.dx.toStringAsFixed(1)}, ${record.point.dy.toStringAsFixed(1)})',
+                          ),
                           if (record.description?.isNotEmpty == true)
                             Text('備註: ${record.description}'),
                         ],
@@ -843,11 +845,54 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     );
   }
 
+  /// 編輯照片記錄的描述
+  Future<void> _editPhotoRecord() async {
+    if (selectedRecord == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未選中任何記錄')));
+      return;
+    }
+
+    final newDescription = await EditDescriptionDialog.show(
+      context,
+      initialDescription: selectedRecord!.description,
+    );
+
+    if (newDescription == null) return;
+
+    try {
+      final service = PhotoRecordService(supabase);
+      final updatedRecord = await service.update(
+        selectedRecord!.id!,
+        description: newDescription,
+      );
+
+      // 更新本地記錄
+      setState(() {
+        final index = records.indexWhere((r) => r.id == selectedRecord!.id);
+        if (index != -1) {
+          records[index] = updatedRecord;
+          selectedRecord = updatedRecord;
+        }
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('記錄已更新')));
+    } catch (e) {
+      print('更新照片記錄失敗: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更新失敗：$e')));
+    }
+  }
+
   Future<void> _deletePhotoRecord() async {
     if (selectedRecord == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未選中任何記錄')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未選中任何記錄')));
       return;
     }
 
@@ -890,29 +935,29 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       // 關閉照片對話框
       Navigator.of(context).pop();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('照片記錄已刪除')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('照片記錄已刪除')));
     } catch (e) {
       print('刪除照片記錄失敗: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('刪除失敗：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('刪除失敗：$e')));
     }
   }
 
   void _showPhotoDialog() {
     if (selectedRecord == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未選中任何記錄')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未選中任何記錄')));
       return;
     }
 
     final screenSize = MediaQuery.of(context).size;
     final maxWidth = screenSize.width * 0.9; // 90% 的螢幕寬度
     final maxHeight = screenSize.height * 0.7; // 70% 的螢幕高度
-    
+
     PhotoDialog.show(
       context: context,
       title: '現場照片',
@@ -945,51 +990,54 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                 child: Container(
                   color: Colors.transparent, // 容器透明背景
                   child: InteractiveViewer(
-                  panEnabled: true, // 允許平移
-                  scaleEnabled: true, // 允許縮放
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: Image.network(
-                    selectedRecord!.imageUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 200,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
+                    panEnabled: true, // 允許平移
+                    scaleEnabled: true, // 允許縮放
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      selectedRecord!.imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 200,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      print('照片載入失敗: $error');
-                      return Container(
-                        height: 200,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error, color: Colors.red),
-                              const SizedBox(height: 8),
-                              Text('照片載入失敗'),
-                              const SizedBox(height: 4),
-                              Text(
-                                'URL: ${selectedRecord!.imageUrl}',
-                                style: TextStyle(fontSize: 10, color: Colors.grey),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        print('照片載入失敗: $error');
+                        return Container(
+                          height: 200,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error, color: Colors.red),
+                                const SizedBox(height: 8),
+                                Text('照片載入失敗'),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'URL: ${selectedRecord!.imageUrl}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
                 ),
               ),
             ),
@@ -998,7 +1046,9 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.3), // 半透明背景
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withOpacity(0.3), // 半透明背景
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
@@ -1018,21 +1068,32 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                           fontSize: 16,
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _deletePhotoRecord,
-                        icon: const Icon(Icons.delete, size: 16),
-                        label: const Text('刪除'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: _deletePhotoRecord,
+                            tooltip: '刪除記錄',
+                            color: Colors.red,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: _editPhotoRecord,
+                            tooltip: '編輯記錄描述',
+                            color: Colors.blue,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('位置: (${selectedRecord!.point.dx.toStringAsFixed(1)}, ${selectedRecord!.point.dy.toStringAsFixed(1)})'),
+                  Text(
+                    '位置: (${selectedRecord!.point.dx.toStringAsFixed(1)}, ${selectedRecord!.point.dy.toStringAsFixed(1)})',
+                  ),
                   const SizedBox(height: 4),
-                  Text('時間: ${selectedRecord!.timestamp.toString().split('.')[0]}'),
+                  Text(
+                    '時間: ${selectedRecord!.timestamp.toString().split('.')[0]}',
+                  ),
                   if (selectedRecord!.description?.isNotEmpty == true) ...[
                     const SizedBox(height: 4),
                     Text('描述: ${selectedRecord!.description}'),
@@ -1073,13 +1134,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         ],
         children: [
           SizedBox(
-            height: MediaQuery.of(context).size.height - 
-                    MediaQuery.of(context).padding.top - 
-                    AppBar().preferredSize.height - 
-                    40,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                AppBar().preferredSize.height -
+                40,
+            child: const Center(child: CircularProgressIndicator()),
           ),
         ],
       );
@@ -1099,13 +1159,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
         ],
         children: [
           SizedBox(
-            height: MediaQuery.of(context).size.height - 
-                    MediaQuery.of(context).padding.top - 
-                    AppBar().preferredSize.height - 
-                    40,
-            child: NoFloorPlansState(
-              onAddFloorPlan: _showUploadDialog,
-            ),
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                AppBar().preferredSize.height -
+                40,
+            child: NoFloorPlansState(onAddFloorPlan: _showUploadDialog),
           ),
         ],
       );
@@ -1138,15 +1197,17 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           icon: Icon(
             _isRecordMode ? Icons.camera_alt : Icons.camera_alt_outlined,
           ),
-          onPressed: _currentFloorPlanId != null ? () {
-            setState(() {
-              _isRecordMode = !_isRecordMode;
-              // 當關閉記錄模式時清除選擇點
-              if (!_isRecordMode) {
-                selectedPoint = null;
-              }
-            });
-          } : null,
+          onPressed: _currentFloorPlanId != null
+              ? () {
+                  setState(() {
+                    _isRecordMode = !_isRecordMode;
+                    // 當關閉記錄模式時清除選擇點
+                    if (!_isRecordMode) {
+                      selectedPoint = null;
+                    }
+                  });
+                }
+              : null,
           tooltip: _isRecordMode ? '關閉記錄模式' : '開啟記錄模式',
         ),
         IconButton(
@@ -1159,30 +1220,33 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       children: [
         if (_currentFloorPlanUrl != null)
           SizedBox(
-            height: MediaQuery.of(context).size.height - 
-                    MediaQuery.of(context).padding.top - 
-                    AppBar().preferredSize.height - 
-                    40,
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                AppBar().preferredSize.height -
+                40,
             child: Builder(
               builder: (context) {
                 final filteredRecords = records
                     .where((r) => r.floorPlanId == _currentFloorPlanId)
                     .toList();
-                
+
                 print('PhotoRecordPage 渲染：');
                 print('  - 設計圖URL: $_currentFloorPlanUrl');
                 print('  - 當前設計圖ID: $_currentFloorPlanId');
                 print('  - 總記錄數: ${records.length}');
                 print('  - 過濾後記錄數: ${filteredRecords.length}');
-                
+
                 if (filteredRecords.isNotEmpty) {
                   print('  - 記錄詳情:');
                   for (var i = 0; i < filteredRecords.length; i++) {
                     final record = filteredRecords[i];
-                    print('    ${i + 1}. ID=${record.id}, 座標=(${record.point.dx}, ${record.point.dy}), 圖片=${record.imageUrl}');
+                    print(
+                      '    ${i + 1}. ID=${record.id}, 座標=(${record.point.dx}, ${record.point.dy}), 圖片=${record.imageUrl}',
+                    );
                   }
                 }
-                
+
                 return Container(
                   color: Colors.transparent, // 確保容器背景透明
                   child: InteractiveViewer(
@@ -1190,21 +1254,21 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                     minScale: 0.5,
                     maxScale: 4.0,
                     child: FloorPlanView(
-                    imageUrl: _currentFloorPlanUrl!,
-                    records: filteredRecords,
-                    onTapUp: onTap,
-                    selectedRecord: selectedRecord,
-                    selectedPoint: selectedPoint,
-                    isRecordMode: _isRecordMode,
-                    onRecordTap: (record) {
-                      print('點擊記錄: ${record.id}');
-                      setState(() {
-                        selectedRecord = record;
-                        selectedPoint = record.point;
-                      });
-                      _showPhotoDialog();
-                    },
-                  ),
+                      imageUrl: _currentFloorPlanUrl!,
+                      records: filteredRecords,
+                      onTapUp: onTap,
+                      selectedRecord: selectedRecord,
+                      selectedPoint: selectedPoint,
+                      isRecordMode: _isRecordMode,
+                      onRecordTap: (record) {
+                        print('點擊記錄: ${record.id}');
+                        setState(() {
+                          selectedRecord = record;
+                          selectedPoint = record.point;
+                        });
+                        _showPhotoDialog();
+                      },
+                    ),
                   ),
                 );
               },
@@ -1212,13 +1276,12 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           )
         else
           SizedBox(
-            height: MediaQuery.of(context).size.height - 
-                    MediaQuery.of(context).padding.top - 
-                    AppBar().preferredSize.height - 
-                    40,
-            child: const Center(
-              child: Text('請選擇設計圖'),
-            ),
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                AppBar().preferredSize.height -
+                40,
+            child: const Center(child: Text('請選擇設計圖')),
           ),
       ],
     );

@@ -55,6 +55,41 @@ class PhotoRecordService {
     }
   }
 
+  Future<PhotoRecord> update(String id, {String? description}) async {
+    try {
+      // 確保用戶已登入
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        throw Exception('必須登入才能更新照片記錄');
+      }
+
+      print('正在更新照片記錄: $id');
+
+      final updateData = <String, dynamic>{};
+      if (description != null) {
+        updateData['description'] = description;
+      }
+
+      if (updateData.isEmpty) {
+        throw Exception('沒有要更新的內容');
+      }
+
+      final response = await _client
+          .from('photo_records')
+          .update(updateData)
+          .eq('id', id)
+          .eq('user_id', user.id) // 只能更新自己的記錄
+          .select()
+          .single();
+
+      print('更新照片記錄成功');
+      return PhotoRecord.fromJson(response);
+    } catch (e) {
+      print('更新照片記錄失敗: $e');
+      rethrow;
+    }
+  }
+
   Future<void> delete(String id) async {
     try {
       // 確保用戶已登入
@@ -97,7 +132,9 @@ class PhotoRecordService {
 
       final response = await query.order('timestamp', ascending: false);
 
-      return response.map<PhotoRecord>((json) => PhotoRecord.fromJson(json)).toList();
+      return response
+          .map<PhotoRecord>((json) => PhotoRecord.fromJson(json))
+          .toList();
     } catch (e) {
       print('查詢用戶照片記錄失敗: $e');
       rethrow;

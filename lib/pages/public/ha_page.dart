@@ -1,5 +1,5 @@
 
-import 'package:ctc/widgets/ha_page_card.dart';
+import 'package:ctc/widgets/cards/ha_page_card.dart';
 import 'package:flutter/material.dart';
 
 class HAPage extends StatefulWidget {
