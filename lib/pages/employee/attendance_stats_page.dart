@@ -469,15 +469,16 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
       icon = Icons.event_busy;
     } else if (record != null) {
       // 有打卡記錄
-      // 標準上班時間 8:30-17:30
+      // 標準上班時間 8:30-17:30，寬限時間 ±5 分鐘
+      // 上班寬限到 8:35，下班寬限到 17:25
       final isLate =
           record.checkInTime.hour > 8 ||
-          (record.checkInTime.hour == 8 && record.checkInTime.minute > 30);
+          (record.checkInTime.hour == 8 && record.checkInTime.minute > 40);
       final isEarlyLeave =
           record.checkOutTime != null &&
           (record.checkOutTime!.hour < 17 ||
               (record.checkOutTime!.hour == 17 &&
-                  record.checkOutTime!.minute < 30));
+                  record.checkOutTime!.minute < 20));
       final isIncomplete = record.checkOutTime == null;
 
       if (isIncomplete || isLate || isEarlyLeave) {
@@ -1005,15 +1006,16 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
         ? '${record.workHours!.toStringAsFixed(1)}h'
         : '--';
 
-    // 計算是否遲到或早退 (標準上班時間 8:30-17:30)
+    // 計算是否遲到或早退 (標準上班時間 8:30-17:30，寬限時間 ±5 分鐘)
+    // 上班寬限到 8:35，下班寬限到 17:25
     final isLate =
         record.checkInTime.hour > 8 ||
-        (record.checkInTime.hour == 8 && record.checkInTime.minute > 30);
+        (record.checkInTime.hour == 8 && record.checkInTime.minute > 40);
     final isEarlyLeave =
         record.checkOutTime != null &&
         (record.checkOutTime!.hour < 17 ||
             (record.checkOutTime!.hour == 17 &&
-                record.checkOutTime!.minute < 30));
+                record.checkOutTime!.minute < 20));
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8),
