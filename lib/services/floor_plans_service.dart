@@ -14,12 +14,12 @@ class FloorPlansService {
     final lastDotIndex = fileName.lastIndexOf('.');
     String name = fileName;
     String extension = '';
-    
+
     if (lastDotIndex != -1) {
       name = fileName.substring(0, lastDotIndex);
       extension = fileName.substring(lastDotIndex);
     }
-    
+
     // 移除或替換不安全字符
     name = name
         .replaceAll(RegExp(r'[^\x00-\x7F]'), '') // 移除非ASCII字符（包含中文）
@@ -27,17 +27,17 @@ class FloorPlansService {
         .replaceAll(RegExp(r'[^\w\.]'), '') // 只保留字母、數字、底線和點
         .replaceAll(RegExp(r'_+'), '_') // 將多個底線合併為一個
         .replaceAll(RegExp(r'^_|_$'), ''); // 移除開頭和結尾的底線
-    
+
     // 如果名稱為空或太短，使用預設名稱
     if (name.isEmpty || name.length < 2) {
       name = 'floor_plan';
     }
-    
+
     // 限制檔名長度
     if (name.length > 50) {
       name = name.substring(0, 50);
     }
-    
+
     return '$name$extension';
   }
 
@@ -50,13 +50,13 @@ class FloorPlansService {
     try {
       // 清理檔名，移除不安全字符
       final sanitizedFileName = _sanitizeFileName(fileName);
-      
+
       // 生成唯一的檔案名稱
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniqueFileName = '${timestamp}_$sanitizedFileName';
 
       print('原檔名: $fileName');
-      print('清理後檔名: $sanitizedFileName'); 
+      print('清理後檔名: $sanitizedFileName');
       print('最終檔名: $uniqueFileName');
 
       // 上傳圖片到 assets/floor_plans/ bucket
@@ -84,7 +84,7 @@ class FloorPlansService {
     try {
       // 清理檔名，移除不安全字符
       final sanitizedFileName = _sanitizeFileName(fileName);
-      
+
       // 生成唯一的檔案名稱
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniqueFileName = '${timestamp}_$sanitizedFileName';
@@ -180,11 +180,7 @@ class FloorPlansService {
       // 創建資料庫記錄，讓資料庫自動生成UUID
       final response = await supabase
           .from('floor_plans')
-          .insert({
-            'name': name,
-            'image_url': imageUrl,
-            'user_id': user.id,
-          })
+          .insert({'name': name, 'image_url': imageUrl, 'user_id': user.id})
           .select()
           .single();
 
@@ -223,10 +219,7 @@ class FloorPlansService {
       }
 
       // 使用新的方法創建記錄
-      return await createFloorPlanRecord(
-        name: name,
-        imageUrl: imageUrl,
-      );
+      return await createFloorPlanRecord(name: name, imageUrl: imageUrl);
     } catch (e) {
       print('創建設計圖失敗: $e');
       throw Exception('創建設計圖失敗: $e');
@@ -311,6 +304,36 @@ class FloorPlansService {
     } catch (e) {
       print('獲取設計圖失敗: $e');
       return null;
+    }
+  }
+
+  /// 更新設計圖名稱
+  Future<void> updateFloorPlanName(String id, String newName) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('請先登入');
+      }
+
+      if (newName.trim().isEmpty) {
+        throw Exception('設計圖名稱不能為空');
+      }
+
+      print('更新設計圖名稱: $id -> $newName');
+
+      await supabase
+          .from('floor_plans')
+          .update({
+            'name': newName.trim(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id)
+          .eq('user_id', user.id); // 只能更新自己的設計圖
+
+      print('設計圖名稱更新成功');
+    } catch (e) {
+      print('更新設計圖名稱失敗: $e');
+      throw Exception('更新設計圖名稱失敗: $e');
     }
   }
 

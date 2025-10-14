@@ -124,6 +124,67 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
     _loadRecords();
   }
 
+  /// 編輯設計圖名稱
+  Future<void> _editFloorPlanName(
+    String floorPlanId,
+    String currentName,
+  ) async {
+    final newName = await EditDescriptionDialog.show(
+      context,
+      initialDescription: currentName,
+      title: '編輯設計圖名稱',
+      labelText: '設計圖名稱',
+      hintText: '請輸入設計圖名稱...',
+      maxLines: 1,
+    );
+
+    if (newName == null || newName.trim().isEmpty) return;
+
+    if (newName.trim() == currentName) {
+      // 名稱沒有變更
+      return;
+    }
+
+    try {
+      // 顯示載入指示器
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // 更新設計圖名稱
+      await _floorPlansService.updateFloorPlanName(floorPlanId, newName);
+
+      // 關閉載入指示器
+      Navigator.of(context).pop();
+
+      // 如果修改的是當前選中的設計圖，更新名稱
+      if (_currentFloorPlanId == floorPlanId) {
+        setState(() {
+          _currentFloorPlanName = newName;
+        });
+      }
+
+      // 重新載入設計圖列表
+      await _loadFloorPlans();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('設計圖名稱已更新')));
+    } catch (e) {
+      // 關閉載入指示器
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      print('更新設計圖名稱失敗: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更新失敗：$e')));
+    }
+  }
+
   /// 刪除設計圖
   Future<void> _deleteFloorPlan(
     String floorPlanId,
@@ -228,16 +289,32 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                   ),
                   subtitle: Text('創建於 ${_formatDate(plan['created_at'])}'),
                   selected: isSelected,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      Navigator.of(context).pop(); // 先關閉選擇對話框
-                      _deleteFloorPlan(
-                        plan['id'] as String,
-                        plan['name'] as String,
-                      );
-                    },
-                    tooltip: '刪除設計圖',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () {
+                          Navigator.of(context).pop(); // 先關閉選擇對話框
+                          _editFloorPlanName(
+                            plan['id'] as String,
+                            plan['name'] as String,
+                          );
+                        },
+                        tooltip: '編輯名稱',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          Navigator.of(context).pop(); // 先關閉選擇對話框
+                          _deleteFloorPlan(
+                            plan['id'] as String,
+                            plan['name'] as String,
+                          );
+                        },
+                        tooltip: '刪除設計圖',
+                      ),
+                    ],
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -271,8 +348,8 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
   }
 
   /// 顯示上傳設計圖對話框
-  void _showUploadDialog() {
-    showDialog(
+  void _showUploadDialog() async {
+    final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
@@ -313,34 +390,17 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                 ),
                 // 內容區域
                 const Flexible(child: FloorPlanUploadWidget()),
-                // 底部按鈕
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: Colors.grey.shade300),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          // 重新載入設計圖列表
-                          _loadFloorPlans();
-                        },
-                        child: const Text('完成'),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
         );
       },
     );
+
+    // 如果創建成功（返回 true），重新載入設計圖列表
+    if (result == true) {
+      _loadFloorPlans();
+    }
   }
 
   void onTap(Offset offset) async {

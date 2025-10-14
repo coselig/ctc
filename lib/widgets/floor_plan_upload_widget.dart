@@ -47,21 +47,21 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
       String errorMessage = '上傳失敗: $e';
 
       // 檢查具體錯誤類型
-      if (e.toString().contains('Invalid key') || 
+      if (e.toString().contains('Invalid key') ||
           e.toString().contains('InvalidKey')) {
         errorMessage = '檔名格式錯誤：請選擇檔名為英文的圖片，或重新命名後再試';
-      } else if (e.toString().contains('413') || 
-                 e.toString().contains('too large')) {
+      } else if (e.toString().contains('413') ||
+          e.toString().contains('too large')) {
         errorMessage = '檔案太大：請選擇小於 10MB 的圖片';
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(
-        content: Text(errorMessage),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } finally {
       setState(() {
         _isUploading = false;
@@ -109,11 +109,11 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
         errorMessage = '權限不足：請確認已登入且有上傳權限';
       } else if (e.toString().contains('請先登入')) {
         errorMessage = '請先登入後再上傳圖片';
-      } else if (e.toString().contains('Invalid key') || 
-                 e.toString().contains('InvalidKey')) {
+      } else if (e.toString().contains('Invalid key') ||
+          e.toString().contains('InvalidKey')) {
         errorMessage = '檔名格式錯誤：請選擇檔名為英文的圖片，或重新命名後再試';
-      } else if (e.toString().contains('413') || 
-                 e.toString().contains('too large')) {
+      } else if (e.toString().contains('413') ||
+          e.toString().contains('too large')) {
         errorMessage = '檔案太大：請選擇小於 10MB 的圖片';
       }
 
@@ -153,6 +153,9 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('未選擇圖片')));
+          setState(() {
+            _isUploading = false;
+          });
           return;
         }
       }
@@ -171,12 +174,15 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
       _nameController.clear();
       setState(() {
         _uploadedImageUrl = null;
+        _isUploading = false;
       });
+
+      // 關閉對話框
+      Navigator.of(context).pop(true); // 返回 true 表示創建成功
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('創建失敗: $e')));
-    } finally {
       setState(() {
         _isUploading = false;
       });
@@ -334,7 +340,7 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: _isUploading 
+              child: _isUploading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -343,7 +349,7 @@ class _FloorPlanUploadWidgetState extends State<FloorPlanUploadWidget> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : const Text('創建設計圖'),
+                  : const Text('創建並完成'),
             ),
           ],
         ),
