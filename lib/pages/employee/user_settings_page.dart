@@ -22,7 +22,6 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
   Map<String, dynamic>? _userProfile;
 
   // 密碼修改相關的控制器
-  final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _passwordFormKey = GlobalKey<FormState>();
@@ -36,7 +35,6 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
 
   @override
   void dispose() {
-    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -110,14 +108,13 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
     }
 
     try {
-      // 使用 Supabase 更新密碼
+      // 使用 Supabase 更新密碼（無需舊密碼驗證）
       await Supabase.instance.client.auth.updateUser(
         UserAttributes(password: _newPasswordController.text),
       );
 
       if (mounted) {
         // 清空輸入框
-        _currentPasswordController.clear();
         _newPasswordController.clear();
         _confirmPasswordController.clear();
 
@@ -171,25 +168,24 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
 
       if (mounted) {
         // 顯示成功訊息
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已成功登出')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已成功登出')));
 
         // 返回到上一頁（通常會回到歡迎頁面，因為 auth listener 會處理導航）
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('登出失敗: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('登出失敗: $e')));
       }
     }
   }
 
   void _showChangePasswordDialog() {
     // 清空輸入框
-    _currentPasswordController.clear();
     _newPasswordController.clear();
     _confirmPasswordController.clear();
 
@@ -204,15 +200,29 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 當前密碼輸入框（可選，Supabase 不需要驗證舊密碼）
-                TextFormField(
-                  controller: _currentPasswordController,
-                  decoration: const InputDecoration(
-                    labelText: '當前密碼（可選）',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
+                // 提示訊息
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
-                  obscureText: true,
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '無需輸入舊密碼，直接設定新密碼即可',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 // 新密碼輸入框
@@ -222,8 +232,10 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                     labelText: '新密碼',
                     prefixIcon: Icon(Icons.lock),
                     border: OutlineInputBorder(),
+                    helperText: '密碼長度至少6個字符',
                   ),
                   obscureText: true,
+                  autofocus: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return '請輸入新密碼';
@@ -490,10 +502,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: ListTile(
-                        leading: Icon(
-                          Icons.logout,
-                          color: Colors.red.shade700,
-                        ),
+                        leading: Icon(Icons.logout, color: Colors.red.shade700),
                         title: Text(
                           '登出',
                           style: TextStyle(color: Colors.red.shade700),
