@@ -7,18 +7,72 @@ class ProjectService {
 
   ProjectService(this._client);
 
-  /// 獲取用戶的所有專案
+  /// 獲取用戶的所有專案（包含自己的和被授權的）
   Future<List<Project>> getProjects() async {
     try {
       final user = _client.auth.currentUser;
       if (user == null) throw Exception('請先登入');
 
-      final response = await _client
+      // 方法 1: 獲取自己創建的專案
+      final ownProjects = await _client
           .from('projects')
           .select()
-          .order('created_at', ascending: false);
+          .eq('owner_id', user.id);
 
-      return (response as List).map((json) => Project.fromJson(json)).toList();
+      print('獲取到 ${ownProjects.length} 個自己的專案');
+
+      // 方法 2: 獲取被授權的專案ID列表
+      final memberships = await _client
+          .from('project_members')
+          .select('project_id, role')
+          .eq('user_id', user.id);
+
+      print('獲取到 ${memberships.length} 個成員記錄');
+
+      // 如果有被授權的專案，獲取它們的詳細資訊
+      List<dynamic> sharedProjects = [];
+      if (memberships.isNotEmpty) {
+        final sharedProjectIds = memberships
+            .map((m) => m['project_id'] as String)
+            .toList();
+
+        print('被授權的專案IDs: $sharedProjectIds');
+
+        sharedProjects = await _client
+            .from('projects')
+            .select()
+            .inFilter('id', sharedProjectIds);
+
+        print('獲取到 ${sharedProjects.length} 個被授權的專案');
+
+        // 為每個被授權的專案添加角色資訊
+        for (var project in sharedProjects) {
+          final membership = memberships.firstWhere(
+            (m) => m['project_id'] == project['id'],
+            orElse: () => {'role': 'viewer'},
+          );
+          project['member_role'] = membership['role'];
+          project['is_owner'] = false; // 標記為非擁有者
+        }
+      }
+
+      // 為自己的專案添加標記
+      for (var project in ownProjects) {
+        project['is_owner'] = true;
+        project['member_role'] = 'owner'; // 擁有者角色
+      }
+
+      // 合併兩個列表並按創建時間排序
+      final allProjects = [...ownProjects, ...sharedProjects];
+      allProjects.sort((a, b) {
+        final aTime = DateTime.parse(a['created_at'] as String);
+        final bTime = DateTime.parse(b['created_at'] as String);
+        return bTime.compareTo(aTime); // 降序排列
+      });
+
+      print('總共獲取到 ${allProjects.length} 個專案');
+
+      return allProjects.map((json) => Project.fromJson(json)).toList();
     } catch (e) {
       print('獲取專案列表失敗: $e');
       rethrow;
