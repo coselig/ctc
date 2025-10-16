@@ -1,4 +1,5 @@
 import 'package:ctc/models/photo_record.dart';
+import 'package:ctc/pages/employee/floor_plan_permission_management_page.dart';
 import 'package:ctc/services/floor_plans_service.dart';
 import 'package:ctc/services/photo_record_service.dart';
 import 'package:ctc/services/photo_upload_service.dart';
@@ -1369,7 +1370,22 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           onPressed: _showFloorPlanSelector,
           tooltip: '選擇設計圖 (${_currentFloorPlanName ?? '未選擇'})',
         ),
-        if (_currentFloorPlanId != null && _currentFloorPlanName != null)
+        if (_currentFloorPlanId != null && _currentFloorPlanName != null) ...[
+          IconButton(
+            icon: const Icon(Icons.people),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => FloorPlanPermissionManagementPage(
+                    floorPlanId: _currentFloorPlanId!,
+                    floorPlanName: _currentFloorPlanName!,
+                  ),
+                ),
+              );
+            },
+            tooltip: '權限管理',
+            color: Colors.blue.shade400,
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () {
@@ -1378,6 +1394,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
             tooltip: '刪除當前設計圖 ($_currentFloorPlanName)',
             color: Colors.red.shade400,
           ),
+        ],
         IconButton(
           icon: const Icon(Icons.add),
           onPressed: _showUploadDialog,
