@@ -117,25 +117,42 @@ class ProjectService {
   /// 獲取專案成員
   Future<List<ProjectMember>> getMembers(String projectId) async {
     try {
-      final response = await _client
+      // 1. 先獲取專案成員列表
+      final membersResponse = await _client
           .from('project_members')
-          .select('''
-            *,
-            user_email:profiles!project_members_user_id_fkey(email),
-            user_full_name:profiles!project_members_user_id_fkey(full_name)
-          ''')
+          .select('*')
           .eq('project_id', projectId)
           .order('joined_at');
 
-      return (response as List).map((json) {
-        // 扁平化處理
+      final members = membersResponse as List;
+
+      // 如果沒有成員，直接返回空列表
+      if (members.isEmpty) {
+        return [];
+      }
+
+      // 2. 獲取所有成員的 user_id
+      final userIds = members.map((m) => m['user_id'] as String).toList();
+
+      // 3. 批量查詢用戶資料
+      final profilesResponse = await _client
+          .from('profiles')
+          .select('id, email, full_name')
+          .inFilter('id', userIds);
+
+      final profiles = profilesResponse as List;
+
+      // 4. 建立 user_id 到用戶資料的映射
+      final profileMap = <String, Map<String, dynamic>>{
+        for (var profile in profiles) profile['id'] as String: profile,
+      };
+
+      // 5. 組合數據
+      return members.map((json) {
+        final profile = profileMap[json['user_id']];
         final flatJson = Map<String, dynamic>.from(json);
-        if (json['user_email'] != null) {
-          flatJson['user_email'] = json['user_email']['email'];
-        }
-        if (json['user_full_name'] != null) {
-          flatJson['user_full_name'] = json['user_full_name']['full_name'];
-        }
+        flatJson['user_email'] = profile?['email'];
+        flatJson['user_full_name'] = profile?['full_name'];
         return ProjectMember.fromJson(flatJson);
       }).toList();
     } catch (e) {
@@ -266,24 +283,48 @@ class ProjectService {
   /// 獲取專案時程
   Future<List<ProjectTimeline>> getTimeline(String projectId) async {
     try {
-      final response = await _client
+      // 1. 先獲取時程列表
+      final timelineResponse = await _client
           .from('project_timeline')
-          .select('''
-            *,
-            creator_email:profiles!project_timeline_created_by_fkey(email),
-            creator_full_name:profiles!project_timeline_created_by_fkey(full_name)
-          ''')
+          .select('*')
           .eq('project_id', projectId)
           .order('milestone_date');
 
-      return (response as List).map((json) {
+      final timeline = timelineResponse as List;
+
+      // 如果沒有時程項目，直接返回空列表
+      if (timeline.isEmpty) {
+        return [];
+      }
+
+      // 2. 獲取所有創建者的 user_id（過濾掉 null）
+      final creatorIds = timeline
+          .where((t) => t['created_by'] != null)
+          .map((t) => t['created_by'] as String)
+          .toSet()
+          .toList();
+
+      // 3. 如果有創建者，批量查詢用戶資料
+      Map<String, Map<String, dynamic>> profileMap = {};
+      if (creatorIds.isNotEmpty) {
+        final profilesResponse = await _client
+            .from('profiles')
+            .select('id, email, full_name')
+            .inFilter('id', creatorIds);
+
+        final profiles = profilesResponse as List;
+        profileMap = {
+          for (var profile in profiles) profile['id'] as String: profile,
+        };
+      }
+
+      // 4. 組合數據
+      return timeline.map((json) {
         final flatJson = Map<String, dynamic>.from(json);
-        if (json['creator_email'] != null) {
-          flatJson['creator_email'] = json['creator_email']['email'];
-        }
-        if (json['creator_full_name'] != null) {
-          flatJson['creator_full_name'] =
-              json['creator_full_name']['full_name'];
+        if (json['created_by'] != null) {
+          final profile = profileMap[json['created_by']];
+          flatJson['creator_email'] = profile?['email'];
+          flatJson['creator_full_name'] = profile?['full_name'];
         }
         return ProjectTimeline.fromJson(flatJson);
       }).toList();
@@ -369,25 +410,43 @@ class ProjectService {
   /// 獲取專案留言
   Future<List<ProjectComment>> getComments(String projectId) async {
     try {
-      final response = await _client
+      // 1. 先獲取留言列表
+      final commentsResponse = await _client
           .from('project_comments')
-          .select('''
-            *,
-            user_email:profiles!project_comments_user_id_fkey(email),
-            user_full_name:profiles!project_comments_user_id_fkey(full_name)
-          ''')
+          .select('*')
           .eq('project_id', projectId)
           .isFilter('parent_id', null)
           .order('created_at', ascending: false);
 
-      return (response as List).map((json) {
+      final comments = commentsResponse as List;
+
+      if (comments.isEmpty) {
+        return [];
+      }
+
+      // 2. 獲取所有用戶 ID
+      final userIds = comments
+          .map((c) => c['user_id'] as String)
+          .toSet()
+          .toList();
+
+      // 3. 批量查詢用戶資料
+      final profilesResponse = await _client
+          .from('profiles')
+          .select('id, email, full_name')
+          .inFilter('id', userIds);
+
+      final profiles = profilesResponse as List;
+      final profileMap = <String, Map<String, dynamic>>{
+        for (var profile in profiles) profile['id'] as String: profile,
+      };
+
+      // 4. 組合數據
+      return comments.map((json) {
         final flatJson = Map<String, dynamic>.from(json);
-        if (json['user_email'] != null) {
-          flatJson['user_email'] = json['user_email']['email'];
-        }
-        if (json['user_full_name'] != null) {
-          flatJson['user_full_name'] = json['user_full_name']['full_name'];
-        }
+        final profile = profileMap[json['user_id']];
+        flatJson['user_email'] = profile?['email'];
+        flatJson['user_full_name'] = profile?['full_name'];
         return ProjectComment.fromJson(flatJson);
       }).toList();
     } catch (e) {
@@ -399,24 +458,42 @@ class ProjectService {
   /// 獲取留言的回覆
   Future<List<ProjectComment>> getReplies(String commentId) async {
     try {
-      final response = await _client
+      // 1. 先獲取回覆列表
+      final repliesResponse = await _client
           .from('project_comments')
-          .select('''
-            *,
-            user_email:profiles!project_comments_user_id_fkey(email),
-            user_full_name:profiles!project_comments_user_id_fkey(full_name)
-          ''')
+          .select('*')
           .eq('parent_id', commentId)
           .order('created_at');
 
-      return (response as List).map((json) {
+      final replies = repliesResponse as List;
+
+      if (replies.isEmpty) {
+        return [];
+      }
+
+      // 2. 獲取所有用戶 ID
+      final userIds = replies
+          .map((r) => r['user_id'] as String)
+          .toSet()
+          .toList();
+
+      // 3. 批量查詢用戶資料
+      final profilesResponse = await _client
+          .from('profiles')
+          .select('id, email, full_name')
+          .inFilter('id', userIds);
+
+      final profiles = profilesResponse as List;
+      final profileMap = <String, Map<String, dynamic>>{
+        for (var profile in profiles) profile['id'] as String: profile,
+      };
+
+      // 4. 組合數據
+      return replies.map((json) {
         final flatJson = Map<String, dynamic>.from(json);
-        if (json['user_email'] != null) {
-          flatJson['user_email'] = json['user_email']['email'];
-        }
-        if (json['user_full_name'] != null) {
-          flatJson['user_full_name'] = json['user_full_name']['full_name'];
-        }
+        final profile = profileMap[json['user_id']];
+        flatJson['user_email'] = profile?['email'];
+        flatJson['user_full_name'] = profile?['full_name'];
         return ProjectComment.fromJson(flatJson);
       }).toList();
     } catch (e) {
@@ -481,34 +558,62 @@ class ProjectService {
   /// 獲取專案任務
   Future<List<ProjectTask>> getTasks(String projectId) async {
     try {
-      final response = await _client
+      // 1. 先獲取任務列表
+      final tasksResponse = await _client
           .from('project_tasks')
-          .select('''
-            *,
-            assignee_email:profiles!project_tasks_assigned_to_fkey(email),
-            assignee_full_name:profiles!project_tasks_assigned_to_fkey(full_name),
-            creator_email:profiles!project_tasks_created_by_fkey(email),
-            creator_full_name:profiles!project_tasks_created_by_fkey(full_name)
-          ''')
+          .select('*')
           .eq('project_id', projectId)
           .order('display_order');
 
-      return (response as List).map((json) {
+      final tasks = tasksResponse as List;
+
+      if (tasks.isEmpty) {
+        return [];
+      }
+
+      // 2. 獲取所有相關的用戶 ID（assigned_to 和 created_by）
+      final userIds = <String>{};
+      for (var task in tasks) {
+        if (task['assigned_to'] != null) {
+          userIds.add(task['assigned_to'] as String);
+        }
+        if (task['created_by'] != null) {
+          userIds.add(task['created_by'] as String);
+        }
+      }
+
+      // 3. 如果有用戶 ID，批量查詢用戶資料
+      Map<String, Map<String, dynamic>> profileMap = {};
+      if (userIds.isNotEmpty) {
+        final profilesResponse = await _client
+            .from('profiles')
+            .select('id, email, full_name')
+            .inFilter('id', userIds.toList());
+
+        final profiles = profilesResponse as List;
+        profileMap = {
+          for (var profile in profiles) profile['id'] as String: profile,
+        };
+      }
+
+      // 4. 組合數據
+      return tasks.map((json) {
         final flatJson = Map<String, dynamic>.from(json);
-        if (json['assignee_email'] != null) {
-          flatJson['assignee_email'] = json['assignee_email']['email'];
+
+        // 處理 assigned_to
+        if (json['assigned_to'] != null) {
+          final assigneeProfile = profileMap[json['assigned_to']];
+          flatJson['assignee_email'] = assigneeProfile?['email'];
+          flatJson['assignee_full_name'] = assigneeProfile?['full_name'];
         }
-        if (json['assignee_full_name'] != null) {
-          flatJson['assignee_full_name'] =
-              json['assignee_full_name']['full_name'];
+        
+        // 處理 created_by
+        if (json['created_by'] != null) {
+          final creatorProfile = profileMap[json['created_by']];
+          flatJson['creator_email'] = creatorProfile?['email'];
+          flatJson['creator_full_name'] = creatorProfile?['full_name'];
         }
-        if (json['creator_email'] != null) {
-          flatJson['creator_email'] = json['creator_email']['email'];
-        }
-        if (json['creator_full_name'] != null) {
-          flatJson['creator_full_name'] =
-              json['creator_full_name']['full_name'];
-        }
+        
         return ProjectTask.fromJson(flatJson);
       }).toList();
     } catch (e) {

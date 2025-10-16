@@ -16,6 +16,9 @@ export 'photo_record_page.dart';
 // ==================== 專案管理頁面 ====================
 export 'project_management_page.dart';
 export 'project_detail_page.dart';
+export 'project_clients_tab.dart';
+export 'project_comments_tab.dart';
+export 'project_timeline_tab.dart';
 // ==================== 系統主頁 ====================
 export 'system_home_page.dart';
 // ==================== 個人資料頁面 ====================
