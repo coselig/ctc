@@ -225,6 +225,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
               crossAxisSpacing: 16,
               childAspectRatio: childAspectRatio,
               children: [
+                // 專案管理系統
+                _buildSystemCard(
+                  context,
+                  icon: Icons.folder_special,
+                  title: '專案管理',
+                  subtitle: '專案、任務、時程管理',
+                  color: Colors.deepPurple,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ProjectManagementPage(),
+                      ),
+                    );
+                  },
+                ),
+
                 // 照片記錄系統
                 _buildSystemCard(
                   context,

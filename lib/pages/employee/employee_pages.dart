@@ -13,6 +13,9 @@ export 'leave_record_page.dart';
 export 'leave_request_form_page.dart';
 // ==================== 相片記錄頁面 ====================
 export 'photo_record_page.dart';
+// ==================== 專案管理頁面 ====================
+export 'project_management_page.dart';
+export 'project_detail_page.dart';
 // ==================== 系統主頁 ====================
 export 'system_home_page.dart';
 // ==================== 個人資料頁面 ====================

@@ -16,5 +16,7 @@ export 'job_vacancy.dart';
 export 'leave_request.dart';
 // ==================== 相片相關模型 ====================
 export 'photo_record.dart';
+// ==================== 專案管理相關模型 ====================
+export 'project.dart';
 export 'user_profile.dart';
 export 'user_role.dart';
