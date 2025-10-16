@@ -274,48 +274,75 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                 final plan = _floorPlans[index];
                 final isSelected = plan['id'] == _currentFloorPlanId;
 
+                final isOwner = plan['is_owner'] == true;
+                final permissionLevel = plan['permission_level'] as int?;
+                String permissionText = '';
+                if (!isOwner && permissionLevel != null) {
+                  switch (permissionLevel) {
+                    case 1:
+                      permissionText = ' (檢視者)';
+                      break;
+                    case 2:
+                      permissionText = ' (編輯者)';
+                      break;
+                    case 3:
+                      permissionText = ' (管理員)';
+                      break;
+                  }
+                }
+
                 return ListTile(
                   leading: Icon(
-                    Icons.architecture,
-                    color: isSelected ? Theme.of(context).primaryColor : null,
+                    isOwner ? Icons.architecture : Icons.folder_shared,
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.6),
                   ),
                   title: Text(
-                    plan['name'] as String,
+                    '${plan['name'] as String}$permissionText',
                     style: TextStyle(
                       fontWeight: isSelected
                           ? FontWeight.bold
                           : FontWeight.normal,
                     ),
                   ),
-                  subtitle: Text('創建於 ${_formatDate(plan['created_at'])}'),
-                  selected: isSelected,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () {
-                          Navigator.of(context).pop(); // 先關閉選擇對話框
-                          _editFloorPlanName(
-                            plan['id'] as String,
-                            plan['name'] as String,
-                          );
-                        },
-                        tooltip: '編輯名稱',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          Navigator.of(context).pop(); // 先關閉選擇對話框
-                          _deleteFloorPlan(
-                            plan['id'] as String,
-                            plan['name'] as String,
-                          );
-                        },
-                        tooltip: '刪除設計圖',
-                      ),
-                    ],
+                  subtitle: Text(
+                    isOwner
+                        ? '創建於 ${_formatDate(plan['created_at'])}'
+                        : '已授權 · 創建於 ${_formatDate(plan['created_at'])}',
                   ),
+                  selected: isSelected,
+                  trailing: isOwner
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () {
+                                Navigator.of(context).pop(); // 先關閉選擇對話框
+                                _editFloorPlanName(
+                                  plan['id'] as String,
+                                  plan['name'] as String,
+                                );
+                              },
+                              tooltip: '編輯名稱',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                Navigator.of(context).pop(); // 先關閉選擇對話框
+                                _deleteFloorPlan(
+                                  plan['id'] as String,
+                                  plan['name'] as String,
+                                );
+                              },
+                              tooltip: '刪除設計圖',
+                            ),
+                          ],
+                        )
+                      : null,
                   onTap: () {
                     Navigator.of(context).pop();
                     if (!isSelected) {

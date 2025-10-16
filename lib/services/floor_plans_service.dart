@@ -270,7 +270,7 @@ class FloorPlansService {
     }
   }
 
-  /// 獲取當前用戶的設計圖列表
+  /// 獲取當前用戶的設計圖列表（包含自己的和被授權的）
   Future<List<Map<String, dynamic>>> getUserFloorPlans() async {
     try {
       final user = supabase.auth.currentUser;
@@ -278,13 +278,66 @@ class FloorPlansService {
         throw Exception('請先登入');
       }
 
-      final response = await supabase
+      // 方法 1: 先獲取自己的設計圖
+      final ownFloorPlans = await supabase
           .from('floor_plans')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
+          .select('*, is_owner:user_id')
+          .eq('user_id', user.id);
 
-      return List<Map<String, dynamic>>.from(response);
+      print('獲取到 ${ownFloorPlans.length} 個自己的設計圖');
+
+      // 方法 2: 獲取被授權的設計圖ID列表
+      final permissions = await supabase
+          .from('floor_plan_permissions')
+          .select('floor_plan_id, permission_level')
+          .eq('user_id', user.id);
+
+      print('獲取到 ${permissions.length} 個權限記錄');
+
+      // 如果有被授權的設計圖，獲取它們的詳細資訊
+      List<Map<String, dynamic>> sharedFloorPlans = [];
+      if (permissions.isNotEmpty) {
+        final sharedIds = permissions
+            .map((p) => p['floor_plan_id'] as String)
+            .toList();
+
+        print('被授權的設計圖IDs: $sharedIds');
+
+        sharedFloorPlans = await supabase
+            .from('floor_plans')
+            .select('*')
+            .inFilter('id', sharedIds);
+
+        print('獲取到 ${sharedFloorPlans.length} 個被授權的設計圖');
+
+        // 為每個被授權的設計圖添加權限等級資訊
+        for (var plan in sharedFloorPlans) {
+          final permission = permissions.firstWhere(
+            (p) => p['floor_plan_id'] == plan['id'],
+            orElse: () => {'permission_level': 0},
+          );
+          plan['permission_level'] = permission['permission_level'];
+          plan['is_owner'] = false; // 標記為非擁有者
+        }
+      }
+
+      // 為自己的設計圖添加標記
+      for (var plan in ownFloorPlans) {
+        plan['is_owner'] = true;
+        plan['permission_level'] = 3; // 擁有者視為最高權限
+      }
+
+      // 合併兩個列表並按創建時間排序
+      final allFloorPlans = [...ownFloorPlans, ...sharedFloorPlans];
+      allFloorPlans.sort((a, b) {
+        final aTime = DateTime.parse(a['created_at'] as String);
+        final bTime = DateTime.parse(b['created_at'] as String);
+        return bTime.compareTo(aTime); // 降序排列
+      });
+
+      print('總共獲取到 ${allFloorPlans.length} 個設計圖');
+
+      return List<Map<String, dynamic>>.from(allFloorPlans);
     } catch (e) {
       print('獲取設計圖列表失敗: $e');
       throw Exception('獲取設計圖列表失敗: $e');
