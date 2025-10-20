@@ -178,7 +178,7 @@ class _AppRootState extends State<AppRoot> {
     // 如果用戶已登入且需要儲存到資料庫
     if (saveToDatabase && Supabase.instance.client.auth.currentUser != null) {
       try {
-        final themeString = themeMode.toString();
+        final themeString = themeMode.toString().split('.').last;
         await _userService.updateCurrentUserProfile(
           themePreference: themeString,
         );
