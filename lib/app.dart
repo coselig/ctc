@@ -24,13 +24,13 @@ class _AppRootState extends State<AppRoot> {
   bool _isLoading = true;
   UserType _userType = UserType.guest;
   StreamSubscription<AuthState>? _authSubscription;
-  late UserPreferencesService _userPreferencesService;
+  late UserService _userService;
   late UserPermissionService _userPermissionService;
 
   @override
   void initState() {
     super.initState();
-    _userPreferencesService = UserPreferencesService(Supabase.instance.client);
+    _userService = UserService(Supabase.instance.client);
     _userPermissionService = UserPermissionService(Supabase.instance.client);
     _initializeApp();
     _setupGlobalAuthListener();
@@ -76,7 +76,7 @@ class _AppRootState extends State<AppRoot> {
       if (user == null) return;
 
       // 先確保用戶 profile 存在
-      await _userPreferencesService.createOrUpdateUserProfile();
+      await _userService.upsertCurrentUserProfile();
 
       // 然後載入主題偏好
       await _loadUserThemePreference();
@@ -150,9 +150,8 @@ class _AppRootState extends State<AppRoot> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
-
-      final themePreference = await _userPreferencesService
-          .getThemePreference();
+      final themePreference =
+          (await _userService.getCurrentUserProfile())!.themePreference;
       final themeMode = UserPreferencesService.stringToThemeMode(
         themePreference,
       );
@@ -179,8 +178,10 @@ class _AppRootState extends State<AppRoot> {
     // 如果用戶已登入且需要儲存到資料庫
     if (saveToDatabase && Supabase.instance.client.auth.currentUser != null) {
       try {
-        final themeString = UserPreferencesService.themeModeToString(themeMode);
-        await _userPreferencesService.updateThemePreference(themeString);
+        final themeString = themeMode.toString();
+        await _userService.updateCurrentUserProfile(
+          themePreference: themeString,
+        );
       } catch (e) {
         debugPrint('儲存主題偏好失敗: $e');
       }
