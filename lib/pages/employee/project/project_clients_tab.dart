@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../models/models.dart';
-import '../../services/project_service.dart';
+import '../../../models/models.dart';
+import '../../../services/project_service.dart';
 
 /// 專案客戶管理標籤頁
 class ProjectClientsTab extends StatefulWidget {

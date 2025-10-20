@@ -1,5 +1,5 @@
 import 'package:ctc/models/photo_record.dart';
-import 'package:ctc/pages/employee/floor_plan_permission_management_page.dart';
+import 'package:ctc/pages/employee/photo_record/floor_plan_permission_management_page.dart';
 import 'package:ctc/services/floor_plans_service.dart';
 import 'package:ctc/services/photo_record_service.dart';
 import 'package:ctc/services/photo_upload_service.dart';

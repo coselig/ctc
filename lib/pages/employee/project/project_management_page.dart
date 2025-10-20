@@ -1,5 +1,5 @@
 import 'package:ctc/models/models.dart';
-import 'package:ctc/pages/employee/project_detail_page.dart';
+import 'package:ctc/pages/employee/project/project_detail_page.dart';
 import 'package:ctc/services/project_service.dart';
 import 'package:ctc/widgets/widgets.dart';
 import 'package:flutter/material.dart';

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../models/models.dart';
-import '../../services/project_service.dart';
+import '../../../models/models.dart';
+import '../../../services/project_service.dart';
 import 'project_clients_tab.dart';
 import 'project_comments_tab.dart';
 import 'project_timeline_tab.dart';
