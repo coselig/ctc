@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/backgrounds/compass_background.dart';
+import '../../widgets/widgets.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({
@@ -74,18 +75,6 @@ class _AuthPageState extends State<AuthPage> {
       setState(() => _isLoading = false);
     }
   }
-
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.wb_sunny;
-      case ThemeMode.dark:
-        return Icons.nightlight_round;
-      case ThemeMode.system:
-        return Icons.brightness_auto;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,11 +89,7 @@ class _AuthPageState extends State<AuthPage> {
           color: Theme.of(context).colorScheme.onSurface,
         ),
         actions: [
-          IconButton(
-            icon: Icon(_getThemeIcon()),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
-          ),
+          ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         ],
       ),
       body: CompassBackground(

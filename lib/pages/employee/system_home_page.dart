@@ -116,17 +116,6 @@ class _SystemHomePageState extends State<SystemHomePage> {
     );
   }
 
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.light_mode;
-      case ThemeMode.dark:
-        return Icons.dark_mode;
-      case ThemeMode.system:
-        return Icons.auto_awesome;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
@@ -147,11 +136,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
           },
           tooltip: '回到首頁',
         ),
-        IconButton(
-          icon: Icon(_getThemeIcon()),
-          onPressed: widget.onThemeToggle,
-          tooltip: '切換主題',
-        ),
+        ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         const LogoutButton(),
       ],
       children: [

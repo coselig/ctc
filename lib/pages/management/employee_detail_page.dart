@@ -338,17 +338,6 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     }
   }
 
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.light_mode;
-      case ThemeMode.dark:
-        return Icons.dark_mode;
-      case ThemeMode.system:
-        return Icons.auto_awesome;
-    }
-  }
-
   Color _getStatusColor(EmployeeStatus status) {
     switch (status) {
       case EmployeeStatus.active:
@@ -378,11 +367,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     if (currentEmployee == null) {
       return GeneralPage(
         actions: [
-          IconButton(
-            icon: Icon(_getThemeIcon()),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
-          ),
+          ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
           const LogoutButton(),
         ],
         children: const [
@@ -404,11 +389,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           onPressed: _navigateToEditForm,
           tooltip: '編輯員工資料',
         ),
-        IconButton(
-          icon: Icon(_getThemeIcon()),
-          onPressed: widget.onThemeToggle,
-          tooltip: '切換主題',
-        ),
+        ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         const LogoutButton(),
       ],
       children: [

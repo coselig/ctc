@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/job_vacancy.dart';
 import '../../services/job_vacancy_service.dart';
+import '../../widgets/widgets.dart';
 
 class JoinCompanyPage extends StatefulWidget {
   const JoinCompanyPage({
@@ -66,17 +67,6 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
     super.dispose();
   }
 
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.wb_sunny;
-      case ThemeMode.dark:
-        return Icons.nightlight_round;
-      case ThemeMode.system:
-        return Icons.brightness_auto;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -89,11 +79,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
         foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(_getThemeIcon()),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
-          ),
+          ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         ],
         bottom: TabBar(
           controller: _tabController,

@@ -1327,27 +1327,14 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
 
   @override
   Widget build(BuildContext context) {
-    IconData _getThemeIcon() {
-      switch (widget.currentThemeMode) {
-        case ThemeMode.light:
-          return Icons.wb_sunny;
-        case ThemeMode.dark:
-          return Icons.nightlight_round;
-        case ThemeMode.system:
-          return Icons.brightness_auto;
-      }
-    }
+    
 
     // 載入中狀態
     if (_isLoading) {
       return GeneralPage(
         title: widget.title,
         actions: [
-          IconButton(
-            icon: Icon(_getThemeIcon()),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
-          ),
+          ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
           const LogoutButton(),
         ],
         children: [
@@ -1368,11 +1355,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
       return GeneralPage(
         title: widget.title,
         actions: [
-          IconButton(
-            icon: Icon(_getThemeIcon()),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
-          ),
+          ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
           const LogoutButton(),
         ],
         children: [
@@ -1444,11 +1427,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               : null,
           tooltip: _isRecordMode ? '關閉記錄模式' : '開啟記錄模式',
         ),
-        IconButton(
-          icon: Icon(_getThemeIcon()),
-          onPressed: widget.onThemeToggle,
-          tooltip: '切換主題',
-        ),
+        ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         const LogoutButton(),
       ],
       children: [

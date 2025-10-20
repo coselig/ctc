@@ -281,27 +281,12 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
     }
   }
 
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.light_mode;
-      case ThemeMode.dark:
-        return Icons.dark_mode;
-      case ThemeMode.system:
-        return Icons.auto_awesome;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return GeneralPage(
         actions: [
-          IconButton(
-            icon: Icon(_getThemeIcon()),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
-          ),
+          ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
           const LogoutButton(),
         ],
         children: const [
@@ -327,11 +312,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
           onPressed: _loadData,
           tooltip: '重新整理',
         ),
-        IconButton(
-          icon: Icon(_getThemeIcon()),
-          onPressed: widget.onThemeToggle,
-          tooltip: '切換主題',
-        ),
+        ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         const LogoutButton(),
       ],
       children: [

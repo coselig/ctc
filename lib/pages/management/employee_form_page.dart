@@ -227,17 +227,6 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
     }
   }
 
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.light_mode;
-      case ThemeMode.dark:
-        return Icons.dark_mode;
-      case ThemeMode.system:
-        return Icons.auto_awesome;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return GeneralPage(
@@ -257,11 +246,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
             onPressed: _saveEmployee,
             tooltip: '儲存',
           ),
-        IconButton(
-          icon: Icon(_getThemeIcon()),
-          onPressed: widget.onThemeToggle,
-          tooltip: '切換主題',
-        ),
+        ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
         const LogoutButton(),
       ],
       children: [
