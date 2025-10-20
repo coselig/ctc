@@ -132,10 +132,196 @@ class _OverviewTab extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        tooltip: '編輯專案',
+                        onPressed: () async {
+                          final nameController = TextEditingController(
+                            text: project.name,
+                          );
+                          final descController = TextEditingController(
+                            text: project.description ?? '',
+                          );
+                          DateTime? startDate = project.startDate;
+                          DateTime? endDate = project.endDate;
+                          final result = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => StatefulBuilder(
+                              builder: (context, setDialogState) => AlertDialog(
+                                title: const Text('編輯專案'),
+                                content: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextField(
+                                        controller: nameController,
+                                        decoration: const InputDecoration(
+                                          labelText: '專案名稱',
+                                        ),
+                                      ),
+                                      TextField(
+                                        controller: descController,
+                                        decoration: const InputDecoration(
+                                          labelText: '專案描述',
+                                        ),
+                                        minLines: 2,
+                                        maxLines: 4,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.play_arrow,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text('開始日期：'),
+                                          TextButton(
+                                            onPressed: () async {
+                                              final picked =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        startDate ??
+                                                        DateTime.now(),
+                                                    firstDate: DateTime(2000),
+                                                    lastDate: DateTime(2100),
+                                                  );
+                                              if (picked != null) {
+                                                setDialogState(
+                                                  () => startDate = picked,
+                                                );
+                                              }
+                                            },
+                                            child: Text(
+                                              startDate == null
+                                                  ? '未設定'
+                                                  : '${startDate!.year}/${startDate!.month}/${startDate!.day}',
+                                            ),
+                                          ),
+                                          if (startDate != null)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.clear,
+                                                size: 18,
+                                              ),
+                                              tooltip: '清除',
+                                              onPressed: () => setDialogState(
+                                                () => startDate = null,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.event, size: 20),
+                                          const SizedBox(width: 8),
+                                          const Text('結束日期：'),
+                                          TextButton(
+                                            onPressed: () async {
+                                              final picked =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        endDate ??
+                                                        (startDate ??
+                                                            DateTime.now()),
+                                                    firstDate:
+                                                        startDate ??
+                                                        DateTime(2000),
+                                                    lastDate: DateTime(2100),
+                                                  );
+                                              if (picked != null) {
+                                                setDialogState(
+                                                  () => endDate = picked,
+                                                );
+                                              }
+                                            },
+                                            child: Text(
+                                              endDate == null
+                                                  ? '未設定'
+                                                  : '${endDate!.year}/${endDate!.month}/${endDate!.day}',
+                                            ),
+                                          ),
+                                          if (endDate != null)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.clear,
+                                                size: 18,
+                                              ),
+                                              tooltip: '清除',
+                                              onPressed: () => setDialogState(
+                                                () => endDate = null,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text('取消'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () async {
+                                      final newName = nameController.text
+                                          .trim();
+                                      final newDesc = descController.text
+                                          .trim();
+                                      if (newName.isEmpty) return;
+                                      try {
+                                        final projectService = ProjectService(
+                                          Supabase.instance.client,
+                                        );
+                                        await projectService
+                                            .updateProject(project.id, {
+                                              'name': newName,
+                                              'description': newDesc,
+                                              'start_date': startDate
+                                                  ?.toIso8601String()
+                                                  .split('T')[0],
+                                              'end_date': endDate
+                                                  ?.toIso8601String()
+                                                  .split('T')[0],
+                                            });
+                                        Navigator.of(context).pop(true);
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text('更新失敗: $e')),
+                                        );
+                                      }
+                                    },
+                                    child: const Text('儲存'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                          if (result == true) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('專案已更新')),
+                              );
+                              final state = context
+                                  .findAncestorStateOfType<
+                                    _ProjectDetailPageState
+                                  >();
+                              state?._loadProjectData();
+                            }
+                          }
+                        },
+                      ),
                     ],
                   ),
                   const Divider(height: 24),
-                  if (project.description != null) ...[
+                  if (project.description != null &&
+                      project.description!.isNotEmpty) ...[
                     Text(
                       project.description!,
                       style: const TextStyle(fontSize: 14),
@@ -211,18 +397,6 @@ class _OverviewTab extends StatelessWidget {
                 label: '任務完成',
                 value: '${statistics.completedTasks}/${statistics.totalTasks}',
                 color: Colors.orange,
-              ),
-              _StatCard(
-                icon: Icons.chat,
-                label: '留言',
-                value: '${statistics.totalComments}',
-                color: Colors.teal,
-              ),
-              _StatCard(
-                icon: Icons.architecture,
-                label: '設計圖',
-                value: '${statistics.totalFloorPlans}',
-                color: Colors.indigo,
               ),
             ],
           ),
