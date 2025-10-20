@@ -542,7 +542,7 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
                   child: Icon(
                     Icons.edit,
                     size: 10,
-                    color: textColor.withOpacity(0.7),
+                    color: textColor.withAlpha(179),
                   ),
                 ),
               // 顯示請假數量

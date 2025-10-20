@@ -463,9 +463,9 @@ class _AttendanceRequestPageState extends State<AttendanceRequestPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(25),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withAlpha(125)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -491,8 +491,8 @@ class _AttendanceRequestPageState extends State<AttendanceRequestPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: request.status.isApproved
-            ? Colors.green.withOpacity(0.05)
-            : Colors.red.withOpacity(0.05),
+            ? Colors.green.withAlpha(15)
+            : Colors.red.withAlpha(15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

@@ -100,7 +100,7 @@ class GuestWelcomePage extends StatelessWidget {
               Text(
                 '如果您是員工，請聯繫管理員',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
                     ),
                 textAlign: TextAlign.center,
               ),

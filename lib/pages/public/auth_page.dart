@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../widgets/backgrounds/compass_background.dart';
 import '../../widgets/widgets.dart';
 
 class AuthPage extends StatefulWidget {

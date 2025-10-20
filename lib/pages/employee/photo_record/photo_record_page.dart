@@ -298,7 +298,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                         ? Theme.of(context).colorScheme.primary
                         : Theme.of(
                             context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
+                          ).colorScheme.onSurface.withAlpha(153),
                   ),
                   title: Text(
                     '${plan['name'] as String}$permissionText',
@@ -464,7 +464,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withAlpha(76),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -511,7 +511,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                                 color: Theme.of(context)
                                     .colorScheme
                                     .onPrimaryContainer
-                                    .withOpacity(0.7),
+                                    .withAlpha(179),
                               ),
                             ),
                           ],
@@ -618,7 +618,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha(51),
             ),
             borderRadius: BorderRadius.circular(12),
           ),
@@ -628,7 +628,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withAlpha(25),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -652,7 +652,7 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
                         fontSize: 13,
                         color: Theme.of(
                           context,
-                        ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        ).textTheme.bodyMedium?.color?.withAlpha(179),
                       ),
                     ),
                   ],
@@ -1266,10 +1266,10 @@ class _PhotoRecordPageState extends State<PhotoRecordPage> {
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
-                ).colorScheme.surface.withOpacity(0.3), // 半透明背景
+                ).colorScheme.surface.withAlpha(76), // 半透明背景
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withAlpha(51),
                   width: 1,
                 ),
               ),

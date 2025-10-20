@@ -515,7 +515,7 @@ class _UserSearchDialogState extends State<_UserSearchDialog> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.primary.withAlpha(25),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(4),
@@ -652,7 +652,7 @@ class _UserSearchDialogState extends State<_UserSearchDialog> {
                                 color: isSelected
                                     ? Theme.of(
                                         context,
-                                      ).colorScheme.primary.withOpacity(0.1)
+                                      ).colorScheme.primary.withAlpha(25)
                                     : null,
                                 child: ListTile(
                                   leading: CircleAvatar(
@@ -734,13 +734,13 @@ class _UserSearchDialogState extends State<_UserSearchDialog> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? colorScheme.primary.withOpacity(0.15)
+                                      ? colorScheme.primary.withAlpha(38)
                                       : colorScheme.surfaceContainerHighest
-                                            .withOpacity(0.5),
+                                            .withAlpha(125),
                                   border: Border.all(
                                     color: isSelected
                                         ? colorScheme.primary
-                                        : colorScheme.outline.withOpacity(0.5),
+                                        : colorScheme.outline.withAlpha(125),
                                     width: isSelected ? 2 : 1,
                                   ),
                                   borderRadius: BorderRadius.circular(8),

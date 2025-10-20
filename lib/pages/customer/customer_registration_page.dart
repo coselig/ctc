@@ -199,7 +199,7 @@ class _CustomerRegistrationPageState extends State<CustomerRegistrationPage> {
                       Text(
                         '請填寫以下資料，以便我們為您提供更好的服務',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          color: Theme.of(context).colorScheme.onSurface.withAlpha(175),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -317,7 +317,7 @@ class _CustomerRegistrationPageState extends State<CustomerRegistrationPage> {
                       Text(
                         '* 為必填欄位',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
                         ),
                         textAlign: TextAlign.center,
                       ),

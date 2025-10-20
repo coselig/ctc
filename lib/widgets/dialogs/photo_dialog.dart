@@ -24,11 +24,11 @@ class PhotoDialog extends StatelessWidget {
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withOpacity(0.95), // 半透明背景
+          color: Theme.of(context).colorScheme.surface.withAlpha(204), // 半透明背景
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withAlpha(76),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),

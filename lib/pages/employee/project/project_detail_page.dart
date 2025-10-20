@@ -936,7 +936,7 @@ class _MembersTabState extends State<_MembersTab> {
                               ),
                               backgroundColor: _getRoleColor(
                                 member.role,
-                              ).withOpacity(0.1),
+                              ).withAlpha(25),
                               side: BorderSide(
                                 color: _getRoleColor(member.role),
                               ),
@@ -1329,6 +1329,96 @@ class _TasksTabState extends State<_TasksTab> {
     }
   }
 
+  Future<void> _showEditTaskDialog(ProjectTask task) async {
+    final titleController = TextEditingController(text: task.title);
+    final descriptionController = TextEditingController(text: task.description);
+    DateTime? dueDate = task.dueDate;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('編輯任務'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: '任務標題'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: '任務描述'),
+                  minLines: 2,
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text('到期日：'),
+                    TextButton(
+                      onPressed: () async {
+                        final selectedDate = await showDatePicker(
+                          context: context,
+                          initialDate: dueDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selectedDate != null) {
+                          setDialogState(() => dueDate = selectedDate);
+                        }
+                      },
+                      child: Text(
+                        dueDate == null
+                            ? '選擇日期'
+                            : '${dueDate!.year}/${dueDate!.month}/${dueDate!.day}',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('儲存'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      try {
+        await _projectService.updateTask(task.id, {
+          'title': titleController.text,
+          'description': descriptionController.text,
+          'due_date': dueDate?.toIso8601String(),
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('任務已更新')));
+          _loadTasks();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('更新任務失敗: $e')));
+        }
+      }
+    }
+  }
+
   IconData _getPriorityIcon(TaskPriority priority) {
     switch (priority) {
       case TaskPriority.low:
@@ -1502,7 +1592,7 @@ class _TasksTabState extends State<_TasksTab> {
                                   ),
                                   backgroundColor: _getStatusColor(
                                     task.status,
-                                  ).withOpacity(0.1),
+                                  ).withAlpha(25),
                                   side: BorderSide(
                                     color: _getStatusColor(task.status),
                                   ),
@@ -1519,7 +1609,7 @@ class _TasksTabState extends State<_TasksTab> {
                                   ),
                                   backgroundColor: _getPriorityColor(
                                     task.priority,
-                                  ).withOpacity(0.1),
+                                  ).withAlpha(25),
                                   side: BorderSide(
                                     color: _getPriorityColor(task.priority),
                                   ),
@@ -1551,6 +1641,9 @@ class _TasksTabState extends State<_TasksTab> {
                         trailing: PopupMenuButton<String>(
                           onSelected: (value) async {
                             switch (value) {
+                              case 'edit':
+                                await _showEditTaskDialog(task);
+                                break;
                               case 'todo':
                                 await _updateTaskStatus(task, TaskStatus.todo);
                                 break;
@@ -1578,6 +1671,17 @@ class _TasksTabState extends State<_TasksTab> {
                             }
                           },
                           itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit, color: Colors.blue),
+                                  SizedBox(width: 8),
+                                  Text('編輯任務'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(),
                             const PopupMenuItem(
                               value: 'todo',
                               child: Row(

@@ -406,7 +406,7 @@ class _ProjectCard extends StatelessWidget {
                       project.status.label,
                       style: TextStyle(fontSize: 12, color: statusColor),
                     ),
-                    backgroundColor: statusColor.withOpacity(0.1),
+                    backgroundColor: statusColor.withAlpha(25),
                     side: BorderSide.none,
                   ),
                 ],

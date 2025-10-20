@@ -160,7 +160,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                           Text(
                             '共 ${_projects.length} 個專案',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
                             ),
                           ),
                         ],
@@ -178,13 +178,15 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                                 Icon(
                                   Icons.inbox_outlined,
                                   size: 64,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                                  color: Theme.of(context).colorScheme.onSurface.withAlpha(75),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   '目前沒有可訪問的專案',
                                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface.withAlpha(75),
                                   ),
                                 ),
                               ],
@@ -248,7 +250,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                         Text(
                           _customer!.company!,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            color: Theme.of(context).colorScheme.onSurface.withAlpha(175),
                           ),
                         ),
                       ],
@@ -278,7 +280,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
           Icon(
             icon,
             size: 20,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -320,7 +322,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
         trailing: Icon(
           Icons.arrow_forward_ios,
           size: 16,
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+          color: Theme.of(context).colorScheme.onSurface.withAlpha(100),
         ),
         onTap: () {
           // TODO: 導向專案詳情頁面

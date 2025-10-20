@@ -319,7 +319,7 @@ class _ProjectTimelineTabState extends State<ProjectTimelineTab> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
+                                    color: Colors.black.withAlpha(25),
                                     blurRadius: 4,
                                   ),
                                 ],
