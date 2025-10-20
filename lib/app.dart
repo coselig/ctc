@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'pages/customer/customer_home_page.dart';
 import 'pages/employee/employee_pages.dart';
+import 'pages/guest_welcome_page.dart';
 import 'pages/public/public_pages.dart';
 import 'services/services.dart';
 import 'theme/app_theme.dart';
@@ -21,7 +23,7 @@ class AppRoot extends StatefulWidget {
 class _AppRootState extends State<AppRoot> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
-  bool _hasEmployeePermission = false;
+  UserType _userType = UserType.guest;
   StreamSubscription<AuthState>? _authSubscription;
   late UserPreferencesService _userPreferencesService;
   late UserPermissionService _userPermissionService;
@@ -50,8 +52,8 @@ class _AppRootState extends State<AppRoot> {
         debugPrint('User signed out globally');
         // 登出時重置為系統主題
         _setThemeMode(ThemeMode.system, saveToDatabase: false);
-        // 重置員工權限狀態
-        _hasEmployeePermission = false;
+        // 重置用戶類型
+        _userType = UserType.guest;
         // 觸發介面重建以返回歡迎頁面
         if (mounted) {
           setState(() {});
@@ -80,27 +82,27 @@ class _AppRootState extends State<AppRoot> {
       // 然後載入主題偏好
       await _loadUserThemePreference();
 
-      // 檢查用戶是否有員工權限
-      await _checkEmployeePermission();
+      // 檢查用戶類型
+      await _checkUserType();
     } catch (e) {
       debugPrint('確保用戶 profile 和載入主題失敗: $e');
     }
   }
 
-  /// 檢查用戶的員工權限
-  Future<void> _checkEmployeePermission() async {
+  /// 檢查用戶的類型（員工/客戶/一般用戶）
+  Future<void> _checkUserType() async {
     try {
-      final hasPermission = await _userPermissionService.isUserInEmployeeList();
+      final userType = await _userPermissionService.getCurrentUserType();
       if (mounted) {
         setState(() {
-          _hasEmployeePermission = hasPermission;
+          _userType = userType;
         });
       }
     } catch (e) {
-      debugPrint('檢查員工權限失敗: $e');
+      debugPrint('檢查用戶類型失敗: $e');
       if (mounted) {
         setState(() {
-          _hasEmployeePermission = false;
+          _userType = UserType.guest;
         });
       }
     }
@@ -123,10 +125,10 @@ class _AppRootState extends State<AppRoot> {
       // 載入用戶主題偏好（如果已登入）
       await _loadUserThemePreference();
 
-      // 檢查用戶員工權限（如果已登入）
+      // 檢查用戶類型（如果已登入）
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        await _checkEmployeePermission();
+        await _checkUserType();
       }
 
       if (mounted) {
@@ -213,25 +215,34 @@ class _AppRootState extends State<AppRoot> {
     // 檢查用戶登入狀態
     final user = Supabase.instance.client.auth.currentUser;
     
+    debugPrint(
+      '_buildHomeWidget: user = ${user?.email}, userType = $_userType',
+    );
+    
     // 如果用戶已登入
     if (user != null) {
-      // 檢查是否有員工權限
-      if (_hasEmployeePermission) {
-        // 有員工權限 → 進入系統功能頁面
-        return SystemHomePage(
-          title: '光悅科技管理系統',
-          onThemeToggle: _advancedToggleTheme,
-          currentThemeMode: _themeMode,
-        );
-      } else {
-        // 沒有員工權限 → 顯示一般首頁（但已登入狀態）
-        return WelcomePage(
-          onThemeToggle: _advancedToggleTheme,
-          currentThemeMode: _themeMode,
-        );
+      // 根據用戶類型導向不同頁面
+      switch (_userType) {
+        case UserType.employee:
+          debugPrint('_buildHomeWidget: 顯示 SystemHomePage');
+          // 員工 → 進入員工管理系統
+          return SystemHomePage(
+            title: '光悅科技管理系統',
+            onThemeToggle: _advancedToggleTheme,
+            currentThemeMode: _themeMode,
+          );
+        case UserType.customer:
+          debugPrint('_buildHomeWidget: 顯示 CustomerHomePage');
+          // 客戶 → 進入客戶中心
+          return const CustomerHomePage();
+        case UserType.guest:
+          debugPrint('_buildHomeWidget: 顯示 GuestWelcome');
+          // 一般註冊用戶 → 引導完善資料
+          return GuestWelcomePage(onCustomerRegistered: _checkUserType);
       }
     }
 
+    debugPrint('_buildHomeWidget: 顯示 WelcomePage');
     // 如果用戶未登入，顯示歡迎頁面
     return WelcomePage(
       onThemeToggle: _advancedToggleTheme,

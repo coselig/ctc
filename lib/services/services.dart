@@ -7,6 +7,8 @@ export 'attendance_leave_request_service.dart';
 export 'attendance_service.dart';
 // ==================== 公司相關服務 ====================
 export 'company_location_service.dart';
+// ==================== 客戶相關服務 ====================
+export 'customer_service.dart';
 export 'employee_invitation_service.dart';
 // ==================== 員工相關服務 ====================
 export 'employee_service.dart';

@@ -7,6 +7,8 @@ export 'attendance_leave_request.dart';
 export 'attendance_record.dart';
 // ==================== 公司相關模型 ====================
 export 'company_location.dart';
+// ==================== 客戶相關模型 ====================
+export 'customer.dart';
 // ==================== 員工相關模型 ====================
 export 'employee.dart';
 export 'floor_plan.dart';
