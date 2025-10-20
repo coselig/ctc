@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/floor_plans_service.dart';
+import '../../../services/floor_plans_service.dart';
 
 class FloorPlanUploadWidget extends StatefulWidget {
   const FloorPlanUploadWidget({Key? key}) : super(key: key);

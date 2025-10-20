@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/photo_record.dart';
+import '../../../models/photo_record.dart';
 
 class MarkerPainter extends CustomPainter {
   final List<PhotoRecord> records;

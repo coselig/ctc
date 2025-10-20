@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../services/user_preferences_service.dart';
-import '../../widgets/transparent_app_bar.dart';
+import '../../widgets/general_components/transparent_app_bar.dart';
 
 /// 用戶設置頁面
 /// 讓用戶管理各種偏好設置，包括主題模式
