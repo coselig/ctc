@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../services/user_preferences_service.dart';
-import '../../widgets/general_components/transparent_app_bar.dart';
+import '../../widgets/general_components/general_page.dart';
 
 /// 用戶設置頁面
 /// 讓用戶管理各種偏好設置，包括主題模式
@@ -404,123 +404,66 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: const TransparentAppBar(title: Text('用戶設置'), showUserInfo: true),
-      body: Column(
-        children: [
-          // AppBar 間距
-          SizedBox(
-            height:
-                MediaQuery.of(context).padding.top +
-                AppBar().preferredSize.height +
-                20,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 用戶資訊卡片
-                  _buildUserInfoCard(),
-
-                  // 主題設置標題
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      '主題設置',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-
-                  // 主題選項
-                  _buildThemeOption(
-                    themeMode: UserPreferencesService.themeModeLight,
-                    title: '亮色主題',
-                    subtitle: '始終使用亮色外觀',
-                    icon: Icons.light_mode,
-                  ),
-                  _buildThemeOption(
-                    themeMode: UserPreferencesService.themeModeDark,
-                    title: '暗色主題',
-                    subtitle: '始終使用暗色外觀',
-                    icon: Icons.dark_mode,
-                  ),
-                  _buildThemeOption(
-                    themeMode: UserPreferencesService.themeModeSystem,
-                    title: '跟隨系統',
-                    subtitle: '根據系統設置自動切換',
-                    icon: Icons.settings_brightness,
-                  ),
-
-                  // 安全設置標題
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                    child: Text(
-                      '安全設置',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-
-                  // 密碼修改選項
-                  Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.security,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        title: const Text('修改密碼'),
-                        subtitle: const Text('更新您的登入密碼'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: _showChangePasswordDialog,
-                      ),
-                    ),
-                  ),
-
-                  // 登出按鈕
-                  Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        leading: Icon(Icons.logout, color: Colors.red.shade700),
-                        title: Text(
-                          '登出',
-                          style: TextStyle(color: Colors.red.shade700),
-                        ),
-                        subtitle: const Text('登出當前帳號'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: _handleLogout,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-                ],
-              ),
+    return GeneralPage(
+      title: '用戶設置',
+      children: [
+        SizedBox(
+          height:
+              MediaQuery.of(context).padding.top +
+              AppBar().preferredSize.height +
+              20,
+        ),
+        _buildUserInfoCard(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text('主題設置',
+            style: Theme.of(context).textTheme.headlineSmall),
+        ),
+        _buildThemeOption(
+          themeMode: UserPreferencesService.themeModeLight,
+          title: '亮色主題',
+          subtitle: '始終使用亮色外觀',
+          icon: Icons.light_mode,
+        ),
+        _buildThemeOption(
+          themeMode: UserPreferencesService.themeModeDark,
+          title: '暗色主題',
+          subtitle: '始終使用暗色外觀',
+          icon: Icons.dark_mode,
+        ),
+        _buildThemeOption(
+          themeMode: UserPreferencesService.themeModeSystem,
+          title: '跟隨系統',
+          subtitle: '根據系統設置自動切換',
+          icon: Icons.settings_brightness,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text('安全設置',
+            style: Theme.of(context).textTheme.headlineSmall),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Card(
+            child: ListTile(
+              title: const Text('修改密碼'),
+              leading: const Icon(Icons.security),
+              onTap: _showChangePasswordDialog,
             ),
           ),
-        ],
-      ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Card(
+            child: ListTile(
+              title: const Text('登出'),
+              leading: const Icon(Icons.logout),
+              onTap: _handleLogout,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 }

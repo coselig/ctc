@@ -10,7 +10,6 @@ import 'pages/public/public_pages.dart';
 import 'services/services.dart';
 import 'theme/app_theme.dart';
 
-
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class AppRoot extends StatefulWidget {
@@ -214,11 +213,11 @@ class _AppRootState extends State<AppRoot> {
 
     // 檢查用戶登入狀態
     final user = Supabase.instance.client.auth.currentUser;
-    
+
     debugPrint(
       '_buildHomeWidget: user = ${user?.email}, userType = $_userType',
     );
-    
+
     // 如果用戶已登入
     if (user != null) {
       // 根據用戶類型導向不同頁面
@@ -250,22 +249,24 @@ class _AppRootState extends State<AppRoot> {
     );
   }
 
-  void toggleTheme() {
-    ThemeMode newThemeMode;
-    if (_themeMode == ThemeMode.light) {
-      newThemeMode = ThemeMode.dark;
-    } else if (_themeMode == ThemeMode.dark) {
-      newThemeMode = ThemeMode.system;
-    } else {
-      newThemeMode = ThemeMode.light;
-    }
-
-    _setThemeMode(newThemeMode);
-  }
-
   /// 高級主題切換（包含資料庫儲存）
   void _advancedToggleTheme() {
-    toggleTheme();
+    final platformBrightness = MediaQuery.of(context).platformBrightness;
+
+    if (platformBrightness == Brightness.dark &&
+        _themeMode == ThemeMode.system) {
+      // 如果系統主題是深色且當前是系統主題，切換到淺色
+      _setThemeMode(ThemeMode.light);
+      return;
+    } else if (platformBrightness == Brightness.light &&
+        _themeMode == ThemeMode.system) {
+      // 如果系統主題是淺色且當前是系統主題，切換到深色
+      _setThemeMode(ThemeMode.dark);
+      return;
+    } else {
+      _setThemeMode(ThemeMode.system);
+      return;
+    }
   }
 
   @override

@@ -133,499 +133,380 @@ class _WelcomePageState extends State<WelcomePage> {
     });
   }
 
-  IconData _getThemeIcon() {
-    switch (widget.currentThemeMode) {
-      case ThemeMode.light:
-        return Icons.wb_sunny;
-      case ThemeMode.dark:
-        return Icons.nightlight_round;
-      case ThemeMode.system:
-        return Icons.brightness_auto;
-    }
-  }
-
-  void _handleLoginTap() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AuthPage(
-          onThemeToggle: widget.onThemeToggle,
-          currentThemeMode: widget.currentThemeMode,
-        ),
-      ),
-    );
-
-    // 登入頁面返回後，強制刷新狀態
-    if (mounted) {
-      setState(() {
-        _currentUser = supabase.auth.currentUser;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = _currentUser; // 使用 _currentUser 而不是即時查詢
+    final user = _currentUser;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: TransparentAppBar(
-        showUserInfo: user != null, // 登入後顯示用戶資訊
-        actions: [
+    return GeneralPage(
+      title: '歡迎頁面',
+      actions: [
+        ThemeToggleButton(
+          currentThemeMode: widget.currentThemeMode,
+          onToggle: widget.onThemeToggle,
+          color: primaryColor,
+        ),
+        if (user != null)
           IconButton(
-            icon: Icon(_getThemeIcon(), color: primaryColor),
-            onPressed: widget.onThemeToggle,
-            tooltip: '切換主題',
+            icon: Icon(Icons.settings, color: primaryColor),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      UserSettingsPage(onThemeChanged: widget.onThemeToggle),
+                ),
+              );
+            },
+            tooltip: '用戶設置',
           ),
-          if (user != null)
-            IconButton(
-              icon: Icon(Icons.settings, color: primaryColor),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        UserSettingsPage(onThemeChanged: widget.onThemeToggle),
-                  ),
-                );
-              },
-              tooltip: '用戶設置',
-            ),
-          if (user == null)
-            TextButton.icon(
-              icon: Icon(Icons.login, color: primaryColor),
-              label: Text('登入', style: TextStyle(color: primaryColor)),
-              onPressed: _handleLoginTap,
-            )
-          else
-            PopupMenuButton<String>(
-              icon: Icon(Icons.account_circle, color: primaryColor),
-              tooltip: '用戶選單',
-              onSelected: (value) {
-                switch (value) {
-                  case 'system':
-                    if (_hasEmployeePermission) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => SystemHomePage(
-                            title: '光悅科技管理系統',
-                            onThemeToggle: widget.onThemeToggle,
-                            currentThemeMode: widget.currentThemeMode,
-                          ),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('您尚未被加入到員工列表，無法進入系統功能頁面'),
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                    break;
-                  case 'settings':
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => UserSettingsPage(
-                          onThemeChanged: widget.onThemeToggle,
-                        ),
-                      ),
-                    );
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                if (_hasEmployeePermission)
-                  PopupMenuItem<String>(
-                    value: 'system',
-                    child: ListTile(
-                      leading: Icon(Icons.dashboard, color: primaryColor),
-                      title: const Text('進入系統'),
-                      dense: true,
-                    ),
-                  ),
-                PopupMenuItem<String>(
-                  value: 'settings',
-                  child: ListTile(
-                    leading: Icon(Icons.settings, color: primaryColor),
-                    title: const Text('用戶設置'),
-                    dense: true,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-      body: CompassBackground(
-        child: SingleChildScrollView(
-          clipBehavior: Clip.none,
-          child: Column(
-            children: [
-              if (_imageUrls.isEmpty) ...[
-                const SizedBox(height: 32),
-                Image.asset(
-                  'assets/sqare_ctc_icon.png',
-                  width: 200,
-                  height: 200,
-                ),
-              ] else ...[
-                Container(
-                  height: 300,
+      ],
+      children: [
+        if (_imageUrls.isEmpty) ...[
+          const SizedBox(height: 32),
+          Image.asset('assets/sqare_ctc_icon.png', width: 200, height: 200),
+        ] else ...[
+          Container(
+            height: 300,
+            clipBehavior: Clip.none,
+            child: Transform.scale(
+              scale: 1.2,
+              child: SizedBox(
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
                   clipBehavior: Clip.none,
-                  child: Transform.scale(
-                    scale: 1.2,
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        clipBehavior: Clip.none,
-                        children: [
-                          ClipRect(
-                            child: OverflowBox(
-                              maxHeight: double.infinity,
-                              maxWidth: double.infinity,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 800),
-                                transitionBuilder:
-                                    (
-                                      Widget child,
-                                      Animation<double> animation,
-                                    ) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: child,
-                                      );
-                                    },
-                                child: CachedNetworkImage(
-                                  key: ValueKey(_currentImageIndex),
-                                  imageUrl: _imageUrls[_currentImageIndex],
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  width: MediaQuery.of(context).size.width,
-                                  height: 600,
-                                  errorWidget: (context, url, error) {
-                                    debugPrint('Image load error: $error');
-                                    return const Center(
-                                      child: Icon(Icons.error),
-                                    );
-                                  },
-                                  placeholder: (context, url) => const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 16,
-                            left: 0,
-                            right: 0,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: _imageUrls.asMap().entries.map((entry) {
-                                return Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _currentImageIndex == entry.key
-                                        ? Colors.white
-                                        : Colors.white.withAlpha(127),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              // 顯示給已登入但沒有員工權限的用戶
-              if (user != null && !_hasEmployeePermission)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Card(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '您尚未被加入到員工列表',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '請聯繫管理員將您的帳號 (${user.email}) 加入員工管理系統，即可使用系統功能',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ResponsiveContainer(
-                child: Column(
                   children: [
-                    const SizedBox(height: 40),
-                    Text(
-                      'Coselig',
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
+                    ClipRect(
+                      child: OverflowBox(
+                        maxHeight: double.infinity,
+                        maxWidth: double.infinity,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 800),
+                          transitionBuilder:
+                              (Widget child, Animation<double> animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                );
+                              },
+                          child: CachedNetworkImage(
+                            key: ValueKey(_currentImageIndex),
+                            imageUrl: _imageUrls[_currentImageIndex],
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            width: MediaQuery.of(context).size.width,
+                            height: 600,
+                            errorWidget: (context, url, error) {
+                              debugPrint('Image load error: $error');
+                              return const Center(child: Icon(Icons.error));
+                            },
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '智慧家居 輕鬆入門',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.9),
-                          ),
+                    Positioned(
+                      bottom: 16,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: _imageUrls.asMap().entries.map((entry) {
+                          return Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentImageIndex == entry.key
+                                  ? Colors.white
+                                  : Colors.white.withAlpha(127),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                    const SizedBox(height: 40),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '服務項目',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            // 根據螢幕寬度決定列數
-                            int crossAxisCount;
-                            double childAspectRatio;
-
-                            if (constraints.maxWidth > 600) {
-                              // 寬螢幕：三列
-                              crossAxisCount = 3;
-                              childAspectRatio = 0.6; // 更高的比例，確保有足夠空間顯示文字
-                            } else {
-                              // 窄螢幕：一列，使用更高的比例來確保文字可見
-                              crossAxisCount = 1;
-                              childAspectRatio = 0.7; // 調整為更合適的比例，給文字更多空間
-                            }
-
-                            return GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: crossAxisCount,
-                              mainAxisSpacing: 16,
-                              crossAxisSpacing: 16,
-                              childAspectRatio: childAspectRatio,
-                              children: [
-                                UnifiedCard(
-                                  imageName: 'DI.jpg',
-                                  title: '高規元件',
-                                  subtitle: '台灣製造\n調光控制器',
-                                  cardType: CardType.product,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ProductPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                UnifiedCard(
-                                  imageName: 'HA.jpg',
-                                  title: '開源整合平台',
-                                  subtitle: '啟動智慧生活\nHome Assistant',
-                                  cardType: CardType.product,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => HAPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                UnifiedCard(
-                                  imageName: 'LIGHT.jpeg',
-                                  title: '快時尚照明',
-                                  subtitle: '裝修新高度\n輕量複和金屬板',
-                                  cardType: CardType.product,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            ProductCompassPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.7,
-                          children: [
-                            const UnifiedCard(
-                              imageName: 'customize_service.jpg',
-                              title: '客製化服務',
-                              subtitle: '專屬於你的智慧家居解決方案',
-                              cardType: CardType.product,
-                            ),
-                            UnifiedCard(
-                              imageName: 'handshake.jpg',
-                              title: '加入光悅',
-                              subtitle: '不一樣的工作體驗',
-                              cardType: CardType.product,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => JoinCompanyPage(
-                                      onThemeToggle: widget.onThemeToggle,
-                                      currentThemeMode: widget.currentThemeMode,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          '產品目錄',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 1,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.7,
-                          children: [
-                            UnifiedCard(
-                              imageName: 'customize_service.jpg',
-                              title: '產品目錄 2025',
-                              subtitle: '查看光悅科技最新產品與解決方案',
-                              cardType: CardType.product,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const IntroPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          '價值理念 Our Mission',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 6, // 改為6個一排
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.85,
-                          children: [
-                            UnifiedCard(
-                              imageName: 'feasible.png',
-                              title: '務實',
-                              subtitle: 'Feasible',
-                              cardType: CardType.mission,
-                              invertColors: true,
-                            ),
-                            UnifiedCard(
-                              imageName: 'stable.png',
-                              title: '穩定',
-                              subtitle: 'Stable',
-                              cardType: CardType.mission,
-                              invertColors: true,
-                            ),
-                            UnifiedCard(
-                              imageName: 'affordable.png',
-                              title: '實惠',
-                              subtitle: 'Affordable',
-                              cardType: CardType.mission,
-                              invertColors: true,
-                            ),
-                            UnifiedCard(
-                              imageName: 'durable.png',
-                              title: '耐用',
-                              subtitle: 'Durable',
-                              cardType: CardType.mission,
-                              invertColors: true,
-                            ),
-                            UnifiedCard(
-                              imageName: 'sustainable.png',
-                              title: '永續',
-                              subtitle: 'Sustainable',
-                              cardType: CardType.mission,
-                              invertColors: true,
-                            ),
-                            UnifiedCard(
-                              imageName: 'comfortable.png',
-                              title: '舒適',
-                              subtitle: 'Comfortable',
-                              cardType: CardType.mission,
-                              invertColors: true,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    // 使用統一的公司資訊 Widget
-                    const CompanyInfoFooter(),
                   ],
                 ),
               ),
+            ),
+          ),
+        ],
+        // 顯示給已登入但沒有員工權限的用戶
+        if (user != null && !_hasEmployeePermission)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '您尚未被加入到員工列表',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '請聯繫管理員將您的帳號 (${user.email}) 加入員工管理系統，即可使用系統功能',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ResponsiveContainer(
+          child: Column(
+            children: [
+              const SizedBox(height: 40),
+              Text(
+                'Coselig',
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '智慧家居 輕鬆入門',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 40),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '服務項目',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      // 根據螢幕寬度決定列數
+                      int crossAxisCount;
+                      double childAspectRatio;
+
+                      if (constraints.maxWidth > 600) {
+                        // 寬螢幕：三列
+                        crossAxisCount = 3;
+                        childAspectRatio = 0.6; // 更高的比例，確保有足夠空間顯示文字
+                      } else {
+                        // 窄螢幕：一列，使用更高的比例來確保文字可見
+                        crossAxisCount = 1;
+                        childAspectRatio = 0.7; // 調整為更合適的比例，給文字更多空間
+                      }
+
+                      return GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: childAspectRatio,
+                        children: [
+                          UnifiedCard(
+                            imageName: 'DI.jpg',
+                            title: '高規元件',
+                            subtitle: '台灣製造\n調光控制器',
+                            cardType: CardType.product,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProductPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          UnifiedCard(
+                            imageName: 'HA.jpg',
+                            title: '開源整合平台',
+                            subtitle: '啟動智慧生活\nHome Assistant',
+                            cardType: CardType.product,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => HAPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          UnifiedCard(
+                            imageName: 'LIGHT.jpeg',
+                            title: '快時尚照明',
+                            subtitle: '裝修新高度\n輕量複和金屬板',
+                            cardType: CardType.product,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProductCompassPage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.7,
+                    children: [
+                      const UnifiedCard(
+                        imageName: 'customize_service.jpg',
+                        title: '客製化服務',
+                        subtitle: '專屬於你的智慧家居解決方案',
+                        cardType: CardType.product,
+                      ),
+                      UnifiedCard(
+                        imageName: 'handshake.jpg',
+                        title: '加入光悅',
+                        subtitle: '不一樣的工作體驗',
+                        cardType: CardType.product,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => JoinCompanyPage(
+                                onThemeToggle: widget.onThemeToggle,
+                                currentThemeMode: widget.currentThemeMode,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    '產品目錄',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 1,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.7,
+                    children: [
+                      UnifiedCard(
+                        imageName: 'customize_service.jpg',
+                        title: '產品目錄 2025',
+                        subtitle: '查看光悅科技最新產品與解決方案',
+                        cardType: CardType.product,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const IntroPage(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    '價值理念 Our Mission',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 6, // 改為6個一排
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.85,
+                    children: [
+                      UnifiedCard(
+                        imageName: 'feasible.png',
+                        title: '務實',
+                        subtitle: 'Feasible',
+                        cardType: CardType.mission,
+                        invertColors: true,
+                      ),
+                      UnifiedCard(
+                        imageName: 'stable.png',
+                        title: '穩定',
+                        subtitle: 'Stable',
+                        cardType: CardType.mission,
+                        invertColors: true,
+                      ),
+                      UnifiedCard(
+                        imageName: 'affordable.png',
+                        title: '實惠',
+                        subtitle: 'Affordable',
+                        cardType: CardType.mission,
+                        invertColors: true,
+                      ),
+                      UnifiedCard(
+                        imageName: 'durable.png',
+                        title: '耐用',
+                        subtitle: 'Durable',
+                        cardType: CardType.mission,
+                        invertColors: true,
+                      ),
+                      UnifiedCard(
+                        imageName: 'sustainable.png',
+                        title: '永續',
+                        subtitle: 'Sustainable',
+                        cardType: CardType.mission,
+                        invertColors: true,
+                      ),
+                      UnifiedCard(
+                        imageName: 'comfortable.png',
+                        title: '舒適',
+                        subtitle: 'Comfortable',
+                        cardType: CardType.mission,
+                        invertColors: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              // 使用統一的公司資訊 Widget
+              const CompanyInfoFooter(),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
