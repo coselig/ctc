@@ -103,7 +103,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
           ],
           indicatorColor: primaryColor,
           labelColor: primaryColor,
-          unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.6),
+          unselectedLabelColor: theme.colorScheme.onSurface.withAlpha(153),
         ),
       ),
       body: TabBarView(
@@ -155,7 +155,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
                 Text(
                   '智慧家居 輕鬆入門',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withAlpha(179),
                   ),
                 ),
               ],
@@ -305,14 +305,14 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
                     Text(
                       '目前沒有職位空缺',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '請稍後再來查看，或直接聯絡我們了解未來機會',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -462,10 +462,10 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+              color: Theme.of(context).colorScheme.primaryContainer.withAlpha(76),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.primary.withAlpha(76),
               ),
             ),
             child: Column(
@@ -511,11 +511,11 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.outline.withAlpha(51),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(25),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -580,11 +580,11 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.outline.withAlpha(51),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(25),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -609,7 +609,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withAlpha(25),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -631,26 +631,26 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
               Icon(
                 Icons.business,
                 size: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
               ),
               const SizedBox(width: 4),
               Text(
                 department,
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                 ),
               ),
               const SizedBox(width: 16),
               Icon(
                 Icons.location_on,
                 size: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
               ),
               const SizedBox(width: 4),
               Text(
                 location,
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                 ),
               ),
             ],
@@ -751,7 +751,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.outline.withAlpha(51),
         ),
       ),
       child: Row(
@@ -760,7 +760,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withAlpha(25),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -783,7 +783,7 @@ class _JoinCompanyPageState extends State<JoinCompanyPage>
                 Text(
                   content,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withAlpha(179),
                   ),
                 ),
               ],
