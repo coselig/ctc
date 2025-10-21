@@ -829,6 +829,63 @@ $$;
 ALTER FUNCTION public.get_employee_leave_balance(p_employee_id uuid, p_year integer) OWNER TO supabase_admin;
 
 --
+-- Name: get_floor_plan_permissions(uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.get_floor_plan_permissions(p_floor_plan_id uuid) RETURNS TABLE(id uuid, floor_plan_id uuid, user_id uuid, permission_level integer, created_at timestamp with time zone, updated_at timestamp with time zone, user_email text, user_full_name text)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    fpp.id,
+    fpp.floor_plan_id,
+    fpp.user_id,
+    fpp.permission_level,
+    fpp.created_at,
+    fpp.updated_at,
+    p.email as user_email,
+    p.full_name as user_full_name
+  FROM public.floor_plan_permissions fpp
+  LEFT JOIN public.profiles p ON fpp.user_id = p.id
+  WHERE fpp.floor_plan_id = p_floor_plan_id
+  ORDER BY fpp.created_at DESC;
+END;
+$$;
+
+
+ALTER FUNCTION public.get_floor_plan_permissions(p_floor_plan_id uuid) OWNER TO supabase_admin;
+
+--
+-- Name: get_project_statistics(uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.get_project_statistics(p_project_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  result jsonb;
+BEGIN
+  SELECT jsonb_build_object(
+    'total_members', (SELECT COUNT(*) FROM public.project_members WHERE project_id = p_project_id),
+    'total_clients', (SELECT COUNT(*) FROM public.project_clients WHERE project_id = p_project_id),
+    'total_timeline_items', (SELECT COUNT(*) FROM public.project_timeline WHERE project_id = p_project_id),
+    'completed_timeline_items', (SELECT COUNT(*) FROM public.project_timeline WHERE project_id = p_project_id AND is_completed = true),
+    'total_comments', (SELECT COUNT(*) FROM public.project_comments WHERE project_id = p_project_id),
+    'total_tasks', (SELECT COUNT(*) FROM public.project_tasks WHERE project_id = p_project_id),
+    'completed_tasks', (SELECT COUNT(*) FROM public.project_tasks WHERE project_id = p_project_id AND status = 'completed'),
+    'in_progress_tasks', (SELECT COUNT(*) FROM public.project_tasks WHERE project_id = p_project_id AND status = 'in_progress'),
+    'total_floor_plans', (SELECT COUNT(*) FROM public.floor_plans WHERE project_id = p_project_id)
+  ) INTO result;
+  
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION public.get_project_statistics(p_project_id uuid) OWNER TO supabase_admin;
+
+--
 -- Name: get_user_role(); Type: FUNCTION; Schema: public; Owner: supabase_admin
 --
 
@@ -877,6 +934,212 @@ $$;
 
 
 ALTER FUNCTION public.handle_new_user() OWNER TO supabase_admin;
+
+--
+-- Name: has_floor_plan_access(uuid, uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid DEFAULT auth.uid()) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  -- 檢查是否為擁有者
+  IF EXISTS (
+    SELECT 1 FROM floor_plans
+    WHERE id = p_floor_plan_id
+    AND user_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- 檢查是否有任何等級的權限
+  IF EXISTS (
+    SELECT 1 FROM floor_plan_permissions
+    WHERE floor_plan_id = p_floor_plan_id
+    AND user_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  RETURN FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid) OWNER TO supabase_admin;
+
+--
+-- Name: FUNCTION has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid); Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid) IS '檢查用戶是否有設計圖的存取權限（任何等級）。使用 SECURITY DEFINER 繞過 RLS，避免遞迴。';
+
+
+--
+-- Name: has_floor_plan_admin_access(uuid, uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid DEFAULT auth.uid()) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  -- 檢查是否為擁有者
+  IF EXISTS (
+    SELECT 1 FROM floor_plans
+    WHERE id = p_floor_plan_id
+    AND user_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- 檢查是否有管理權限
+  IF EXISTS (
+    SELECT 1 FROM floor_plan_permissions
+    WHERE floor_plan_id = p_floor_plan_id
+    AND user_id = p_user_id
+    AND permission_level = 3
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  RETURN FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid) OWNER TO supabase_admin;
+
+--
+-- Name: FUNCTION has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid); Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid) IS '檢查用戶是否有設計圖的管理權限（等級 = 3 或擁有者）。使用 SECURITY DEFINER 繞過 RLS，避免遞迴。';
+
+
+--
+-- Name: has_floor_plan_edit_access(uuid, uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid DEFAULT auth.uid()) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  -- 檢查是否為擁有者
+  IF EXISTS (
+    SELECT 1 FROM floor_plans
+    WHERE id = p_floor_plan_id
+    AND user_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- 檢查是否有編輯或管理權限
+  IF EXISTS (
+    SELECT 1 FROM floor_plan_permissions
+    WHERE floor_plan_id = p_floor_plan_id
+    AND user_id = p_user_id
+    AND permission_level >= 2
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  RETURN FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid) OWNER TO supabase_admin;
+
+--
+-- Name: FUNCTION has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid); Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid) IS '檢查用戶是否有設計圖的編輯權限（等級 >= 2）。使用 SECURITY DEFINER 繞過 RLS，避免遞迴。';
+
+
+--
+-- Name: has_project_access(uuid, uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid DEFAULT auth.uid()) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    AS $$
+BEGIN
+  -- 檢查是否為擁有者
+  IF EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE id = p_project_id
+    AND owner_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- 檢查是否為專案成員（任何角色）
+  IF EXISTS (
+    SELECT 1 FROM public.project_members
+    WHERE project_id = p_project_id
+    AND user_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  RETURN FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid) OWNER TO supabase_admin;
+
+--
+-- Name: FUNCTION has_project_access(p_project_id uuid, p_user_id uuid); Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid) IS '檢查用戶是否有專案的存取權限（擁有者或任何角色的成員）。使用 SECURITY DEFINER 繞過 RLS，避免遞迴。';
+
+
+--
+-- Name: has_project_admin_access(uuid, uuid); Type: FUNCTION; Schema: public; Owner: supabase_admin
+--
+
+CREATE FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid DEFAULT auth.uid()) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    AS $$
+BEGIN
+  -- 檢查是否為擁有者
+  IF EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE id = p_project_id
+    AND owner_id = p_user_id
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- 檢查是否為管理員
+  IF EXISTS (
+    SELECT 1 FROM public.project_members
+    WHERE project_id = p_project_id
+    AND user_id = p_user_id
+    AND role = 'admin'
+  ) THEN
+    RETURN TRUE;
+  END IF;
+  
+  RETURN FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid) OWNER TO supabase_admin;
+
+--
+-- Name: FUNCTION has_project_admin_access(p_project_id uuid, p_user_id uuid); Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid) IS '檢查用戶是否有專案的管理權限（擁有者或管理員）。使用 SECURITY DEFINER 繞過 RLS，避免遞迴。';
+
 
 --
 -- Name: initialize_leave_balance(uuid, text, integer, numeric); Type: FUNCTION; Schema: public; Owner: supabase_admin
@@ -3327,6 +3590,54 @@ CREATE TABLE public.attendance_records (
 ALTER TABLE public.attendance_records OWNER TO supabase_admin;
 
 --
+-- Name: customers; Type: TABLE; Schema: public; Owner: supabase_admin
+--
+
+CREATE TABLE public.customers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    name text NOT NULL,
+    company text,
+    email text,
+    phone text,
+    address text,
+    notes text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+
+ALTER TABLE public.customers OWNER TO supabase_admin;
+
+--
+-- Name: TABLE customers; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON TABLE public.customers IS '客戶資料表 - 儲存註冊為客戶的用戶資料';
+
+
+--
+-- Name: COLUMN customers.user_id; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.customers.user_id IS '關聯到 auth.users.id 的用戶 ID';
+
+
+--
+-- Name: COLUMN customers.name; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.customers.name IS '客戶姓名';
+
+
+--
+-- Name: COLUMN customers.company; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.customers.company IS '客戶所屬公司名稱';
+
+
+--
 -- Name: employee_skills; Type: TABLE; Schema: public; Owner: supabase_admin
 --
 
@@ -3414,6 +3725,66 @@ CREATE TABLE public.floor_plans (
 
 
 ALTER TABLE public.floor_plans OWNER TO supabase_admin;
+
+--
+-- Name: holidays; Type: TABLE; Schema: public; Owner: supabase_admin
+--
+
+CREATE TABLE public.holidays (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    date date NOT NULL,
+    name text NOT NULL,
+    year integer NOT NULL,
+    description text,
+    is_workday boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.holidays OWNER TO supabase_admin;
+
+--
+-- Name: TABLE holidays; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON TABLE public.holidays IS '國定假日資料表';
+
+
+--
+-- Name: COLUMN holidays.date; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.holidays.date IS '假日日期';
+
+
+--
+-- Name: COLUMN holidays.name; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.holidays.name IS '假日名稱';
+
+
+--
+-- Name: COLUMN holidays.year; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.holidays.year IS '年份';
+
+
+--
+-- Name: COLUMN holidays.description; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.holidays.description IS '備註說明';
+
+
+--
+-- Name: COLUMN holidays.is_workday; Type: COMMENT; Schema: public; Owner: supabase_admin
+--
+
+COMMENT ON COLUMN public.holidays.is_workday IS '是否為調整上班日（補班日）';
+
 
 --
 -- Name: images; Type: TABLE; Schema: public; Owner: supabase_admin
@@ -3633,6 +4004,43 @@ CREATE TABLE public.profiles (
 ALTER TABLE public.profiles OWNER TO supabase_admin;
 
 --
+-- Name: project_clients; Type: TABLE; Schema: public; Owner: supabase_admin
+--
+
+CREATE TABLE public.project_clients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    name text NOT NULL,
+    company text,
+    email text,
+    phone text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.project_clients OWNER TO supabase_admin;
+
+--
+-- Name: project_comments; Type: TABLE; Schema: public; Owner: supabase_admin
+--
+
+CREATE TABLE public.project_comments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    content text NOT NULL,
+    parent_id uuid,
+    attachments jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.project_comments OWNER TO supabase_admin;
+
+--
 -- Name: project_members; Type: TABLE; Schema: public; Owner: supabase_admin
 --
 
@@ -3640,13 +4048,58 @@ CREATE TABLE public.project_members (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     project_id uuid NOT NULL,
     user_id uuid NOT NULL,
-    role text DEFAULT 'member'::text,
-    joined_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT project_members_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'member'::text, 'viewer'::text])))
+    role text DEFAULT 'member'::text NOT NULL,
+    joined_at timestamp with time zone DEFAULT now()
 );
 
 
 ALTER TABLE public.project_members OWNER TO supabase_admin;
+
+--
+-- Name: project_tasks; Type: TABLE; Schema: public; Owner: supabase_admin
+--
+
+CREATE TABLE public.project_tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    title text NOT NULL,
+    description text,
+    status text DEFAULT 'todo'::text NOT NULL,
+    priority text DEFAULT 'medium'::text NOT NULL,
+    assigned_to uuid,
+    due_date date,
+    completed_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    previous_task_id uuid,
+    next_task_id uuid,
+    display_order integer DEFAULT 0,
+    tags text[]
+);
+
+
+ALTER TABLE public.project_tasks OWNER TO supabase_admin;
+
+--
+-- Name: project_timeline; Type: TABLE; Schema: public; Owner: supabase_admin
+--
+
+CREATE TABLE public.project_timeline (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    title text NOT NULL,
+    description text,
+    milestone_date date NOT NULL,
+    is_completed boolean DEFAULT false,
+    completed_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.project_timeline OWNER TO supabase_admin;
 
 --
 -- Name: projects; Type: TABLE; Schema: public; Owner: supabase_admin
@@ -3656,12 +4109,14 @@ CREATE TABLE public.projects (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     description text,
-    address text,
-    status text DEFAULT 'active'::text,
+    status text DEFAULT 'active'::text NOT NULL,
+    start_date date,
+    end_date date,
+    budget numeric(15,2),
     owner_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT projects_status_check CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'paused'::text, 'cancelled'::text])))
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT projects_name_check CHECK ((char_length(name) >= 1))
 );
 
 
@@ -4061,1225 +4516,6 @@ ALTER TABLE ONLY supabase_functions.hooks ALTER COLUMN id SET DEFAULT nextval('s
 
 
 --
--- Data for Name: extensions; Type: TABLE DATA; Schema: _realtime; Owner: supabase_admin
---
-
-COPY _realtime.extensions (id, type, settings, tenant_external_id, inserted_at, updated_at) FROM stdin;
-7667943f-d15a-4bf0-949b-0f6aa77a32e3	postgres_cdc_rls	{"region": "us-east-1", "db_host": "QhixI0o7PYIABziLUL4f0A==", "db_name": "sWBpZNdjggEPTQVlI52Zfw==", "db_port": "+enMDFi1J/3IrrquHHwUmA==", "db_user": "uxbEq/zz8DXVD53TOI1zmw==", "slot_name": "supabase_realtime_replication_slot", "db_password": "eGxa2ZKVreSn7eWieRQdp74vN25K+qFgdnxmDCKe4p20+C0410WXonzXTEj9CgYx", "publication": "supabase_realtime", "ssl_enforced": false, "poll_interval_ms": 100, "poll_max_changes": 100, "poll_max_record_bytes": 1048576}	realtime-dev	2025-10-08 07:25:03	2025-10-08 07:25:03
-\.
-
-
---
--- Data for Name: schema_migrations; Type: TABLE DATA; Schema: _realtime; Owner: supabase_admin
---
-
-COPY _realtime.schema_migrations (version, inserted_at) FROM stdin;
-20210706140551	2025-09-17 02:53:15
-20220329161857	2025-09-17 02:53:15
-20220410212326	2025-09-17 02:53:15
-20220506102948	2025-09-17 02:53:15
-20220527210857	2025-09-17 02:53:16
-20220815211129	2025-09-17 02:53:16
-20220815215024	2025-09-17 02:53:16
-20220818141501	2025-09-17 02:53:16
-20221018173709	2025-09-17 02:53:16
-20221102172703	2025-09-17 02:53:16
-20221223010058	2025-09-17 02:53:16
-20230110180046	2025-09-17 02:53:16
-20230810220907	2025-09-17 02:53:16
-20230810220924	2025-09-17 02:53:16
-20231024094642	2025-09-17 02:53:16
-20240306114423	2025-09-17 02:53:16
-20240418082835	2025-09-17 02:53:16
-20240625211759	2025-09-17 02:53:16
-20240704172020	2025-09-17 02:53:16
-20240902173232	2025-09-17 02:53:16
-20241106103258	2025-09-17 02:53:16
-\.
-
-
---
--- Data for Name: tenants; Type: TABLE DATA; Schema: _realtime; Owner: supabase_admin
---
-
-COPY _realtime.tenants (id, name, external_id, jwt_secret, max_concurrent_users, inserted_at, updated_at, max_events_per_second, postgres_cdc_default, max_bytes_per_second, max_channels_per_client, max_joins_per_second, suspend, jwt_jwks, notify_private_alpha, private_only) FROM stdin;
-90a5fc25-52b4-4c8e-a433-6d90807f178d	realtime-dev	realtime-dev	eGxa2ZKVreSn7eWieRQdp60i5H6KJLiST7splFU6MVHylMSAoQ2SjsTrTTQo/+bmYjQcO4hNnGTU+D1wtlXreA==	200	2025-10-08 07:25:03	2025-10-08 07:25:03	100	postgres_cdc_rls	100000	100	100	f	\N	f	f
-\.
-
-
---
--- Data for Name: audit_log_entries; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.audit_log_entries (instance_id, id, payload, created_at, ip_address) FROM stdin;
-00000000-0000-0000-0000-000000000000	d84fa152-29e3-4508-92f3-ef9ac7789b6a	{"action":"user_signedup","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-01 05:36:28.014872+00	
-00000000-0000-0000-0000-000000000000	25c5e426-a754-4894-ba74-1d230af0c4e2	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 05:36:28.025539+00	
-00000000-0000-0000-0000-000000000000	918b9c99-79dd-43a2-b4be-0edf15d8a37b	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 05:39:55.653913+00	
-00000000-0000-0000-0000-000000000000	923d542e-2745-4035-adf5-04ce62b9db2a	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 06:20:03.988068+00	
-00000000-0000-0000-0000-000000000000	9ef733d0-e0b1-4875-9692-33ebcdf73d81	{"action":"user_signedup","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-01 06:30:30.766321+00	
-00000000-0000-0000-0000-000000000000	a1667094-682f-46bb-87a1-49cc518361d3	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 06:30:30.773836+00	
-00000000-0000-0000-0000-000000000000	6a038e97-a74a-4ffa-9225-c23caab044c1	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 06:30:33.485946+00	
-00000000-0000-0000-0000-000000000000	13020e74-2cbf-4569-ae44-87744ffa1431	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 06:32:57.574753+00	
-00000000-0000-0000-0000-000000000000	a8511c3d-c1a7-42f5-9dd6-4a3c94968deb	{"action":"logout","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-01 06:34:59.64174+00	
-00000000-0000-0000-0000-000000000000	207cac73-ccb6-4cce-aed6-6c4cbd04da25	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 06:36:26.958387+00	
-00000000-0000-0000-0000-000000000000	a461f31b-c937-4cc9-8ff0-a8559f69cd4f	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 06:36:26.959592+00	
-00000000-0000-0000-0000-000000000000	41389851-0537-4bf5-ba1e-f7fd2fc09ed5	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 06:37:53.283521+00	
-00000000-0000-0000-0000-000000000000	66778ea7-6993-4373-839c-e0f90699bb3a	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-01 07:35:32.480306+00	
-00000000-0000-0000-0000-000000000000	71ddc19b-bac7-4229-ade5-4a67afda27c7	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 07:35:52.226543+00	
-00000000-0000-0000-0000-000000000000	0aeb1569-adb2-4a01-82c8-ad17bfe02db2	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 07:35:52.227743+00	
-00000000-0000-0000-0000-000000000000	51fa2014-13d8-4d56-a897-48fbc2d1eca9	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 08:35:21.263988+00	
-00000000-0000-0000-0000-000000000000	ea7ea473-6d40-4b7e-a8c1-475f3015e299	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 08:35:21.266961+00	
-00000000-0000-0000-0000-000000000000	8929d137-8de5-41d1-b5c0-a16d4447eefd	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 09:34:42.07353+00	
-00000000-0000-0000-0000-000000000000	2620e6ee-5eac-4c7e-865d-43dd25efe367	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 09:34:42.074903+00	
-00000000-0000-0000-0000-000000000000	b566f3cb-7848-4993-b03d-8248786a4a31	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 10:34:12.33697+00	
-00000000-0000-0000-0000-000000000000	ded2874f-eb86-479a-a40c-27e6d90285f9	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 10:34:12.338239+00	
-00000000-0000-0000-0000-000000000000	38d3205e-4cf5-406e-9a79-3f52fd0392d4	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 11:33:41.431052+00	
-00000000-0000-0000-0000-000000000000	2e92dff3-45f8-4b73-b0bc-5d73a7469bb8	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 11:33:41.432303+00	
-00000000-0000-0000-0000-000000000000	5265b93c-fc04-4d50-b4b0-f52885e72eb2	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 12:33:02.154009+00	
-00000000-0000-0000-0000-000000000000	9849ecf3-13d7-475d-8e48-f05805f0eb79	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 12:33:02.155346+00	
-00000000-0000-0000-0000-000000000000	2d3c8fdb-14f4-4434-9e41-d4c7ff6f6896	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 13:32:30.804086+00	
-00000000-0000-0000-0000-000000000000	4fd494f0-e928-41e9-8a09-3f92d498c676	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 13:32:30.805173+00	
-00000000-0000-0000-0000-000000000000	26a8b768-ece9-4d61-ac32-b90a38376aa9	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 14:31:50.873903+00	
-00000000-0000-0000-0000-000000000000	22e7e764-bfc0-4290-b01f-853c11e3a36f	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 14:31:50.87542+00	
-00000000-0000-0000-0000-000000000000	ce0b5bb3-0c75-4dd1-a74e-d06208ecaaf5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 15:31:10.912298+00	
-00000000-0000-0000-0000-000000000000	579bf886-0274-4857-908f-5b4fe5233308	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 15:31:10.913573+00	
-00000000-0000-0000-0000-000000000000	8bdf57c9-4a0c-4e0a-9efc-64938cff7466	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 16:30:30.946095+00	
-00000000-0000-0000-0000-000000000000	d8bb135c-4583-4d95-ae5c-477118e97646	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 16:30:30.947519+00	
-00000000-0000-0000-0000-000000000000	3942b0dd-7fe3-469e-ada6-230684e1efb0	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 17:29:50.807466+00	
-00000000-0000-0000-0000-000000000000	86380bd0-72a0-475a-b8f1-4c4b686b5156	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 17:29:50.808702+00	
-00000000-0000-0000-0000-000000000000	df266b9e-5208-4053-af53-3bfc18d4142a	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 18:29:10.751806+00	
-00000000-0000-0000-0000-000000000000	15d7f847-bb2e-414c-92d1-d9b2235859b2	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 18:29:10.752795+00	
-00000000-0000-0000-0000-000000000000	db404128-fd36-4cf2-9930-3658d1b173ef	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 19:28:31.040468+00	
-00000000-0000-0000-0000-000000000000	9bedc445-0890-4aa6-9930-c19d659daa0e	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 19:28:31.042793+00	
-00000000-0000-0000-0000-000000000000	7426a2b7-0227-4bcb-a541-786fa8c29871	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 20:28:00.951304+00	
-00000000-0000-0000-0000-000000000000	4aaa7abd-d37c-4b66-b141-4e5d35bd0e83	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 20:28:00.953611+00	
-00000000-0000-0000-0000-000000000000	77c38598-e2e1-45a0-b76c-bb9e3dfcfdf5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 21:27:20.629751+00	
-00000000-0000-0000-0000-000000000000	e853e7de-6898-4aba-a19a-c523cb7957be	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 21:27:20.630839+00	
-00000000-0000-0000-0000-000000000000	74d151b8-0a72-44ca-a856-56d1688c5ea5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 22:26:40.470552+00	
-00000000-0000-0000-0000-000000000000	cf51af23-bcce-4c8f-aa2c-c1e52809001d	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 22:26:40.472216+00	
-00000000-0000-0000-0000-000000000000	6cb8c824-a0b4-4fbc-9d68-4b24fd06933b	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 23:26:00.591494+00	
-00000000-0000-0000-0000-000000000000	b69ae1a1-d818-4aff-9888-0bfc9b10cb0b	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-01 23:26:00.593649+00	
-00000000-0000-0000-0000-000000000000	a04b38e6-4a39-4b89-a783-f4cf05e89b10	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 00:25:21.264661+00	
-00000000-0000-0000-0000-000000000000	0f4193d3-df42-44f0-a47b-9cd2cd2fed3b	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 00:25:21.266042+00	
-00000000-0000-0000-0000-000000000000	1c93937b-b9ba-4b67-a7b2-0262593e2043	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 00:57:43.10389+00	
-00000000-0000-0000-0000-000000000000	cda58fa6-8c3b-450e-bc6c-8ce0d081b266	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 01:25:19.323132+00	
-00000000-0000-0000-0000-000000000000	94f22103-8394-4691-ab2e-3d242059bc1e	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 01:25:19.324257+00	
-00000000-0000-0000-0000-000000000000	2205a66a-b183-4185-8946-12a544d2dc4d	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 01:48:50.803302+00	
-00000000-0000-0000-0000-000000000000	671dd33f-55dd-4da8-9e21-d3cde96926e4	{"action":"logout","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-02 02:05:30.590844+00	
-00000000-0000-0000-0000-000000000000	afb58391-6e13-470c-a40d-8a130d46ddcd	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 02:05:41.027018+00	
-00000000-0000-0000-0000-000000000000	54dd38f1-1372-4e1b-bb67-ef5d9e01f077	{"action":"logout","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-02 02:23:45.830799+00	
-00000000-0000-0000-0000-000000000000	04b24473-d07a-44ea-80b5-20204dc6229a	{"action":"user_signedup","actor_id":"3ab12806-3ba0-4073-a4da-346449ce5aec","actor_username":"test@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-02 02:24:01.895064+00	
-00000000-0000-0000-0000-000000000000	2beed66b-be1e-499b-afec-fd722c963aa0	{"action":"login","actor_id":"3ab12806-3ba0-4073-a4da-346449ce5aec","actor_username":"test@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 02:24:01.904224+00	
-00000000-0000-0000-0000-000000000000	e6395e07-bbc0-44cb-9d3e-3a97a23c3810	{"action":"login","actor_id":"3ab12806-3ba0-4073-a4da-346449ce5aec","actor_username":"test@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 02:24:07.039516+00	
-00000000-0000-0000-0000-000000000000	1eba9928-6ff3-46a4-8047-23f9e093c3b0	{"action":"logout","actor_id":"3ab12806-3ba0-4073-a4da-346449ce5aec","actor_username":"test@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-02 02:24:10.995575+00	
-00000000-0000-0000-0000-000000000000	7efec62b-6b92-496b-b658-b8fbc599b584	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 02:26:45.459414+00	
-00000000-0000-0000-0000-000000000000	d4c53822-dd07-40ee-a739-06d709069783	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 03:26:06.474448+00	
-00000000-0000-0000-0000-000000000000	1bcba61c-c980-4fb0-b50c-15ef3b407ae7	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 03:26:06.475377+00	
-00000000-0000-0000-0000-000000000000	ca8f5c3a-043a-4701-ad86-30b8e42d66fe	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 03:55:52.098509+00	
-00000000-0000-0000-0000-000000000000	5f56b207-d99f-4bc3-bcda-0553bebc38e3	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 04:43:19.165158+00	
-00000000-0000-0000-0000-000000000000	bfd4f3a4-3040-483b-ac5e-64f154516e1a	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:08:47.591192+00	
-00000000-0000-0000-0000-000000000000	ad534030-ebd6-4ddc-9324-6be6bcbe8707	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:14:17.947675+00	
-00000000-0000-0000-0000-000000000000	c1bc5375-d1b8-4413-b0f3-76ed2adfa65b	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 05:17:03.860103+00	
-00000000-0000-0000-0000-000000000000	1174e577-a14c-4c80-bb1d-bb4f6b0737ed	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 05:17:03.861656+00	
-00000000-0000-0000-0000-000000000000	54aadd62-fe85-4fe8-85ce-f79ee49fa499	{"action":"logout","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-02 05:17:30.084585+00	
-00000000-0000-0000-0000-000000000000	1fe16723-6898-4b7a-a85b-6c5882b54836	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:17:42.934835+00	
-00000000-0000-0000-0000-000000000000	fc1aac82-4f44-4121-91a6-5b0fc76f4493	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 05:23:09.832264+00	
-00000000-0000-0000-0000-000000000000	c5c84f4e-ddd8-4d62-9258-4fae50f50b2e	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 05:23:09.836123+00	
-00000000-0000-0000-0000-000000000000	802663a3-6361-41ed-a073-bda91760e43f	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:31:13.352848+00	
-00000000-0000-0000-0000-000000000000	dc5397bd-7eff-4893-b8f1-8625769969b3	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:31:48.770729+00	
-00000000-0000-0000-0000-000000000000	c5274549-c01e-4afd-b0be-913863947960	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:32:20.089624+00	
-00000000-0000-0000-0000-000000000000	cbce39c7-5a49-4897-a237-c5aebf06d587	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:34:36.466941+00	
-00000000-0000-0000-0000-000000000000	e56e4a78-3098-4ee9-b426-4fad996893ad	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:40:36.061531+00	
-00000000-0000-0000-0000-000000000000	47b0e0f5-e0dd-46e8-98d0-a834199701ea	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:44:39.73214+00	
-00000000-0000-0000-0000-000000000000	585478ad-5915-4058-9903-55786cc9fb5f	{"action":"logout","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-02 05:44:56.903143+00	
-00000000-0000-0000-0000-000000000000	cd17a5bc-e1a6-4024-b106-35a6d1f384de	{"action":"user_signedup","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-02 05:45:11.711092+00	
-00000000-0000-0000-0000-000000000000	8b3a0819-c1a5-47c0-b4d2-7977f13f8c9a	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:45:11.717355+00	
-00000000-0000-0000-0000-000000000000	bc690fa3-8fa1-44fd-ae94-fd8a27e3df67	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 05:45:15.483689+00	
-00000000-0000-0000-0000-000000000000	5e66f1e7-98e9-4aa9-b7d3-3ee9d93e9d07	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 06:17:57.444741+00	
-00000000-0000-0000-0000-000000000000	557ad969-3a6d-4839-9a2f-f120f1de6865	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 06:17:57.446086+00	
-00000000-0000-0000-0000-000000000000	38ee5c0d-0fd1-48db-bebc-610c7716ef85	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 07:55:14.110694+00	
-00000000-0000-0000-0000-000000000000	803b7f70-581e-4828-8ba0-a1710d89b73a	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 07:55:14.117086+00	
-00000000-0000-0000-0000-000000000000	870782ee-4399-4190-bb4f-e0b7b8d203d7	{"action":"logout","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-02 08:09:17.42548+00	
-00000000-0000-0000-0000-000000000000	88957a5c-741c-465c-b7e1-ee05ae178dde	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 08:09:29.972581+00	
-00000000-0000-0000-0000-000000000000	b9bc7dd0-c9b2-4122-9a2c-a1fa240ba2b3	{"action":"login","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 08:35:06.754705+00	
-00000000-0000-0000-0000-000000000000	e246edbf-6398-4b45-9c3f-f0e04f59170c	{"action":"user_signedup","actor_id":"967e7680-75e4-4b14-a15d-8936c7e92bc7","actor_username":"a0987533182@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-02 08:37:38.920485+00	
-00000000-0000-0000-0000-000000000000	daa5e67c-cd16-4584-96e2-8b559e51eed3	{"action":"login","actor_id":"967e7680-75e4-4b14-a15d-8936c7e92bc7","actor_username":"a0987533182@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-02 08:37:38.930424+00	
-00000000-0000-0000-0000-000000000000	c4f576c6-01c5-4f03-8ef4-b4df94f5f847	{"action":"user_repeated_signup","actor_id":"967e7680-75e4-4b14-a15d-8936c7e92bc7","actor_username":"a0987533182@gmail.com","actor_via_sso":false,"log_type":"user","traits":{"provider":"email"}}	2025-10-02 08:37:57.703317+00	
-00000000-0000-0000-0000-000000000000	b0ce4579-af4c-497f-8f49-154d861c4ebd	{"action":"user_repeated_signup","actor_id":"967e7680-75e4-4b14-a15d-8936c7e92bc7","actor_username":"a0987533182@gmail.com","actor_via_sso":false,"log_type":"user","traits":{"provider":"email"}}	2025-10-02 08:38:08.395633+00	
-00000000-0000-0000-0000-000000000000	8637a35f-9f8d-4479-9990-70373efe4bd0	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 09:08:50.513069+00	
-00000000-0000-0000-0000-000000000000	140a399c-3f05-4f7b-9ca4-3443315db873	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 09:08:50.514786+00	
-00000000-0000-0000-0000-000000000000	01c08d30-7108-4c00-8802-fef985e07c65	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 10:08:19.412147+00	
-00000000-0000-0000-0000-000000000000	a21b6011-8176-4210-a837-a9b71f3f690c	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 10:08:19.413352+00	
-00000000-0000-0000-0000-000000000000	c013ae09-0e56-4c37-a894-b39334ac2cfa	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 11:07:40.028321+00	
-00000000-0000-0000-0000-000000000000	d13a2729-15ed-4c22-b75e-986e802b8ebb	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 11:07:40.029805+00	
-00000000-0000-0000-0000-000000000000	15d2466e-fc39-4476-ae98-a41943231944	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 12:07:09.819787+00	
-00000000-0000-0000-0000-000000000000	d4f785fb-a101-4aca-94d5-98dbbeae1715	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 12:07:09.822068+00	
-00000000-0000-0000-0000-000000000000	1ee15c71-0ba4-49fa-880b-dec1c98f3e61	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 13:06:28.815682+00	
-00000000-0000-0000-0000-000000000000	6bb24f4d-f4e6-4122-87c1-3faf0d9df4c2	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 13:06:28.81712+00	
-00000000-0000-0000-0000-000000000000	e7f602d8-0470-4d50-a912-ab80e1922877	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 14:05:48.687396+00	
-00000000-0000-0000-0000-000000000000	bce3eef1-f688-4e82-891b-f87032a99391	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 14:05:48.689169+00	
-00000000-0000-0000-0000-000000000000	54dc0f07-0ece-48a7-a667-11ac185fc7b9	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 15:05:08.722631+00	
-00000000-0000-0000-0000-000000000000	baac316c-a466-4aa7-a275-51a905aab291	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 15:05:08.723829+00	
-00000000-0000-0000-0000-000000000000	4c8df2cd-3d08-4449-a7c6-5007425cca59	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 16:04:28.69463+00	
-00000000-0000-0000-0000-000000000000	5278517d-9ded-47ca-92f9-98004df1c1cc	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 16:04:28.69903+00	
-00000000-0000-0000-0000-000000000000	264a5d53-fb26-4e3c-b819-3598604dd442	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 17:03:48.676534+00	
-00000000-0000-0000-0000-000000000000	bd48be5e-1217-40f1-89c8-14ac9c96a11d	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 17:03:48.677567+00	
-00000000-0000-0000-0000-000000000000	ac5a0e96-d573-4b4a-849a-00715ec83c02	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 18:03:08.695213+00	
-00000000-0000-0000-0000-000000000000	7afa9cc5-f02c-42b6-963f-743dd4112a3c	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 18:03:08.696991+00	
-00000000-0000-0000-0000-000000000000	5342cdc2-3205-489d-8723-585b4af981bc	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 19:02:28.7222+00	
-00000000-0000-0000-0000-000000000000	2a5642c4-5c67-4c46-90a9-49f90953a8ed	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 19:02:28.723487+00	
-00000000-0000-0000-0000-000000000000	22840b19-bd1e-4382-9b6e-7fac480442cc	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 20:01:48.737286+00	
-00000000-0000-0000-0000-000000000000	bc845706-8313-4250-bf42-137b928799bb	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 20:01:48.738458+00	
-00000000-0000-0000-0000-000000000000	c7f153a8-e7ee-406d-84a3-f61ece307db9	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 21:01:08.64343+00	
-00000000-0000-0000-0000-000000000000	f3623439-3f0c-421f-888e-1b0261ec0ad1	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 21:01:08.644382+00	
-00000000-0000-0000-0000-000000000000	160b3297-a050-4762-bb67-d80e4b234d9a	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 22:00:28.633456+00	
-00000000-0000-0000-0000-000000000000	58c327af-5fcc-4b39-82e8-2758194f6913	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 22:00:28.636073+00	
-00000000-0000-0000-0000-000000000000	98555da6-2b8b-4fb4-9d8f-840dc4dee961	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 22:59:48.488856+00	
-00000000-0000-0000-0000-000000000000	fe18a06a-57c4-4bc2-95f0-5bdd6b3341e3	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 22:59:48.490174+00	
-00000000-0000-0000-0000-000000000000	ceca2a8f-ed4c-4042-854d-d6d5711f74db	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 23:59:08.574972+00	
-00000000-0000-0000-0000-000000000000	70e91824-e225-4b3d-ba3b-db4973207dd0	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-02 23:59:08.576038+00	
-00000000-0000-0000-0000-000000000000	42d7b8f6-ae32-42a7-b149-83bafba3c622	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 00:58:29.098632+00	
-00000000-0000-0000-0000-000000000000	d1b87af6-649b-4f71-91d5-8d21e753bdf5	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 00:58:29.099743+00	
-00000000-0000-0000-0000-000000000000	9563474b-466f-4132-951f-ef2b0c600ecc	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 01:58:18.930782+00	
-00000000-0000-0000-0000-000000000000	74d0c475-1f70-405b-9127-311cb1c43dd9	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 01:58:18.932377+00	
-00000000-0000-0000-0000-000000000000	d96e8509-e3e2-4897-b338-2428a8015cca	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 02:58:18.573224+00	
-00000000-0000-0000-0000-000000000000	26e71717-dd4a-4c75-a2bb-ca33d1abbb03	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 02:58:18.574696+00	
-00000000-0000-0000-0000-000000000000	4f54ad24-fa83-46c7-9529-01c5ea69aa18	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 03:58:18.76169+00	
-00000000-0000-0000-0000-000000000000	e3d42347-8cf7-46a0-a264-38f9c389f4f0	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 03:58:18.76321+00	
-00000000-0000-0000-0000-000000000000	260c2b00-bb0b-4e5d-8fe1-a7b85fb07734	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 04:58:17.977933+00	
-00000000-0000-0000-0000-000000000000	a9c22327-867b-464c-a44c-94c277e0d681	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 04:58:17.979119+00	
-00000000-0000-0000-0000-000000000000	4c6b4761-38d8-49c4-bc16-1113e67c91e7	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 05:58:17.719251+00	
-00000000-0000-0000-0000-000000000000	92f62d1c-05be-4da6-be56-9cda361018d8	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 05:58:17.720736+00	
-00000000-0000-0000-0000-000000000000	e2b70b1d-a84a-49a7-9e85-2ac7902810bc	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 06:58:17.974645+00	
-00000000-0000-0000-0000-000000000000	16eae5fa-7572-4833-a0ff-0b8e53e0c923	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 06:58:17.976035+00	
-00000000-0000-0000-0000-000000000000	a215c921-27fe-442a-b9ef-616ab86ed5f5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 07:58:18.700689+00	
-00000000-0000-0000-0000-000000000000	2990a9df-1a38-4363-b570-142e83dbb392	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 07:58:18.702912+00	
-00000000-0000-0000-0000-000000000000	5db214bb-8715-487e-89d8-30a0bea18eef	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 08:58:18.323603+00	
-00000000-0000-0000-0000-000000000000	23e0efa1-22f9-49ec-81c4-81178cc1de3d	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 08:58:18.325543+00	
-00000000-0000-0000-0000-000000000000	931840d2-2663-4ca7-9329-0b67949a6e50	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 09:58:18.618221+00	
-00000000-0000-0000-0000-000000000000	c6e9cf77-52a2-45a9-b97f-a327dce5f18c	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 09:58:18.620212+00	
-00000000-0000-0000-0000-000000000000	d921385e-5991-4d76-ac49-7fa7ea4c59d8	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 10:58:17.693418+00	
-00000000-0000-0000-0000-000000000000	83efaf9c-c1fd-45e8-b8a0-bbb4b657742b	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 10:58:17.695018+00	
-00000000-0000-0000-0000-000000000000	6a64c0ec-207c-44e1-9432-c8d875373c59	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 11:58:17.633488+00	
-00000000-0000-0000-0000-000000000000	2ada4941-0a7b-49b9-842b-1dd8d2681975	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 11:58:17.634654+00	
-00000000-0000-0000-0000-000000000000	1b2221f4-53f3-4eb7-89d8-d57e05b164eb	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 12:58:17.356114+00	
-00000000-0000-0000-0000-000000000000	ecf8197a-6769-48b3-bc2a-b4293171406f	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 12:58:17.358133+00	
-00000000-0000-0000-0000-000000000000	1660cf24-3141-4b8f-9ff0-4c36df7e6248	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 13:58:17.368225+00	
-00000000-0000-0000-0000-000000000000	f1f20ba6-ed71-4111-a302-5f078f49dbad	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 13:58:17.369547+00	
-00000000-0000-0000-0000-000000000000	02451daa-2663-4782-8080-366969db3ddb	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 14:58:17.297513+00	
-00000000-0000-0000-0000-000000000000	42fa0bc9-f390-41f2-969e-461fac49ab8a	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 14:58:17.298883+00	
-00000000-0000-0000-0000-000000000000	911f5aa8-8a9c-4534-ba12-16e0f8d88ad5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 15:58:17.360818+00	
-00000000-0000-0000-0000-000000000000	976b5c40-633b-4fed-989a-89680e651865	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 15:58:17.361926+00	
-00000000-0000-0000-0000-000000000000	97efe662-74a4-4b15-9e92-767a23b519fc	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 16:58:17.361407+00	
-00000000-0000-0000-0000-000000000000	0859e255-9ba4-4f70-aca5-e43daee8be2a	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 16:58:17.363679+00	
-00000000-0000-0000-0000-000000000000	e84b4c42-02b0-472e-b2c4-1d5a1b840f18	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 17:58:17.310396+00	
-00000000-0000-0000-0000-000000000000	2067e2e3-657e-4715-b714-158f77154a5d	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 17:58:17.317616+00	
-00000000-0000-0000-0000-000000000000	da5ddd85-d570-4b44-aea2-e31d2a09a7e1	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 18:58:17.420954+00	
-00000000-0000-0000-0000-000000000000	055e0252-17e6-462b-adde-b809615ff2b2	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 18:58:17.422123+00	
-00000000-0000-0000-0000-000000000000	7f269212-79cb-43f2-91fe-cee890dc16d7	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 19:58:17.394216+00	
-00000000-0000-0000-0000-000000000000	0bf6d053-78d9-40fb-9db1-33f81da32aa5	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 19:58:17.397577+00	
-00000000-0000-0000-0000-000000000000	0bfe9561-7c27-4431-beb5-0167f4d9263d	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 20:58:17.04201+00	
-00000000-0000-0000-0000-000000000000	9d441c00-b5a9-4fb5-ba06-dd05461bea03	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 20:58:17.043833+00	
-00000000-0000-0000-0000-000000000000	d7f7f1c5-3c55-4466-8dba-572577979846	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 21:58:17.634101+00	
-00000000-0000-0000-0000-000000000000	1ab63063-60b4-4b7c-8194-ecf7da296543	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 21:58:17.635698+00	
-00000000-0000-0000-0000-000000000000	52074cf8-28a1-4c50-93dc-93aba383e446	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 22:58:17.1472+00	
-00000000-0000-0000-0000-000000000000	01dbd8d4-3bd9-43ab-9535-7ab369baad95	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 22:58:17.148772+00	
-00000000-0000-0000-0000-000000000000	a43d51f3-4cae-4503-88f5-1d08aaf50f2c	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 23:58:16.873628+00	
-00000000-0000-0000-0000-000000000000	d9342c99-8186-4346-b4c6-2c7d681e8d7c	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-03 23:58:16.874971+00	
-00000000-0000-0000-0000-000000000000	9d400b56-cc47-4d64-b102-821b2e0507c2	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 00:58:16.958205+00	
-00000000-0000-0000-0000-000000000000	49ceea6a-fbce-49fa-a4ba-5bb6d52da793	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 00:58:16.959519+00	
-00000000-0000-0000-0000-000000000000	e0d32315-f27e-4fbf-a84e-9f136166d1fd	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 01:58:17.592244+00	
-00000000-0000-0000-0000-000000000000	aa3c0465-ee98-456d-b9e3-13ca8a3dab98	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 01:58:17.593449+00	
-00000000-0000-0000-0000-000000000000	e4e4fb93-573a-4afa-a8c2-6c0ce4022e81	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 02:58:17.444585+00	
-00000000-0000-0000-0000-000000000000	d20fcff8-86ab-41cd-86f8-0a2124be93f0	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 02:58:17.445815+00	
-00000000-0000-0000-0000-000000000000	6673567c-b285-438c-9af5-7a75ef38ece2	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 03:58:17.744903+00	
-00000000-0000-0000-0000-000000000000	468064a7-12e6-4d2d-a443-6f26d72ddb0b	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 03:58:17.745954+00	
-00000000-0000-0000-0000-000000000000	dd0f7ed3-c8dd-497f-9157-dc4b65c94320	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 04:58:17.184409+00	
-00000000-0000-0000-0000-000000000000	bb21fa81-89c5-4fe9-91f4-988aabf72062	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 04:58:17.185741+00	
-00000000-0000-0000-0000-000000000000	32a9b8a5-1fed-46c5-b410-d262ad40e211	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 05:58:17.079512+00	
-00000000-0000-0000-0000-000000000000	d9622bcf-0df0-484b-97b9-5dbee6279a99	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 05:58:17.080631+00	
-00000000-0000-0000-0000-000000000000	f3ada60b-b08a-45db-8821-078acd209fb5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 06:58:17.486044+00	
-00000000-0000-0000-0000-000000000000	51850207-d9f7-4459-958d-782350724846	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 06:58:17.487208+00	
-00000000-0000-0000-0000-000000000000	24f419eb-1cd2-481f-83d0-b5e42862dc64	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 07:58:16.988053+00	
-00000000-0000-0000-0000-000000000000	d6347ff9-dece-44c5-b37a-f1a6f8dff2d8	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 07:58:16.99005+00	
-00000000-0000-0000-0000-000000000000	e5e31c8c-e731-4a2c-9bf5-fb6333c39fab	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 08:58:16.900484+00	
-00000000-0000-0000-0000-000000000000	9d3d3985-8c24-44f8-8594-3723f2a8b710	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 08:58:16.902715+00	
-00000000-0000-0000-0000-000000000000	44217a9e-bd22-4f7d-8089-4075a0c04235	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 09:58:17.33712+00	
-00000000-0000-0000-0000-000000000000	3a366c08-0e3f-4ba3-928a-e8ee27bc8664	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 09:58:17.338611+00	
-00000000-0000-0000-0000-000000000000	0b7e7fa1-b685-43ac-9282-b199001631bd	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 10:58:16.702052+00	
-00000000-0000-0000-0000-000000000000	29307735-f84f-4ec8-93dc-64df2dc2ce7f	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 10:58:16.704437+00	
-00000000-0000-0000-0000-000000000000	33d97b1e-c8ff-4774-9649-7a8a985f03ae	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 11:58:16.397513+00	
-00000000-0000-0000-0000-000000000000	cde21a76-032a-441e-938e-57b131896ba9	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 11:58:16.400187+00	
-00000000-0000-0000-0000-000000000000	b43cd1ea-6923-482f-91df-ef3683727c4c	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 12:58:18.086318+00	
-00000000-0000-0000-0000-000000000000	8e717548-efde-4a85-aa9c-46fac31c5b4a	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 12:58:18.088872+00	
-00000000-0000-0000-0000-000000000000	962b99db-8a40-4c1b-815a-315c78ca7023	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 13:58:17.780781+00	
-00000000-0000-0000-0000-000000000000	6891d92e-edbb-4af3-bdf9-6a6b441ab38a	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 13:58:17.782179+00	
-00000000-0000-0000-0000-000000000000	0aafadd8-53b3-40d3-9524-e577ff3497fd	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 14:58:16.148609+00	
-00000000-0000-0000-0000-000000000000	6712a2b6-fd18-4501-89f3-06fcd804a4ad	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 14:58:16.149926+00	
-00000000-0000-0000-0000-000000000000	5d59bb3f-2d88-4585-ad23-f7a08bcdf914	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 15:58:16.195184+00	
-00000000-0000-0000-0000-000000000000	f536b5e3-7e09-4792-ba79-54e1d8b9a769	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 15:58:16.196603+00	
-00000000-0000-0000-0000-000000000000	52fa6e16-c147-4d98-82e4-7aa9289e80a5	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 16:58:16.259768+00	
-00000000-0000-0000-0000-000000000000	d90861bf-7035-4eb8-b363-e1106b3d72c9	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 16:58:16.26206+00	
-00000000-0000-0000-0000-000000000000	73258d9c-5daf-43c2-8fc8-c4afb7e6fb8c	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 17:58:16.123381+00	
-00000000-0000-0000-0000-000000000000	33f1f182-1001-469b-b449-36774f43a7be	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 17:58:16.124247+00	
-00000000-0000-0000-0000-000000000000	0a620f2a-ce20-41b0-9b59-53f358130c87	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 18:58:16.20494+00	
-00000000-0000-0000-0000-000000000000	9b0a5256-b6db-4d1b-800c-06db9ace7d1b	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 18:58:16.206014+00	
-00000000-0000-0000-0000-000000000000	1a54f8a7-868e-48be-bd49-e73e3a9d2670	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 19:58:16.273572+00	
-00000000-0000-0000-0000-000000000000	aaa0e2e0-f491-4dcb-9640-c07d491ee156	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 19:58:16.275722+00	
-00000000-0000-0000-0000-000000000000	bb8cdceb-bf8f-4d97-b16d-c5d349a0e6e7	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 20:58:16.098726+00	
-00000000-0000-0000-0000-000000000000	ac246c59-8d13-4500-890f-4c070d865c7f	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 20:58:16.100588+00	
-00000000-0000-0000-0000-000000000000	a245cc0c-9a5e-4f40-916e-1b137e09e9ab	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 21:58:16.317747+00	
-00000000-0000-0000-0000-000000000000	5d077e06-3c40-40af-9275-81008fbba422	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 21:58:16.319958+00	
-00000000-0000-0000-0000-000000000000	5457d03c-a075-41d1-8e64-33d54b99051a	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 22:58:16.258026+00	
-00000000-0000-0000-0000-000000000000	e6381c0f-49af-488a-b4c5-7106b5e92495	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 22:58:16.259996+00	
-00000000-0000-0000-0000-000000000000	e2d05f47-71be-4464-aaf0-72dac53a65ce	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 23:58:16.508205+00	
-00000000-0000-0000-0000-000000000000	ed2cd2e5-82f3-4747-97e3-f5f7eb65e609	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-04 23:58:16.510129+00	
-00000000-0000-0000-0000-000000000000	c584cb9e-9712-47e8-8a1f-aef8a4b155e3	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 00:58:16.19059+00	
-00000000-0000-0000-0000-000000000000	0e48777e-bc3f-4c12-8215-46bf8fc908df	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 00:58:16.191877+00	
-00000000-0000-0000-0000-000000000000	6ed1bf44-6135-44fe-ab76-7df634ba3cfb	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 01:58:15.99471+00	
-00000000-0000-0000-0000-000000000000	c8ec029c-aed5-4578-8fe2-84bb88f3f8b6	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 01:58:15.996809+00	
-00000000-0000-0000-0000-000000000000	6a67c10a-5fd1-4f0f-b9ea-d289632a7e14	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 02:58:16.433778+00	
-00000000-0000-0000-0000-000000000000	57fe0fbb-e85d-412a-bfed-b1c457445eb5	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 02:58:16.435162+00	
-00000000-0000-0000-0000-000000000000	ac4f7334-47c8-44fb-8a45-0f62ce15e5c1	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 03:58:16.015986+00	
-00000000-0000-0000-0000-000000000000	43603d92-93f0-49e6-aaff-31aebc01759a	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 03:58:16.01734+00	
-00000000-0000-0000-0000-000000000000	13f236ba-98e7-4a69-9c4a-1f031d03f6d6	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 04:58:15.806003+00	
-00000000-0000-0000-0000-000000000000	173ba15b-81a3-410d-9d5f-530b2d92bc06	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 04:58:15.806906+00	
-00000000-0000-0000-0000-000000000000	14bec530-0756-4dec-9604-3baedf324a19	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 05:58:16.091662+00	
-00000000-0000-0000-0000-000000000000	4f391b07-38cc-4eb1-b542-fd7bc2016328	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 05:58:16.09295+00	
-00000000-0000-0000-0000-000000000000	c55a9bbd-dbca-4b4d-a987-75f3fc3f6929	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 06:58:15.55629+00	
-00000000-0000-0000-0000-000000000000	2e3a38f7-9712-4509-8ea8-e2baeaa4e7f8	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 06:58:15.557258+00	
-00000000-0000-0000-0000-000000000000	903aef36-876c-4116-8e87-d3eea3702ed6	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 07:58:16.231824+00	
-00000000-0000-0000-0000-000000000000	19629b88-ee5d-4a90-b667-204f08a798d4	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 07:58:16.234142+00	
-00000000-0000-0000-0000-000000000000	7c5ff57c-167b-4b58-ae8d-f405f5bdb908	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 08:58:15.821141+00	
-00000000-0000-0000-0000-000000000000	e9e8fd5a-6ac7-474f-ad0e-bcc10dff947d	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-05 08:58:15.824255+00	
-00000000-0000-0000-0000-000000000000	3810de24-73ab-4d74-b48f-5645b8e762e4	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 00:29:21.255214+00	
-00000000-0000-0000-0000-000000000000	cc6caee1-c889-4ddf-81ee-f7466a720893	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 00:29:21.274814+00	
-00000000-0000-0000-0000-000000000000	ac776931-30b1-49c9-904c-f901fa37961c	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 01:28:51.019956+00	
-00000000-0000-0000-0000-000000000000	c0f05424-7074-4dbd-9a2b-d5156bc27a62	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 01:28:51.022855+00	
-00000000-0000-0000-0000-000000000000	bfd2bf41-85fe-42d0-a04a-825dc33639ec	{"action":"logout","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-07 02:13:50.096486+00	
-00000000-0000-0000-0000-000000000000	d7b1f328-3d68-4cd7-95bf-11e93391f148	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 02:14:01.012439+00	
-00000000-0000-0000-0000-000000000000	90000bec-d7e4-497d-9c47-c60c2725b6ae	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 03:14:08.206806+00	
-00000000-0000-0000-0000-000000000000	e62e4980-86f0-4c14-83a7-a7ef6e94c769	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 03:14:08.209128+00	
-00000000-0000-0000-0000-000000000000	80f308ed-c71d-4bf7-bcd2-a702b9783201	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 04:14:07.554594+00	
-00000000-0000-0000-0000-000000000000	b9fa9901-c05e-4542-9e51-d95deb7775fd	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 04:14:07.556806+00	
-00000000-0000-0000-0000-000000000000	aef4a50a-8a36-48b3-be74-d163f8422abd	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 05:13:30.896479+00	
-00000000-0000-0000-0000-000000000000	1208155b-3f94-42d8-9ee8-c9d70d72e3c1	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 05:13:30.898157+00	
-00000000-0000-0000-0000-000000000000	e9a153bc-836e-4047-9c2f-ecf811ac9078	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 06:12:50.235478+00	
-00000000-0000-0000-0000-000000000000	24a7ade5-7295-460c-a9bd-5c76ff63bc3d	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 06:12:50.278168+00	
-00000000-0000-0000-0000-000000000000	14e2bc40-2a09-41c9-849f-e92be2477059	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:13:07.80504+00	
-00000000-0000-0000-0000-000000000000	231b908c-bc02-4f33-98fc-337343d1531e	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:13:07.809802+00	
-00000000-0000-0000-0000-000000000000	5f17c482-462a-46d8-9268-4262502b8da3	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:32:45.433459+00	
-00000000-0000-0000-0000-000000000000	5836113d-6794-415e-9915-cfecf5710938	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:32:45.436434+00	
-00000000-0000-0000-0000-000000000000	dde1dba5-f6df-475d-8f80-68ef6cb79d1b	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:33:30.987874+00	
-00000000-0000-0000-0000-000000000000	c71b38f8-07f5-4ff0-9563-145cd1f41dcf	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:33:30.988945+00	
-00000000-0000-0000-0000-000000000000	2a1f1df2-51c7-43c0-8aa0-e32300444755	{"action":"logout","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-07 07:36:00.188438+00	
-00000000-0000-0000-0000-000000000000	acab6fcf-8a40-484f-9e08-0e925b8667c8	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 07:36:13.264949+00	
-00000000-0000-0000-0000-000000000000	f46f530b-5d5b-4f1c-a3c2-7b939bbaa93c	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:57:48.577812+00	
-00000000-0000-0000-0000-000000000000	3271d963-b79d-4585-a414-3f090c230ef9	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 07:57:48.579453+00	
-00000000-0000-0000-0000-000000000000	2bb516cd-7dbf-478a-8980-0072a97f2045	{"action":"logout","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-07 07:58:25.871485+00	
-00000000-0000-0000-0000-000000000000	df2c69ab-b83c-4dbe-9ca0-91c18c3b24a0	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 07:58:39.750145+00	
-00000000-0000-0000-0000-000000000000	eab74ed6-5702-4d88-8060-e315efcf7f6b	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 09:03:05.521399+00	
-00000000-0000-0000-0000-000000000000	3d7f0df8-9e97-4cb1-8f52-474993441141	{"action":"user_signedup","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-07 09:08:34.216644+00	
-00000000-0000-0000-0000-000000000000	71f35bd0-aeb8-47bd-907e-2fcfee94cbc8	{"action":"login","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 09:08:34.22726+00	
-00000000-0000-0000-0000-000000000000	29b272d8-d110-455f-87eb-6493bada39fc	{"action":"login","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 09:08:41.398048+00	
-00000000-0000-0000-0000-000000000000	3066e7f8-cd0c-4887-b224-aef8195203b8	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 09:16:47.535515+00	
-00000000-0000-0000-0000-000000000000	17663134-fc4e-4763-a84f-0a278bdf5802	{"action":"logout","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-07 09:29:35.579859+00	
-00000000-0000-0000-0000-000000000000	b04037a4-582f-4a91-ba0c-041a6c12d775	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-07 09:29:56.385745+00	
-00000000-0000-0000-0000-000000000000	68b3ab74-8fa8-45d7-b130-e7a4190384b0	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 00:30:05.638907+00	
-00000000-0000-0000-0000-000000000000	cd7182bf-2b77-44f1-859a-84b789e541bb	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 10:19:18.092206+00	
-00000000-0000-0000-0000-000000000000	6d278fbe-0034-4d75-b95d-8685aca29a22	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 10:19:18.095138+00	
-00000000-0000-0000-0000-000000000000	d91203ff-4b2a-40f8-9877-49f2d152ba96	{"action":"token_refreshed","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 10:19:23.012033+00	
-00000000-0000-0000-0000-000000000000	ad1687cd-e8fd-4ae5-a0dc-29ff7944aa94	{"action":"token_revoked","actor_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","actor_username":"yunthomas006@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 10:19:23.015863+00	
-00000000-0000-0000-0000-000000000000	3e7a6acf-6246-46e9-bc42-4233b7904887	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 10:30:06.096641+00	
-00000000-0000-0000-0000-000000000000	5c7bf9ca-99cb-4015-92f3-08882df3fa46	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 10:30:06.097991+00	
-00000000-0000-0000-0000-000000000000	81e8dd98-31ea-4034-bf9d-30a30e1cb2e7	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 11:30:06.35491+00	
-00000000-0000-0000-0000-000000000000	a6b42292-2197-40db-bd3a-df6bcf1712d3	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 11:30:06.356463+00	
-00000000-0000-0000-0000-000000000000	90989f4b-dc18-43c1-8bb3-cce71a2d3679	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 12:30:08.133519+00	
-00000000-0000-0000-0000-000000000000	12d3641c-8b43-404c-8736-a054c1ab1c84	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 12:30:08.134742+00	
-00000000-0000-0000-0000-000000000000	0805aa14-f1d2-4a5b-8001-ff50ea91916c	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 13:30:06.001256+00	
-00000000-0000-0000-0000-000000000000	396ed964-e6c3-4ae9-b7e7-e27df6594aba	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 13:30:06.002532+00	
-00000000-0000-0000-0000-000000000000	4b7dd2a8-a702-43a4-bfc8-d165bcf8f9c9	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 14:30:05.909009+00	
-00000000-0000-0000-0000-000000000000	76e9e867-a08d-4246-9d2f-04535bfe21c2	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 14:30:05.910763+00	
-00000000-0000-0000-0000-000000000000	845ccba8-737c-4010-a718-1750673abd4a	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 15:30:05.900122+00	
-00000000-0000-0000-0000-000000000000	a848f65a-508b-481f-bca1-36dbc1f006b3	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 15:30:05.902011+00	
-00000000-0000-0000-0000-000000000000	482eaf84-8286-4e5c-abb7-eb777e939af8	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 16:30:05.881247+00	
-00000000-0000-0000-0000-000000000000	4f96d8dc-1c72-4362-b1bc-5d6a8687b3ce	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 16:30:05.882214+00	
-00000000-0000-0000-0000-000000000000	dedc0817-bc15-454a-8a0a-4e9de73ffd42	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 17:30:05.887322+00	
-00000000-0000-0000-0000-000000000000	dcfd72b8-3378-4a96-86a3-9a687ddccc22	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 17:30:05.888458+00	
-00000000-0000-0000-0000-000000000000	b51387e3-4ce7-4c62-9ad1-5cf8cf072f5a	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 18:30:05.989554+00	
-00000000-0000-0000-0000-000000000000	03a831ef-c98f-48d5-9e35-3797a64530b0	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 18:30:05.990726+00	
-00000000-0000-0000-0000-000000000000	4ee22f7d-ff2f-4490-80bd-0ac095f25014	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 19:30:05.871075+00	
-00000000-0000-0000-0000-000000000000	fff1e4d1-f36a-42d7-ba54-778d97767226	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 19:30:05.872946+00	
-00000000-0000-0000-0000-000000000000	ff054c58-9e70-4b9a-9a2e-6803f3373ca7	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 20:30:06.094228+00	
-00000000-0000-0000-0000-000000000000	cd096f09-cc67-4456-8dd5-10fac4653ed7	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 20:30:06.095746+00	
-00000000-0000-0000-0000-000000000000	35a3023f-90b8-49e5-9583-44d095fe6dd6	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 21:30:05.873368+00	
-00000000-0000-0000-0000-000000000000	bc1ac527-c3fe-4277-aea2-df8793ce4483	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 21:30:05.877172+00	
-00000000-0000-0000-0000-000000000000	91d1856f-4e6a-4beb-9b2e-a6c4e2b3360b	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 22:30:06.121293+00	
-00000000-0000-0000-0000-000000000000	d3b02f3e-76a4-4102-b390-8a2773a83b17	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 22:30:06.122444+00	
-00000000-0000-0000-0000-000000000000	463b2a5d-501b-4455-90a6-9a3171f4cb80	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 23:30:05.992669+00	
-00000000-0000-0000-0000-000000000000	d9a6e23e-a216-4359-b904-12ce6693bd36	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-07 23:30:05.993944+00	
-00000000-0000-0000-0000-000000000000	f4f483c8-c64b-47f9-b2ac-fc3f2d45f853	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 00:30:05.641971+00	
-00000000-0000-0000-0000-000000000000	db12ec4e-5c52-4dec-ac80-fe6dd12b9bdc	{"action":"token_refreshed","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 00:58:06.063741+00	
-00000000-0000-0000-0000-000000000000	2c33e324-52b6-4219-86bb-703955f21168	{"action":"token_revoked","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 00:58:06.065041+00	
-00000000-0000-0000-0000-000000000000	33fe1c78-8af4-42d9-842e-784d667ddcf0	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 01:30:05.501678+00	
-00000000-0000-0000-0000-000000000000	f1b0ee86-e78c-432e-acd8-520f19ee4d3d	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 01:30:05.50299+00	
-00000000-0000-0000-0000-000000000000	85f9d4be-57fb-43b3-9c6b-734eeda8ee20	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 01:46:41.460232+00	
-00000000-0000-0000-0000-000000000000	df76093f-1cad-4769-ae89-ff65a8b95fb8	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 01:46:41.461577+00	
-00000000-0000-0000-0000-000000000000	568d7c91-4481-46ad-9387-c6c75a43050a	{"action":"token_refreshed","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 01:57:40.284464+00	
-00000000-0000-0000-0000-000000000000	9c1cfce5-bb0e-44af-9f89-7d2b8cc7aa20	{"action":"token_revoked","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 01:57:40.286283+00	
-00000000-0000-0000-0000-000000000000	dfa172ff-3cc4-48cf-9100-8733dd7e6fed	{"action":"user_deleted","actor_id":"00000000-0000-0000-0000-000000000000","actor_username":"service_role","actor_via_sso":false,"log_type":"team","traits":{"user_email":"test@gmail.com","user_id":"3ab12806-3ba0-4073-a4da-346449ce5aec","user_phone":""}}	2025-10-08 02:38:06.065555+00	
-00000000-0000-0000-0000-000000000000	d1c2973f-a445-4f97-993f-add6e9ea16c2	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 02:55:29.140553+00	
-00000000-0000-0000-0000-000000000000	dd20da92-9fd1-4678-93a5-99632e97278e	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 02:55:29.145304+00	
-00000000-0000-0000-0000-000000000000	aade55e6-74fc-4c22-816e-0eff97abb847	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 03:05:13.711123+00	
-00000000-0000-0000-0000-000000000000	55cc04d3-3f63-46b1-bcc0-82647e9f7d16	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 03:05:13.714429+00	
-00000000-0000-0000-0000-000000000000	3bea48c6-6719-4050-adf9-95b5262bcafc	{"action":"user_signedup","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-08 03:21:09.338354+00	
-00000000-0000-0000-0000-000000000000	a1931950-d15f-4ef8-95ff-782cc5e03884	{"action":"login","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 03:21:09.346202+00	
-00000000-0000-0000-0000-000000000000	3885890e-7af0-41c9-a794-8a58849c73f8	{"action":"user_repeated_signup","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"user","traits":{"provider":"email"}}	2025-10-08 03:21:12.714464+00	
-00000000-0000-0000-0000-000000000000	603d587c-43c4-4abb-9fb1-18012aadfaa7	{"action":"login","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 03:21:24.534488+00	
-00000000-0000-0000-0000-000000000000	3b0653c4-8f6b-488d-9a64-02604e925fd6	{"action":"logout","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"account"}	2025-10-08 03:23:22.417531+00	
-00000000-0000-0000-0000-000000000000	94348907-d2c6-411c-b12f-371355005dde	{"action":"user_signedup","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-08 03:23:26.221135+00	
-00000000-0000-0000-0000-000000000000	cfe7e8cc-e674-4a0b-ad56-6f3cdf7f05a2	{"action":"login","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 03:23:26.227415+00	
-00000000-0000-0000-0000-000000000000	95f4e398-94ca-49a9-a8c4-442ec318866f	{"action":"login","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 03:23:53.762744+00	
-00000000-0000-0000-0000-000000000000	f89fac27-3e96-4cae-8f3f-4b84f15c3f00	{"action":"login","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 03:23:57.684369+00	
-00000000-0000-0000-0000-000000000000	4ca79d0b-5059-430d-8e72-31a9e3e802a6	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 03:55:05.493138+00	
-00000000-0000-0000-0000-000000000000	a0bb578b-faf6-4ff2-8e1c-263ceaa3d889	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 03:55:05.494741+00	
-00000000-0000-0000-0000-000000000000	810c5d58-af3b-496a-b23d-5e86033f9e7b	{"action":"user_deleted","actor_id":"00000000-0000-0000-0000-000000000000","actor_username":"service_role","actor_via_sso":false,"log_type":"team","traits":{"user_email":"yunthomas006@gmail.com","user_id":"98568fd9-dd57-4f17-9a61-76a6951f1fac","user_phone":""}}	2025-10-08 04:43:51.473449+00	
-00000000-0000-0000-0000-000000000000	14510b9a-19a1-4a22-9161-d8aa904ad66f	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:45:11.181012+00	
-00000000-0000-0000-0000-000000000000	ed0f5fbe-1b46-4b92-927d-5dbe199ffc6c	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:45:11.184094+00	
-00000000-0000-0000-0000-000000000000	92bceffc-8671-4c3c-94f3-c87b310e71d6	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:45:13.485041+00	
-00000000-0000-0000-0000-000000000000	977e3b60-2d2c-4b81-bc64-cc3f52b75aaa	{"action":"token_refreshed","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:54:28.440086+00	
-00000000-0000-0000-0000-000000000000	d00fe33a-84fc-4bf3-920f-e9cd78b49f7e	{"action":"token_revoked","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:54:28.44258+00	
-00000000-0000-0000-0000-000000000000	05388823-6134-4d42-8ac6-cd34412b248d	{"action":"token_refreshed","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:57:10.040402+00	
-00000000-0000-0000-0000-000000000000	5c98ecc4-9d6a-4f13-a25b-b7a3d97cd15a	{"action":"token_revoked","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 04:57:10.041638+00	
-00000000-0000-0000-0000-000000000000	3f3eae3b-9c59-424f-b585-d2184e95998b	{"action":"logout","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-08 05:03:27.279379+00	
-00000000-0000-0000-0000-000000000000	925d8bbc-14de-44fe-91c5-5f7634b5587d	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 05:03:35.446104+00	
-00000000-0000-0000-0000-000000000000	e22dc1bd-ec0d-434b-9fa4-2c9f0ce2391e	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 06:03:00.543217+00	
-00000000-0000-0000-0000-000000000000	3bd4fe8e-f0f9-478c-a57d-dc8bb0e32e81	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 06:03:00.55114+00	
-00000000-0000-0000-0000-000000000000	9f777c18-af06-456c-822e-97045037a148	{"action":"token_refreshed","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 06:06:42.654183+00	
-00000000-0000-0000-0000-000000000000	031906e1-acd7-4552-ac44-cbc2af8ef78e	{"action":"token_revoked","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 06:06:42.655732+00	
-00000000-0000-0000-0000-000000000000	b4d487cd-e2f7-42f5-8c44-55861a1d30c4	{"action":"user_signedup","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"team","traits":{"provider":"email"}}	2025-10-08 06:31:54.254974+00	
-00000000-0000-0000-0000-000000000000	f745b73f-ed68-4fb0-ade8-b2992939d6ca	{"action":"login","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 06:31:54.262132+00	
-00000000-0000-0000-0000-000000000000	ab31f788-b77e-4ab6-b2b8-70a4adf5577f	{"action":"login","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 06:31:58.402955+00	
-00000000-0000-0000-0000-000000000000	7f8fcd9e-0672-4146-930f-20cdc9962c2b	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:02:24.918766+00	
-00000000-0000-0000-0000-000000000000	669a6942-f397-4e91-a5ce-28ea6dcd7741	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:02:24.920848+00	
-00000000-0000-0000-0000-000000000000	4b3069d4-e81c-4d7c-abb4-2649d7a3a029	{"action":"token_refreshed","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:02:46.819336+00	
-00000000-0000-0000-0000-000000000000	03dba868-3399-4468-bbcf-782b54a6ed0a	{"action":"token_revoked","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:02:46.820976+00	
-00000000-0000-0000-0000-000000000000	d746b5a1-01e5-4cd6-8a7e-6e759fe97341	{"action":"logout","actor_id":"4176723e-66cd-4654-915d-d9ed009be926","actor_username":"cyunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-08 07:03:14.085767+00	
-00000000-0000-0000-0000-000000000000	1f094604-c243-4ed7-aa65-111f7594d220	{"action":"login","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 07:04:15.362004+00	
-00000000-0000-0000-0000-000000000000	9f2fb7b3-85d1-4e09-aa3a-4f8e3bfdc89b	{"action":"user_deleted","actor_id":"00000000-0000-0000-0000-000000000000","actor_username":"service_role","actor_via_sso":false,"log_type":"team","traits":{"user_email":"cyunyunyam108010@gmail.com","user_id":"4176723e-66cd-4654-915d-d9ed009be926","user_phone":""}}	2025-10-08 07:04:35.263067+00	
-00000000-0000-0000-0000-000000000000	bcdc364b-0f95-430a-be15-207d6496e7eb	{"action":"logout","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-08 07:04:44.389918+00	
-00000000-0000-0000-0000-000000000000	8f96052a-4345-4d97-98f3-9ae1c94dda6e	{"action":"token_refreshed","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:06:31.756046+00	
-00000000-0000-0000-0000-000000000000	ab15f9ba-d291-43ea-9aab-89f640fc156f	{"action":"token_revoked","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:06:31.757311+00	
-00000000-0000-0000-0000-000000000000	6ef184b5-9b1e-4d79-914e-b3c172becd5d	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:32:06.130509+00	
-00000000-0000-0000-0000-000000000000	a2c961c3-8951-4ba4-8d27-a02befdbe1b2	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 07:32:06.173603+00	
-00000000-0000-0000-0000-000000000000	20a9eb02-f37f-40e9-906a-21c72145d3b3	{"action":"logout","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-08 07:49:24.281667+00	
-00000000-0000-0000-0000-000000000000	7a609aab-96ba-436c-8cc3-abe12c825a99	{"action":"login","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 07:49:32.580513+00	
-00000000-0000-0000-0000-000000000000	e5f0e734-9c45-4a94-8753-51ffd1d55a13	{"action":"logout","actor_id":"a939945b-b080-4575-871b-91e222484828","actor_username":"coseligtest@gmail.com","actor_via_sso":false,"log_type":"account"}	2025-10-08 08:09:47.9337+00	
-00000000-0000-0000-0000-000000000000	3697b812-8220-435b-936e-e285fa9bd03f	{"action":"login","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-10-08 08:10:02.033408+00	
-00000000-0000-0000-0000-000000000000	c41f3e27-22d6-4613-88d8-ffcc0678c19c	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 08:50:55.724615+00	
-00000000-0000-0000-0000-000000000000	119b5c08-dd48-4328-b20e-4108c19ddafa	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 08:50:55.727521+00	
-00000000-0000-0000-0000-000000000000	fb6d96cf-00ac-4fd7-9063-77e999b5f383	{"action":"token_refreshed","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 09:00:46.796597+00	
-00000000-0000-0000-0000-000000000000	e116416f-f442-4758-a546-2baa7491c4dd	{"action":"token_revoked","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 09:00:46.799805+00	
-00000000-0000-0000-0000-000000000000	e3c087a5-7eb7-460e-bebf-f61f4427a972	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 09:09:33.819211+00	
-00000000-0000-0000-0000-000000000000	6b3a8e24-fb34-4bce-a5fc-a3138c8c6d11	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 09:09:33.821113+00	
-00000000-0000-0000-0000-000000000000	5f511b8d-780f-4a49-8e16-6cacb2076dc0	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 10:09:06.359401+00	
-00000000-0000-0000-0000-000000000000	12de1464-230c-4edf-9373-67647f9b668a	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 10:09:06.361079+00	
-00000000-0000-0000-0000-000000000000	5186e2d2-5873-4e09-adfa-c43d266eb72f	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 11:09:06.322878+00	
-00000000-0000-0000-0000-000000000000	59a0fdde-1a84-4755-80ea-3864fe5acab8	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 11:09:06.324824+00	
-00000000-0000-0000-0000-000000000000	928a5cc4-a6ad-4c27-8503-0bf772510168	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 11:26:36.997821+00	
-00000000-0000-0000-0000-000000000000	7e72b2a2-6f27-4ced-8db2-c767e1513f95	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 11:26:37.000836+00	
-00000000-0000-0000-0000-000000000000	841baf99-347c-42fb-bf14-b6f001abeebf	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 12:09:05.680917+00	
-00000000-0000-0000-0000-000000000000	5f5515e3-cd57-43e7-8437-760e8653160f	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 12:09:05.683684+00	
-00000000-0000-0000-0000-000000000000	204ba22b-9598-493b-92af-5904c3394d73	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 13:09:05.419239+00	
-00000000-0000-0000-0000-000000000000	687eba24-8f2c-4d62-8a9b-3f59c551dad1	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 13:09:05.420649+00	
-00000000-0000-0000-0000-000000000000	55fd5524-9f39-4213-bf35-0738463f2be7	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 14:09:04.811702+00	
-00000000-0000-0000-0000-000000000000	d0152fcf-a8d4-4877-bf3d-0a3cca03ac37	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 14:09:04.812799+00	
-00000000-0000-0000-0000-000000000000	74fa3328-159b-42ba-b6f6-cbd0aba618b8	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 14:11:28.010955+00	
-00000000-0000-0000-0000-000000000000	970a274c-b3e7-4142-b401-842d102459c1	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 14:11:28.012074+00	
-00000000-0000-0000-0000-000000000000	82c22bb3-cecf-43ba-846a-dd244b6f3b67	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 15:09:04.803668+00	
-00000000-0000-0000-0000-000000000000	f3d0af45-49e2-4cfa-b27a-8907cd0b075a	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 15:09:04.804903+00	
-00000000-0000-0000-0000-000000000000	e164b4c9-a53c-4a5c-92f3-4a9a630e4dcf	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 16:09:04.907189+00	
-00000000-0000-0000-0000-000000000000	a1c0b106-4158-4ce4-b6de-63d020a903e2	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 16:09:04.908532+00	
-00000000-0000-0000-0000-000000000000	9655fa0c-a5e3-45b7-a826-9c5b4d03c66e	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 17:09:04.762478+00	
-00000000-0000-0000-0000-000000000000	0ca601c9-e91d-4b99-b475-ebde64a30df6	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 17:09:04.763856+00	
-00000000-0000-0000-0000-000000000000	a0d9de08-6d23-4e05-b02a-610c3ac5eac0	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 18:09:04.872381+00	
-00000000-0000-0000-0000-000000000000	49390247-d560-4fc0-a250-ffbdd2df130d	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 18:09:04.874472+00	
-00000000-0000-0000-0000-000000000000	d150779d-7d2d-472d-80fc-4c3caacb4677	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 19:09:04.996191+00	
-00000000-0000-0000-0000-000000000000	bbab3c98-54cc-4a70-9cf1-f854a37d3d27	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 19:09:04.998515+00	
-00000000-0000-0000-0000-000000000000	382915c6-b90c-4bef-b37c-9c8937c6b59d	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 20:09:04.729164+00	
-00000000-0000-0000-0000-000000000000	3b807abd-382f-4ef2-a4ae-f8398469be2d	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 20:09:04.730318+00	
-00000000-0000-0000-0000-000000000000	d5c8b312-c8b2-41fa-8ea4-0fed56b98c8d	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 21:09:04.870579+00	
-00000000-0000-0000-0000-000000000000	5892cbb3-96f4-450f-b47b-539b0bc50a71	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 21:09:04.873249+00	
-00000000-0000-0000-0000-000000000000	dc73e53c-dceb-4f71-a0ea-6f5a3e028649	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 22:09:04.726644+00	
-00000000-0000-0000-0000-000000000000	8b2387fb-50c0-41b7-9621-8a4d335c2b39	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 22:09:04.733302+00	
-00000000-0000-0000-0000-000000000000	d7efe67e-fb2e-4cdb-8898-0ff4f80474ac	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 23:09:04.87771+00	
-00000000-0000-0000-0000-000000000000	379ea222-bd2a-45ed-9a34-8a3951d42f6f	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-08 23:09:04.879311+00	
-00000000-0000-0000-0000-000000000000	b680aa2c-b5e8-4199-935c-210fc9e911ba	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:09:04.517963+00	
-00000000-0000-0000-0000-000000000000	9f0c2825-dd13-40be-b578-234088692943	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:09:04.519401+00	
-00000000-0000-0000-0000-000000000000	6b2b4b10-6df5-473b-b6fa-cf7f6a580181	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:30:54.78897+00	
-00000000-0000-0000-0000-000000000000	ea3f0c67-5820-42b3-8cea-d5754b42a381	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:30:54.790335+00	
-00000000-0000-0000-0000-000000000000	3b7098d5-37b8-428e-ac0c-2ae0bed4df01	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:31:18.928796+00	
-00000000-0000-0000-0000-000000000000	14df1bd9-265f-4144-bd90-c2ff867786cd	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:31:18.929977+00	
-00000000-0000-0000-0000-000000000000	919cc86c-79c9-412a-9d97-b7aad040993a	{"action":"token_refreshed","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:35:02.602637+00	
-00000000-0000-0000-0000-000000000000	9f7d044e-99ee-46a8-b82e-d5e4c2aa1000	{"action":"token_revoked","actor_id":"581142f6-a7dd-41dc-8e01-cb0f2eeb54cb","actor_username":"pointer091489@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:35:02.603827+00	
-00000000-0000-0000-0000-000000000000	9bd152d9-0d60-43c2-af81-e2c60d9ead95	{"action":"token_refreshed","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:36:01.052691+00	
-00000000-0000-0000-0000-000000000000	de9dab24-1b13-4e57-8e6e-2616d48132b9	{"action":"token_revoked","actor_id":"8b37894d-57e6-4c75-aa1c-82329839a080","actor_username":"my@coselig.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 00:36:01.056542+00	
-00000000-0000-0000-0000-000000000000	bc5f2c74-9835-42dc-a80e-b298122fd91a	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 01:09:05.220789+00	
-00000000-0000-0000-0000-000000000000	c4172a5e-9f47-412e-b142-aa0d8d474e8d	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 01:09:05.221794+00	
-00000000-0000-0000-0000-000000000000	b12c0464-3792-4d2f-8f83-d63cee069355	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 01:30:20.712095+00	
-00000000-0000-0000-0000-000000000000	b44339ff-e1be-4f05-8337-ac67b48a3d09	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 01:30:20.713421+00	
-00000000-0000-0000-0000-000000000000	494b71a8-4665-4d57-b3e1-66a1602fce2e	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 02:08:33.763941+00	
-00000000-0000-0000-0000-000000000000	d6dcd6bb-1a3f-4c49-bf44-2d54273d6b74	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 02:08:33.765133+00	
-00000000-0000-0000-0000-000000000000	e2c14499-7d7e-4ad3-a264-f4c8522cf930	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 02:30:21.466715+00	
-00000000-0000-0000-0000-000000000000	a33d12ff-4980-4b8f-b866-9f0aee4e23e9	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 02:30:21.467912+00	
-00000000-0000-0000-0000-000000000000	7165eb1d-8247-4b4f-a02a-49451a858479	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 03:07:55.173686+00	
-00000000-0000-0000-0000-000000000000	7ebcb77a-4dd1-4c6a-acc1-6567e3056de8	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 03:07:55.17518+00	
-00000000-0000-0000-0000-000000000000	3ead97ec-dc2e-49b1-be6a-5b0af1d06e60	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 03:30:21.321793+00	
-00000000-0000-0000-0000-000000000000	750c2012-ba8e-4661-9d4a-a6fe7fa101ba	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 03:30:21.323018+00	
-00000000-0000-0000-0000-000000000000	6d28979b-8433-49c9-b383-fa7830f61afb	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 04:08:04.793763+00	
-00000000-0000-0000-0000-000000000000	1b3e0933-6e4e-4816-915a-da57b32a8672	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 04:08:04.796454+00	
-00000000-0000-0000-0000-000000000000	7032957d-d98e-4d9c-ac05-4b11e873c34b	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 04:30:22.091367+00	
-00000000-0000-0000-0000-000000000000	9c5fcbb7-5c75-4c89-b6ef-d447a0add751	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 04:30:22.094116+00	
-00000000-0000-0000-0000-000000000000	4f978df3-6557-43ca-8ce0-5f42ae539dc6	{"action":"token_refreshed","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 05:08:05.336784+00	
-00000000-0000-0000-0000-000000000000	5b74ab68-e637-40a9-bf33-95b0f9ae3c4e	{"action":"token_revoked","actor_id":"b48d15d8-c7cb-4782-a8fb-b43055c49a1e","actor_username":"yunitrish0419@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 05:08:05.338093+00	
-00000000-0000-0000-0000-000000000000	59c298b2-b5b4-4250-bb8f-830d6d4416a3	{"action":"token_refreshed","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 05:30:20.488974+00	
-00000000-0000-0000-0000-000000000000	9596b850-a862-4a14-bff4-da71b7e8a51f	{"action":"token_revoked","actor_id":"afb7e323-2304-42f0-84ba-c43d09380d0d","actor_username":"chunyunyam108010@gmail.com","actor_via_sso":false,"log_type":"token"}	2025-10-09 05:30:20.491204+00	
-\.
-
-
---
--- Data for Name: flow_state; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.flow_state (id, user_id, auth_code, code_challenge_method, code_challenge, provider_type, provider_access_token, provider_refresh_token, created_at, updated_at, authentication_method, auth_code_issued_at) FROM stdin;
-\.
-
-
---
--- Data for Name: identities; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, id) FROM stdin;
-a939945b-b080-4575-871b-91e222484828	a939945b-b080-4575-871b-91e222484828	{"sub": "a939945b-b080-4575-871b-91e222484828", "email": "coseligtest@gmail.com", "email_verified": false, "phone_verified": false}	email	2025-10-01 06:30:30.75808+00	2025-10-01 06:30:30.758181+00	2025-10-01 06:30:30.758181+00	dbdc35a5-666f-4e4d-ad0e-879ce122e769
-b48d15d8-c7cb-4782-a8fb-b43055c49a1e	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	{"sub": "b48d15d8-c7cb-4782-a8fb-b43055c49a1e", "email": "yunitrish0419@gmail.com", "email_verified": false, "phone_verified": false}	email	2025-10-02 05:45:11.70139+00	2025-10-02 05:45:11.701519+00	2025-10-02 05:45:11.701519+00	34cd9711-ae51-45f6-abc0-8613036eb665
-967e7680-75e4-4b14-a15d-8936c7e92bc7	967e7680-75e4-4b14-a15d-8936c7e92bc7	{"sub": "967e7680-75e4-4b14-a15d-8936c7e92bc7", "email": "a0987533182@gmail.com", "email_verified": false, "phone_verified": false}	email	2025-10-02 08:37:38.914318+00	2025-10-02 08:37:38.914381+00	2025-10-02 08:37:38.914381+00	2c488279-8a86-4c8e-919b-893b7aa9df04
-581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	{"sub": "581142f6-a7dd-41dc-8e01-cb0f2eeb54cb", "email": "pointer091489@gmail.com", "email_verified": false, "phone_verified": false}	email	2025-10-07 09:08:34.211067+00	2025-10-07 09:08:34.211279+00	2025-10-07 09:08:34.211279+00	1734efdc-291e-487c-9d4d-212453db2229
-8b37894d-57e6-4c75-aa1c-82329839a080	8b37894d-57e6-4c75-aa1c-82329839a080	{"sub": "8b37894d-57e6-4c75-aa1c-82329839a080", "email": "my@coselig.com", "email_verified": false, "phone_verified": false}	email	2025-10-08 03:21:09.332216+00	2025-10-08 03:21:09.332289+00	2025-10-08 03:21:09.332289+00	23fbe231-f351-46e0-a9e8-29075ef5633f
-afb7e323-2304-42f0-84ba-c43d09380d0d	afb7e323-2304-42f0-84ba-c43d09380d0d	{"sub": "afb7e323-2304-42f0-84ba-c43d09380d0d", "email": "chunyunyam108010@gmail.com", "email_verified": false, "phone_verified": false}	email	2025-10-08 06:31:54.249296+00	2025-10-08 06:31:54.249421+00	2025-10-08 06:31:54.249421+00	130f35a7-f3e6-4dbb-9e84-10d27c70ee50
-\.
-
-
---
--- Data for Name: instances; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.instances (id, uuid, raw_base_config, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: mfa_amr_claims; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.mfa_amr_claims (session_id, created_at, updated_at, authentication_method, id) FROM stdin;
-0a93cf2e-7ed2-4b75-b932-57321f2ae6ae	2025-10-01 06:30:30.779697+00	2025-10-01 06:30:30.779697+00	password	d2553bdf-456f-468c-b890-1417808e1d30
-dd47842e-d6a0-4c9b-9056-835916865833	2025-10-01 06:32:57.581807+00	2025-10-01 06:32:57.581807+00	password	c9686030-0663-4eb7-b986-502b7c25362b
-ec07d3d0-561c-4f2d-a4d1-ebaedbacdec0	2025-10-02 05:17:42.946062+00	2025-10-02 05:17:42.946062+00	password	7094eef3-3c30-43cf-b21c-a1fba40d2a91
-10ab742f-4e38-492c-a7cd-3b4b34db60a5	2025-10-02 05:45:11.722969+00	2025-10-02 05:45:11.722969+00	password	022fbb1a-e1ba-4e06-873a-abb2378e59d6
-cfef587a-5e6f-4dc4-9c8e-50ac99d096d9	2025-10-02 08:37:38.936009+00	2025-10-02 08:37:38.936009+00	password	a41212d9-2feb-4785-808b-516fe577dc7f
-b53c57e2-006f-49d8-b171-7e95211dd839	2025-10-07 02:14:01.023644+00	2025-10-07 02:14:01.023644+00	password	211159c3-733d-4603-9c3f-4ce823769fbe
-0e759360-1482-442c-98f9-49b927ca9766	2025-10-07 07:36:13.271614+00	2025-10-07 07:36:13.271614+00	password	33bfbf6e-cea7-456a-b702-e92e407fa917
-1720bcc8-5bc4-4a19-9a69-e42295d52c10	2025-10-07 07:58:39.756208+00	2025-10-07 07:58:39.756208+00	password	ca9dcd87-edd3-454c-9464-9826e9a6a3b0
-700799cd-eb22-4aa9-95ad-03f7a42ab5b0	2025-10-07 09:08:34.232494+00	2025-10-07 09:08:34.232494+00	password	9e79fd51-c19d-48fe-b4ec-be0651d3b7e0
-1be07a6a-09b1-4fad-af29-691cb41a2d4d	2025-10-07 09:08:41.404081+00	2025-10-07 09:08:41.404081+00	password	d576fb37-dc8e-4129-a343-7f1b4d1f25d9
-d8b322f9-5592-4c85-b075-30eeff55406f	2025-10-07 09:16:47.542083+00	2025-10-07 09:16:47.542083+00	password	b199f09f-2f48-42f5-a832-3855952720ea
-25ff321c-9561-46c3-872a-78c1661edb5f	2025-10-08 03:21:09.35935+00	2025-10-08 03:21:09.35935+00	password	37fe246c-8c20-4054-8ba0-e5ee78959853
-5254186f-6f1b-4be5-bbe7-db6612669d28	2025-10-08 03:23:53.766604+00	2025-10-08 03:23:53.766604+00	password	33af02f7-a7bc-4fa9-a239-24cdbeaf8084
-0a9434f8-ee7f-43cf-b309-2e75c3a35d64	2025-10-08 06:31:54.271985+00	2025-10-08 06:31:54.271985+00	password	30527f47-887b-4cb4-afc5-c9aea06bd7f0
-09f23050-fffa-4263-8df8-8e5cd3a6363e	2025-10-08 06:31:58.407633+00	2025-10-08 06:31:58.407633+00	password	f7cc986d-14fc-46da-be6f-8f2e377c92d8
-2bc4edf7-15bc-4d87-851c-6b086c6faffc	2025-10-08 08:10:02.040769+00	2025-10-08 08:10:02.040769+00	password	103022f1-5096-4045-86c0-ae1893605517
-\.
-
-
---
--- Data for Name: mfa_challenges; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.mfa_challenges (id, factor_id, created_at, verified_at, ip_address, otp_code, web_authn_session_data) FROM stdin;
-\.
-
-
---
--- Data for Name: mfa_factors; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret, phone, last_challenged_at, web_authn_credential, web_authn_aaguid) FROM stdin;
-\.
-
-
---
--- Data for Name: one_time_tokens; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.one_time_tokens (id, user_id, token_type, token_hash, relates_to, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: refresh_tokens; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.refresh_tokens (instance_id, id, token, user_id, revoked, created_at, updated_at, parent, session_id) FROM stdin;
-00000000-0000-0000-0000-000000000000	212	xbyxz6tysydj	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	f	2025-10-09 00:31:18.931752+00	2025-10-09 00:31:18.931752+00	gqdwphre6ie4	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	4	uubs75wstfgm	a939945b-b080-4575-871b-91e222484828	f	2025-10-01 06:30:30.777314+00	2025-10-01 06:30:30.777314+00	\N	0a93cf2e-7ed2-4b75-b932-57321f2ae6ae
-00000000-0000-0000-0000-000000000000	132	eoissgg36lpt	a939945b-b080-4575-871b-91e222484828	t	2025-10-07 03:14:08.211887+00	2025-10-07 04:14:07.558734+00	nqw6oxwmfyuq	b53c57e2-006f-49d8-b171-7e95211dd839
-00000000-0000-0000-0000-000000000000	6	wpze3ww3r5mo	a939945b-b080-4575-871b-91e222484828	f	2025-10-01 06:32:57.578747+00	2025-10-01 06:32:57.578747+00	\N	dd47842e-d6a0-4c9b-9056-835916865833
-00000000-0000-0000-0000-000000000000	213	rbkjgrdyauir	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	f	2025-10-09 00:35:02.605394+00	2025-10-09 00:35:02.605394+00	irc3lfrbmqaf	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	214	4k76p4sk6ynz	8b37894d-57e6-4c75-aa1c-82329839a080	f	2025-10-09 00:36:01.061039+00	2025-10-09 00:36:01.061039+00	5ssz3nqosvu5	5254186f-6f1b-4be5-bbe7-db6612669d28
-00000000-0000-0000-0000-000000000000	133	3ds5j2yb7abb	a939945b-b080-4575-871b-91e222484828	t	2025-10-07 04:14:07.559864+00	2025-10-07 05:13:30.901185+00	eoissgg36lpt	b53c57e2-006f-49d8-b171-7e95211dd839
-00000000-0000-0000-0000-000000000000	210	c7nu7phbctdl	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-09 00:09:04.521252+00	2025-10-09 01:09:05.224067+00	zrxtovivztu7	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	182	hlqtbidfstm4	afb7e323-2304-42f0-84ba-c43d09380d0d	f	2025-10-08 06:31:54.269134+00	2025-10-08 06:31:54.269134+00	\N	0a9434f8-ee7f-43cf-b309-2e75c3a35d64
-00000000-0000-0000-0000-000000000000	211	25pibik7nz7a	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-09 00:30:54.792316+00	2025-10-09 01:30:20.716816+00	7k73omenns4y	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	134	w3gbojpxkpx3	a939945b-b080-4575-871b-91e222484828	t	2025-10-07 05:13:30.901887+00	2025-10-07 06:12:50.279651+00	3ds5j2yb7abb	b53c57e2-006f-49d8-b171-7e95211dd839
-00000000-0000-0000-0000-000000000000	215	7vodp76mf22p	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-09 01:09:05.224606+00	2025-10-09 02:08:33.766024+00	c7nu7phbctdl	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	135	giiv4oqirwt7	a939945b-b080-4575-871b-91e222484828	t	2025-10-07 06:12:50.282537+00	2025-10-07 07:13:07.811214+00	w3gbojpxkpx3	b53c57e2-006f-49d8-b171-7e95211dd839
-00000000-0000-0000-0000-000000000000	216	lnkjt2mkkafq	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-09 01:30:20.717353+00	2025-10-09 02:30:21.468914+00	25pibik7nz7a	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	136	fbbi6hftornt	a939945b-b080-4575-871b-91e222484828	f	2025-10-07 07:13:07.816296+00	2025-10-07 07:13:07.816296+00	giiv4oqirwt7	b53c57e2-006f-49d8-b171-7e95211dd839
-00000000-0000-0000-0000-000000000000	181	quyowewnespq	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	t	2025-10-08 06:06:42.657692+00	2025-10-08 07:06:31.758416+00	pk3onkrkacsm	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	217	lwrigikqtpet	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-09 02:08:33.766507+00	2025-10-09 03:07:55.176429+00	7vodp76mf22p	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	183	u7l2rlcjgpeg	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-08 06:31:58.405593+00	2025-10-08 07:32:06.176527+00	\N	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	187	46b7jihuq4ju	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	t	2025-10-08 07:06:31.759068+00	2025-10-08 09:00:46.801886+00	quyowewnespq	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	176	5jevs6omv47z	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 04:45:11.19035+00	2025-10-08 11:26:37.003312+00	fevkpzmjyn5y	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	218	uckegvnyvm5x	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-09 02:30:21.469417+00	2025-10-09 03:30:21.324099+00	lnkjt2mkkafq	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	219	46b2gzfgxa25	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-09 03:07:55.177207+00	2025-10-09 04:08:04.797558+00	lwrigikqtpet	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	49	qs3di2csz5hg	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	f	2025-10-02 05:45:11.720026+00	2025-10-02 05:45:11.720026+00	\N	10ab742f-4e38-492c-a7cd-3b4b34db60a5
-00000000-0000-0000-0000-000000000000	41	ix6nrg5fefon	a939945b-b080-4575-871b-91e222484828	t	2025-10-02 05:17:42.938448+00	2025-10-02 06:17:57.448992+00	\N	ec07d3d0-561c-4f2d-a4d1-ebaedbacdec0
-00000000-0000-0000-0000-000000000000	51	t7geeoexcztq	a939945b-b080-4575-871b-91e222484828	f	2025-10-02 06:17:57.451801+00	2025-10-02 06:17:57.451801+00	ix6nrg5fefon	ec07d3d0-561c-4f2d-a4d1-ebaedbacdec0
-00000000-0000-0000-0000-000000000000	55	3i77tpsltkvh	967e7680-75e4-4b14-a15d-8936c7e92bc7	f	2025-10-02 08:37:38.933697+00	2025-10-02 08:37:38.933697+00	\N	cfef587a-5e6f-4dc4-9c8e-50ac99d096d9
-00000000-0000-0000-0000-000000000000	191	7k73omenns4y	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-08 08:50:55.732828+00	2025-10-09 00:30:54.791543+00	2w65zatscxef	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	139	i67vrxe2tksa	a939945b-b080-4575-871b-91e222484828	f	2025-10-07 07:36:13.268584+00	2025-10-07 07:36:13.268584+00	\N	0e759360-1482-442c-98f9-49b927ca9766
-00000000-0000-0000-0000-000000000000	141	k2o6clqoppeh	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	f	2025-10-07 07:58:39.753156+00	2025-10-07 07:58:39.753156+00	\N	1720bcc8-5bc4-4a19-9a69-e42295d52c10
-00000000-0000-0000-0000-000000000000	143	s3ufmhevaahc	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	f	2025-10-07 09:08:34.229774+00	2025-10-07 09:08:34.229774+00	\N	700799cd-eb22-4aa9-95ad-03f7a42ab5b0
-00000000-0000-0000-0000-000000000000	188	2w65zatscxef	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-08 07:32:06.18194+00	2025-10-08 08:50:55.728919+00	u7l2rlcjgpeg	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	190	k7begdqp6z2a	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 08:10:02.037366+00	2025-10-08 09:09:33.822291+00	\N	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	145	2hl6cgisfkmz	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-07 09:16:47.539549+00	2025-10-07 10:19:18.097282+00	\N	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	220	ay54nxa6vqsl	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-09 03:30:21.32486+00	2025-10-09 04:30:22.096649+00	uckegvnyvm5x	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	221	p6y375w4zmd4	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-09 04:08:04.799338+00	2025-10-09 05:08:05.338987+00	46b2gzfgxa25	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	223	ae6p4zu3gznc	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	f	2025-10-09 05:08:05.339631+00	2025-10-09 05:08:05.339631+00	p6y375w4zmd4	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	222	fqntvqpmt2b7	afb7e323-2304-42f0-84ba-c43d09380d0d	t	2025-10-09 04:30:22.097858+00	2025-10-09 05:30:20.492784+00	ay54nxa6vqsl	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	224	pk62rofezgsd	afb7e323-2304-42f0-84ba-c43d09380d0d	f	2025-10-09 05:30:20.494096+00	2025-10-09 05:30:20.494096+00	fqntvqpmt2b7	09f23050-fffa-4263-8df8-8e5cd3a6363e
-00000000-0000-0000-0000-000000000000	144	4uc4gahajgsw	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	t	2025-10-07 09:08:41.401938+00	2025-10-08 00:58:06.066591+00	\N	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	147	t3ordz7jeib5	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-07 10:19:18.099741+00	2025-10-08 01:46:41.462824+00	2hl6cgisfkmz	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	131	nqw6oxwmfyuq	a939945b-b080-4575-871b-91e222484828	t	2025-10-07 02:14:01.018037+00	2025-10-07 03:14:08.210419+00	\N	b53c57e2-006f-49d8-b171-7e95211dd839
-00000000-0000-0000-0000-000000000000	169	fevkpzmjyn5y	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 03:05:13.719407+00	2025-10-08 04:45:11.187647+00	hf7e33n7kjg6	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	209	zrxtovivztu7	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 23:09:04.881509+00	2025-10-09 00:09:04.520469+00	zpz57x5hgyab	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	200	gqdwphre6ie4	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 14:11:28.013487+00	2025-10-09 00:31:18.931136+00	ob4xtkhjammp	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	192	irc3lfrbmqaf	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	t	2025-10-08 09:00:46.804493+00	2025-10-09 00:35:02.60483+00	46b7jihuq4ju	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	173	5ssz3nqosvu5	8b37894d-57e6-4c75-aa1c-82329839a080	t	2025-10-08 03:23:53.764975+00	2025-10-09 00:36:01.059905+00	\N	5254186f-6f1b-4be5-bbe7-db6612669d28
-00000000-0000-0000-0000-000000000000	167	pk3onkrkacsm	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	t	2025-10-08 01:57:40.295215+00	2025-10-08 06:06:42.656794+00	a6l6i6iq5i7x	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	164	a6l6i6iq5i7x	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	t	2025-10-08 00:58:06.067191+00	2025-10-08 01:57:40.288067+00	4uc4gahajgsw	1be07a6a-09b1-4fad-af29-691cb41a2d4d
-00000000-0000-0000-0000-000000000000	193	7bl25fzgwxs3	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 09:09:33.823128+00	2025-10-08 10:09:06.362182+00	k7begdqp6z2a	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	166	hf7e33n7kjg6	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 01:46:41.463496+00	2025-10-08 03:05:13.717622+00	t3ordz7jeib5	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	170	2lwl5q7zjh4r	8b37894d-57e6-4c75-aa1c-82329839a080	f	2025-10-08 03:21:09.355196+00	2025-10-08 03:21:09.355196+00	\N	25ff321c-9561-46c3-872a-78c1661edb5f
-00000000-0000-0000-0000-000000000000	194	krffbwixpepu	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 10:09:06.363433+00	2025-10-08 11:09:06.326559+00	7bl25fzgwxs3	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	195	h7i6fmalan6w	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 11:09:06.327699+00	2025-10-08 12:09:05.686209+00	krffbwixpepu	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	197	rqnsmswem254	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 12:09:05.687705+00	2025-10-08 13:09:05.421895+00	h7i6fmalan6w	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	198	voe2kvsvp65p	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 13:09:05.422609+00	2025-10-08 14:09:04.813688+00	rqnsmswem254	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	196	ob4xtkhjammp	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 11:26:37.004969+00	2025-10-08 14:11:28.012957+00	5jevs6omv47z	d8b322f9-5592-4c85-b075-30eeff55406f
-00000000-0000-0000-0000-000000000000	199	ry2hk44qzkct	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 14:09:04.814242+00	2025-10-08 15:09:04.805966+00	voe2kvsvp65p	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	201	thlxamrq4yhv	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 15:09:04.806584+00	2025-10-08 16:09:04.909905+00	ry2hk44qzkct	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	202	7eqkntn4v5nc	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 16:09:04.910641+00	2025-10-08 17:09:04.765201+00	thlxamrq4yhv	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	203	e5pijlekfruh	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 17:09:04.76594+00	2025-10-08 18:09:04.875528+00	7eqkntn4v5nc	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	204	34y63fg5m64r	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 18:09:04.876208+00	2025-10-08 19:09:05.000049+00	e5pijlekfruh	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	205	fi2i57c3bdne	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 19:09:05.000961+00	2025-10-08 20:09:04.731134+00	34y63fg5m64r	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	206	7gu4pf54vroj	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 20:09:04.732445+00	2025-10-08 21:09:04.874284+00	fi2i57c3bdne	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	207	x262wn4do5fg	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 21:09:04.875346+00	2025-10-08 22:09:04.734708+00	7gu4pf54vroj	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-00000000-0000-0000-0000-000000000000	208	zpz57x5hgyab	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	t	2025-10-08 22:09:04.73556+00	2025-10-08 23:09:04.880954+00	x262wn4do5fg	2bc4edf7-15bc-4d87-851c-6b086c6faffc
-\.
-
-
---
--- Data for Name: saml_providers; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.saml_providers (id, sso_provider_id, entity_id, metadata_xml, metadata_url, attribute_mapping, created_at, updated_at, name_id_format) FROM stdin;
-\.
-
-
---
--- Data for Name: saml_relay_states; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.saml_relay_states (id, sso_provider_id, request_id, for_email, redirect_to, created_at, updated_at, flow_state_id) FROM stdin;
-\.
-
-
---
--- Data for Name: schema_migrations; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.schema_migrations (version) FROM stdin;
-20171026211738
-20171026211808
-20171026211834
-20180103212743
-20180108183307
-20180119214651
-20180125194653
-00
-20210710035447
-20210722035447
-20210730183235
-20210909172000
-20210927181326
-20211122151130
-20211124214934
-20211202183645
-20220114185221
-20220114185340
-20220224000811
-20220323170000
-20220429102000
-20220531120530
-20220614074223
-20220811173540
-20221003041349
-20221003041400
-20221011041400
-20221020193600
-20221021073300
-20221021082433
-20221027105023
-20221114143122
-20221114143410
-20221125140132
-20221208132122
-20221215195500
-20221215195800
-20221215195900
-20230116124310
-20230116124412
-20230131181311
-20230322519590
-20230402418590
-20230411005111
-20230508135423
-20230523124323
-20230818113222
-20230914180801
-20231027141322
-20231114161723
-20231117164230
-20240115144230
-20240214120130
-20240306115329
-20240314092811
-20240427152123
-20240612123726
-20240729123726
-20240802193726
-20240806073726
-20241009103726
-\.
-
-
---
--- Data for Name: sessions; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.sessions (id, user_id, created_at, updated_at, factor_id, aal, not_after, refreshed_at, user_agent, ip, tag) FROM stdin;
-0a93cf2e-7ed2-4b75-b932-57321f2ae6ae	a939945b-b080-4575-871b-91e222484828	2025-10-01 06:30:30.77539+00	2025-10-01 06:30:30.77539+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	172.18.0.1	\N
-dd47842e-d6a0-4c9b-9056-835916865833	a939945b-b080-4575-871b-91e222484828	2025-10-01 06:32:57.57644+00	2025-10-01 06:32:57.57644+00	\N	aal1	\N	\N	Mozilla/5.0 (iPad; CPU OS 18_5_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.7339.101 Mobile/15E148 Safari/604.1	172.18.0.1	\N
-d8b322f9-5592-4c85-b075-30eeff55406f	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	2025-10-07 09:16:47.537444+00	2025-10-09 00:31:18.935874+00	\N	aal1	\N	2025-10-09 00:31:18.935764	Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36	192.168.144.1	\N
-b53c57e2-006f-49d8-b171-7e95211dd839	a939945b-b080-4575-871b-91e222484828	2025-10-07 02:14:01.014025+00	2025-10-07 07:13:07.828348+00	\N	aal1	\N	2025-10-07 07:13:07.828199	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36	172.18.0.1	\N
-10ab742f-4e38-492c-a7cd-3b4b34db60a5	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	2025-10-02 05:45:11.7185+00	2025-10-02 05:45:11.7185+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	172.18.0.1	\N
-ec07d3d0-561c-4f2d-a4d1-ebaedbacdec0	a939945b-b080-4575-871b-91e222484828	2025-10-02 05:17:42.936571+00	2025-10-02 06:17:57.456082+00	\N	aal1	\N	2025-10-02 06:17:57.455887	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	172.18.0.1	\N
-1be07a6a-09b1-4fad-af29-691cb41a2d4d	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	2025-10-07 09:08:41.400538+00	2025-10-09 00:35:02.607875+00	\N	aal1	\N	2025-10-09 00:35:02.607829	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36	192.168.144.1	\N
-5254186f-6f1b-4be5-bbe7-db6612669d28	8b37894d-57e6-4c75-aa1c-82329839a080	2025-10-08 03:23:53.763746+00	2025-10-09 00:36:01.06773+00	\N	aal1	\N	2025-10-09 00:36:01.067597	Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1	192.168.144.1	\N
-cfef587a-5e6f-4dc4-9c8e-50ac99d096d9	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:37:38.93191+00	2025-10-02 08:37:38.93191+00	\N	aal1	\N	\N	Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36	172.18.0.1	\N
-0e759360-1482-442c-98f9-49b927ca9766	a939945b-b080-4575-871b-91e222484828	2025-10-07 07:36:13.26636+00	2025-10-07 07:36:13.26636+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36	172.18.0.1	\N
-0a9434f8-ee7f-43cf-b309-2e75c3a35d64	afb7e323-2304-42f0-84ba-c43d09380d0d	2025-10-08 06:31:54.266534+00	2025-10-08 06:31:54.266534+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	192.168.144.1	\N
-1720bcc8-5bc4-4a19-9a69-e42295d52c10	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	2025-10-07 07:58:39.751472+00	2025-10-07 07:58:39.751472+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36	172.18.0.1	\N
-700799cd-eb22-4aa9-95ad-03f7a42ab5b0	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	2025-10-07 09:08:34.228289+00	2025-10-07 09:08:34.228289+00	\N	aal1	\N	\N	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	192.168.144.1	\N
-25ff321c-9561-46c3-872a-78c1661edb5f	8b37894d-57e6-4c75-aa1c-82329839a080	2025-10-08 03:21:09.34823+00	2025-10-08 03:21:09.34823+00	\N	aal1	\N	\N	Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1	192.168.144.1	\N
-2bc4edf7-15bc-4d87-851c-6b086c6faffc	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	2025-10-08 08:10:02.035351+00	2025-10-09 05:08:05.342269+00	\N	aal1	\N	2025-10-09 05:08:05.342206	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36	192.168.144.1	\N
-09f23050-fffa-4263-8df8-8e5cd3a6363e	afb7e323-2304-42f0-84ba-c43d09380d0d	2025-10-08 06:31:58.404047+00	2025-10-09 05:30:20.499196+00	\N	aal1	\N	2025-10-09 05:30:20.499008	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	192.168.144.1	\N
-\.
-
-
---
--- Data for Name: sso_domains; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.sso_domains (id, sso_provider_id, domain, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: sso_providers; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.sso_providers (id, resource_id, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: users; Type: TABLE DATA; Schema: auth; Owner: supabase_auth_admin
---
-
-COPY auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, recovery_token, recovery_sent_at, email_change_token_new, email_change, email_change_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at, phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at, email_change_token_current, email_change_confirm_status, banned_until, reauthentication_token, reauthentication_sent_at, is_sso_user, deleted_at, is_anonymous) FROM stdin;
-00000000-0000-0000-0000-000000000000	a939945b-b080-4575-871b-91e222484828	authenticated	authenticated	coseligtest@gmail.com	$2a$10$jTsnkPNnpU9KcyaDd57vee403br6KbhQH6IB7B903sXf4D31VD5Cq	2025-10-01 06:30:30.767385+00	\N		\N		\N			\N	2025-10-08 07:49:32.581999+00	{"provider": "email", "providers": ["email"]}	{"sub": "a939945b-b080-4575-871b-91e222484828", "email": "coseligtest@gmail.com", "email_verified": true, "phone_verified": false}	\N	2025-10-01 06:30:30.748721+00	2025-10-08 07:49:32.587702+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	authenticated	authenticated	yunitrish0419@gmail.com	$2a$10$.BH3GUGvwOT0J7HRhUYhBuzPrU97Z8g1iQvTZ049bnbFRqjKzGbke	2025-10-02 05:45:11.712259+00	\N		\N		\N			\N	2025-10-08 08:10:02.035249+00	{"provider": "email", "providers": ["email"]}	{"sub": "b48d15d8-c7cb-4782-a8fb-b43055c49a1e", "email": "yunitrish0419@gmail.com", "email_verified": true, "phone_verified": false}	\N	2025-10-02 05:45:11.673474+00	2025-10-09 05:08:05.340912+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	afb7e323-2304-42f0-84ba-c43d09380d0d	authenticated	authenticated	chunyunyam108010@gmail.com	$2a$10$kEdhwp41QjsoZ/wQgxz6ruaMfr97AlNEtA/aZC37tb/CuEcbfDtPe	2025-10-08 06:31:54.256143+00	\N		\N		\N			\N	2025-10-08 07:04:15.363291+00	{"provider": "email", "providers": ["email"]}	{"sub": "afb7e323-2304-42f0-84ba-c43d09380d0d", "email": "chunyunyam108010@gmail.com", "email_verified": true, "phone_verified": false}	\N	2025-10-08 06:31:54.227082+00	2025-10-09 05:30:20.496694+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	authenticated	authenticated	pointer091489@gmail.com	$2a$10$6caP7xVzDxkoeCdKgzCdFO3iy423/7tYl1XtKxHzxlLnBdU00oouS	2025-10-07 09:08:34.217964+00	\N		\N		\N			\N	2025-10-07 09:08:41.399733+00	{"provider": "email", "providers": ["email"]}	{"sub": "581142f6-a7dd-41dc-8e01-cb0f2eeb54cb", "email": "pointer091489@gmail.com", "email_verified": true, "phone_verified": false}	\N	2025-10-07 09:08:34.164373+00	2025-10-09 00:35:02.606562+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	8b37894d-57e6-4c75-aa1c-82329839a080	authenticated	authenticated	my@coselig.com	$2a$10$RHl.jp6J.IExbF/w5MKQIengElXjQHavuLheBHlB7F2ZAahYxWASe	2025-10-08 03:21:09.34004+00	\N		\N		\N			\N	2025-10-08 03:23:53.763657+00	{"provider": "email", "providers": ["email"]}	{"sub": "8b37894d-57e6-4c75-aa1c-82329839a080", "email": "my@coselig.com", "email_verified": true, "phone_verified": false}	\N	2025-10-08 03:21:09.312099+00	2025-10-09 00:36:01.064439+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	967e7680-75e4-4b14-a15d-8936c7e92bc7	authenticated	authenticated	a0987533182@gmail.com	$2a$10$rVkpEMsmD3qZgE7RobA1WO4/UaAClLHZY2wNYHNsEWhBWYOD5OgFa	2025-10-02 08:37:38.921768+00	\N		\N		\N			\N	2025-10-02 08:37:38.931823+00	{"provider": "email", "providers": ["email"]}	{"sub": "967e7680-75e4-4b14-a15d-8936c7e92bc7", "email": "a0987533182@gmail.com", "email_verified": true, "phone_verified": false}	\N	2025-10-02 08:37:38.89802+00	2025-10-02 08:37:38.935404+00	\N	\N			\N		0	\N		\N	f	\N	f
-\.
-
-
---
--- Data for Name: attendance_leave_requests; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.attendance_leave_requests (id, employee_id, employee_name, request_type, request_date, request_time, check_in_time, check_out_time, reason, status, reviewer_id, reviewer_name, review_comment, reviewed_at, created_at, updated_at) FROM stdin;
-ec423160-2b0e-4403-a365-d248db345eed	afb7e323-2304-42f0-84ba-c43d09380d0d	嚴沅希	check_out	2025-10-08	2025-10-08 16:51:00+00	\N	\N	我想下班，但申請原因至少需要十個字	approved	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	林昀佑	ok	2025-10-08 16:52:10.652+00	2025-10-08 08:51:46.042516+00	2025-10-08 08:52:10.090004+00
-83591375-0fdc-4beb-9069-a1fe61eee54e	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	楊子徵	full_day	2025-10-08	\N	2025-10-08 08:30:00+00	2025-10-08 17:30:00+00	今天不爽上班，超級無敵不爽	approved	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	林昀佑	ok	2025-10-08 17:01:53.636+00	2025-10-08 09:01:32.814571+00	2025-10-08 09:01:53.980446+00
-b7b0d51b-ea13-41ea-9309-e812b5a74f74	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	林昀佑	check_out	2025-10-08	2025-10-08 17:30:00+00	\N	\N		approved	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	林昀佑	ok	2025-10-08 17:14:56.277+00	2025-10-08 09:14:37.632142+00	2025-10-08 09:14:55.923799+00
-\.
-
-
---
--- Data for Name: attendance_records; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.attendance_records (id, employee_id, employee_name, employee_email, check_in_time, check_out_time, work_hours, location, notes, is_manual_entry, created_at, updated_at) FROM stdin;
-b1a0ee73-1047-4882-88e3-99bc03f491a2	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	楊子徵	pointer091489@gmail.com	2025-10-08 08:30:00+00	2025-10-08 17:30:00+00	9.00	公司	【補打卡】測試測試測試	f	2025-10-08 06:07:09.37193+00	2025-10-08 06:16:56.412124+00
-2fb6a76c-5cab-46eb-b867-05136fc1647d	afb7e323-2304-42f0-84ba-c43d09380d0d	嚴沅希	chunyunyam108010@gmail.com	2025-10-08 08:15:00+00	\N	\N	\N	【補打卡】TEST...	t	2025-10-08 07:06:26.373242+00	2025-10-08 07:06:26.373242+00
-ac5075c2-3288-43f3-bee4-5cdbdef3956d	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	林昀佑	yunitrish0419@gmail.com	2025-10-08 08:30:00+00	2025-10-08 17:30:00+00	9.00	補打卡申請	補打卡申請已核准\n原因：	t	2025-10-08 06:04:13.683852+00	2025-10-08 09:14:55.987357+00
-f3841d83-2eed-4c28-8c13-033d2a9339d1	afb7e323-2304-42f0-84ba-c43d09380d0d	嚴沅希	chunyunyam108010@gmail.com	2025-10-09 08:31:02.062+00	\N	\N	光悅科技股份有限公司	\N	f	2025-10-09 00:31:02.304863+00	2025-10-09 00:31:02.304863+00
-ffdf1c98-602d-4d55-b443-10e6bec0f216	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	林昀佑	yunitrish0419@gmail.com	2025-10-09 08:31:31.087+00	\N	\N	\N	\N	f	2025-10-09 00:31:31.250832+00	2025-10-09 00:31:31.250832+00
-eff4e6e3-e966-4f50-acf1-a444f30306cb	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	楊子徵	pointer091489@gmail.com	2025-10-09 08:35:17.267+00	\N	\N	光悅科技股份有限公司	\N	f	2025-10-09 00:35:17.900588+00	2025-10-09 00:35:17.900588+00
-c26d612d-ef1d-44a1-a42c-fcc1fe87bba6	8b37894d-57e6-4c75-aa1c-82329839a080	楊茂常	my@coselig.com	2025-10-09 08:36:15.62+00	\N	\N	光悅科技股份有限公司	\N	f	2025-10-09 00:36:16.208672+00	2025-10-09 00:36:16.208672+00
-\.
-
-
---
--- Data for Name: employee_skills; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.employee_skills (id, employee_id, skill_name, proficiency_level, created_at) FROM stdin;
-\.
-
-
---
--- Data for Name: employees; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.employees (id, employee_id, name, email, phone, department, "position", hire_date, salary, status, manager_id, avatar_url, address, emergency_contact_name, emergency_contact_phone, notes, created_by, created_at, updated_at, role) FROM stdin;
-967e7680-75e4-4b14-a15d-8936c7e92bc7	EMP003	陳偉丞	a0987533182@gmail.com	\N	外勤部	施作師傅	2023-10-07	\N	在職	\N	\N	\N	\N	\N	\N	a939945b-b080-4575-871b-91e222484828	2025-10-07 13:11:57.468+00	2025-10-07 05:12:28.990416+00	employee
-a939945b-b080-4575-871b-91e222484828	EMP001	測試用戶	coseligtest@gmail.com	\N	測試部門	測試職位	2025-10-07	\N	在職	\N	\N	\N	\N	\N	\N	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	2025-10-07 02:21:45.008972+00	2025-10-08 07:49:19.848338+00	employee
-581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	EMP004	楊子徵	pointer091489@gmail.com	\N	便當部	放飯的	2025-10-07	\N	在職	\N	\N	\N	\N	\N	\N	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	2025-10-07 17:09:25.402+00	2025-10-08 08:17:54.571054+00	hr
-b48d15d8-c7cb-4782-a8fb-b43055c49a1e	EMP002	林昀佑	yunitrish0419@gmail.com	0937565253	技術部	開發人員	2025-10-07	\N	在職	\N	\N	\N	\N	\N	\N	a939945b-b080-4575-871b-91e222484828	2025-10-07 10:31:38.911+00	2025-10-08 08:18:02.783461+00	hr
-8b37894d-57e6-4c75-aa1c-82329839a080	EMP000	楊茂常	my@coselig.com	\N	總部	老闆	2011-01-11	\N	在職	\N	\N	\N	\N	\N	\N	a939945b-b080-4575-871b-91e222484828	2025-10-08 11:22:49.913+00	2025-10-08 08:19:26.542047+00	boss
-afb7e323-2304-42f0-84ba-c43d09380d0d	EMP005	嚴沅希	chunyunyam108010@gmail.com	\N	設計部	設計師?	2025-10-08	10.00	在職	\N	\N	冥王星	\N	\N	\N	afb7e323-2304-42f0-84ba-c43d09380d0d	2025-10-08 15:05:08.102+00	2025-10-08 09:04:31.489979+00	employee
-\.
-
-
---
--- Data for Name: floor_plan_permissions; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.floor_plan_permissions (id, floor_plan_id, user_id, permission_level, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: floor_plans; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.floor_plans (id, name, image_url, user_id, created_at, updated_at, project_id) FROM stdin;
-e05a879d-6136-417b-94e2-3e4b4059bc96	民雄一樓	https://coselig.com/api/storage/v1/object/public/assets/floor_plans/1759892315894_scaled_S_5046274.jpg	a939945b-b080-4575-871b-91e222484828	2025-10-08 02:58:49.687132+00	2025-10-08 02:58:49.687132+00	\N
-\.
-
-
---
--- Data for Name: images; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.images (id, filename, original_name, file_path, file_size, mime_type, project_id, uploaded_by, created_at) FROM stdin;
-\.
-
-
---
--- Data for Name: job_vacancies; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.job_vacancies (id, title, department, location, type, requirements, responsibilities, description, is_active, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: leave_balances; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.leave_balances (id, employee_id, leave_type, year, total_days, used_days, pending_days, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: leave_requests; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.leave_requests (id, employee_id, employee_name, leave_type, start_date, end_date, start_period, end_period, total_days, reason, attachment_url, status, reviewer_id, reviewer_name, review_comment, reviewed_at, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: photo_records; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.photo_records (id, floor_plan_id, x_coordinate, y_coordinate, description, user_id, created_at, updated_at, image_url) FROM stdin;
-\.
-
-
---
--- Data for Name: profiles; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.profiles (id, email, full_name, avatar_url, theme_preference, created_at, updated_at) FROM stdin;
-967e7680-75e4-4b14-a15d-8936c7e92bc7	a0987533182@gmail.com	\N	\N	system	2025-10-02 08:37:39.162634+00	2025-10-02 16:37:38.014+00
-581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	pointer091489@gmail.com	\N	\N	system	2025-10-07 09:08:34.286124+00	2025-10-07 17:08:40.817+00
-8b37894d-57e6-4c75-aa1c-82329839a080	my@coselig.com	\N	\N	system	2025-10-08 03:21:09.461052+00	2025-10-08 11:23:53.617+00
-a939945b-b080-4575-871b-91e222484828	coseligtest@gmail.com	\N	\N	system	2025-10-01 06:30:30.831448+00	2025-10-08 15:49:33.076+00
-afb7e323-2304-42f0-84ba-c43d09380d0d	chunyunyam108010@gmail.com	\N	\N	dark	2025-10-08 06:31:54.297604+00	2025-10-08 17:04:43.208+00
-b48d15d8-c7cb-4782-a8fb-b43055c49a1e	yunitrish0419@gmail.com	\N	\N	light	2025-10-02 05:45:11.78427+00	2025-10-09 11:59:44.34+00
-\.
-
-
---
--- Data for Name: project_members; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.project_members (id, project_id, user_id, role, joined_at) FROM stdin;
-\.
-
-
---
--- Data for Name: projects; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.projects (id, name, description, address, status, owner_id, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: system_settings; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.system_settings (key, value, description, updated_at) FROM stdin;
-recruitment_email	hr@guangyue.tech	人資聯絡信箱	2025-10-02 01:29:26.100871+00
-company_name	光悅科技	公司名稱	2025-10-02 01:46:51.710699+00
-company_address	台北市信義區	公司地址	2025-10-02 01:46:51.710699+00
-hr_email	hr@guangyue.tech	人資聯絡信箱	2025-10-02 01:46:51.710699+00
-company_phone	02-1234-5678	公司電話	2025-10-02 01:46:51.710699+00
-employee_id_prefix	EMP	員工編號前綴	2025-10-02 01:46:51.710699+00
-default_work_hours	8	預設工作時數	2025-10-02 01:46:51.710699+00
-\.
-
-
---
--- Data for Name: user_profiles; Type: TABLE DATA; Schema: public; Owner: supabase_admin
---
-
-COPY public.user_profiles (id, user_id, email, display_name, avatar_url, phone, metadata, created_at, updated_at) FROM stdin;
-60a894fd-53de-42dc-a9e5-347e74a685eb	b48d15d8-c7cb-4782-a8fb-b43055c49a1e	yunitrish0419@gmail.com	yunitrish0419	\N	\N	{}	2025-10-02 05:45:11.672926+00	2025-10-02 05:45:11.672926+00
-a26937c4-5642-4806-aa4f-6ef753ac4bf2	967e7680-75e4-4b14-a15d-8936c7e92bc7	a0987533182@gmail.com	a0987533182	\N	\N	{}	2025-10-02 08:37:38.896712+00	2025-10-02 08:37:38.896712+00
-6bc0dab0-098d-46bc-95e2-7fcbec47a892	581142f6-a7dd-41dc-8e01-cb0f2eeb54cb	pointer091489@gmail.com	pointer091489	\N	\N	{}	2025-10-07 09:08:34.163889+00	2025-10-07 09:08:34.163889+00
-3586913b-86f9-4ade-9109-e5b18d9d2bd0	8b37894d-57e6-4c75-aa1c-82329839a080	my@coselig.com	my	\N	\N	{}	2025-10-08 03:21:09.306652+00	2025-10-08 03:21:09.306652+00
-959abfce-616f-461f-8fa7-3f9c509caecc	afb7e323-2304-42f0-84ba-c43d09380d0d	chunyunyam108010@gmail.com	chunyunyam108010	\N	\N	{}	2025-10-08 06:31:54.225855+00	2025-10-08 06:31:54.225855+00
-\.
-
-
---
--- Data for Name: schema_migrations; Type: TABLE DATA; Schema: realtime; Owner: supabase_admin
---
-
-COPY realtime.schema_migrations (version, inserted_at) FROM stdin;
-20211116024918	2025-09-17 02:53:23
-20211116045059	2025-09-17 02:53:23
-20211116050929	2025-09-17 02:53:23
-20211116051442	2025-09-17 02:53:23
-20211116212300	2025-09-17 02:53:23
-20211116213355	2025-09-17 02:53:23
-20211116213934	2025-09-17 02:53:23
-20211116214523	2025-09-17 02:53:23
-20211122062447	2025-09-17 02:53:23
-20211124070109	2025-09-17 02:53:23
-20211202204204	2025-09-17 02:53:23
-20211202204605	2025-09-17 02:53:23
-20211210212804	2025-09-17 02:53:23
-20211228014915	2025-09-17 02:53:23
-20220107221237	2025-09-17 02:53:23
-20220228202821	2025-09-17 02:53:23
-20220312004840	2025-09-17 02:53:23
-20220603231003	2025-09-17 02:53:23
-20220603232444	2025-09-17 02:53:23
-20220615214548	2025-09-17 02:53:23
-20220712093339	2025-09-17 02:53:23
-20220908172859	2025-09-17 02:53:23
-20220916233421	2025-09-17 02:53:23
-20230119133233	2025-09-17 02:53:23
-20230128025114	2025-09-17 02:53:23
-20230128025212	2025-09-17 02:53:23
-20230227211149	2025-09-17 02:53:23
-20230228184745	2025-09-17 02:53:23
-20230308225145	2025-09-17 02:53:23
-20230328144023	2025-09-17 02:53:23
-20231018144023	2025-09-17 02:53:23
-20231204144023	2025-09-17 02:53:23
-20231204144024	2025-09-17 02:53:23
-20231204144025	2025-09-17 02:53:23
-20240108234812	2025-09-17 02:53:23
-20240109165339	2025-09-17 02:53:23
-20240227174441	2025-09-17 02:53:23
-20240311171622	2025-09-17 02:53:23
-20240321100241	2025-09-17 02:53:23
-20240401105812	2025-09-17 02:53:23
-20240418121054	2025-09-17 02:53:23
-20240523004032	2025-09-17 02:53:23
-20240618124746	2025-09-17 02:53:23
-20240801235015	2025-09-17 02:53:23
-20240805133720	2025-09-17 02:53:23
-20240827160934	2025-09-17 02:53:23
-20240919163303	2025-09-17 02:53:23
-20240919163305	2025-09-17 02:53:23
-20241019105805	2025-09-17 02:53:23
-20241030150047	2025-09-17 02:53:23
-20241108114728	2025-09-17 02:53:23
-20241121104152	2025-09-17 02:53:23
-20241130184212	2025-09-17 02:53:23
-20241220035512	2025-09-17 02:53:23
-20241220123912	2025-09-17 02:53:23
-20241224161212	2025-09-17 02:53:23
-20250107150512	2025-09-17 02:53:23
-20250110162412	2025-09-17 02:53:23
-20250123174212	2025-09-17 02:53:23
-20250128220012	2025-09-17 02:53:23
-\.
-
-
---
--- Data for Name: subscription; Type: TABLE DATA; Schema: realtime; Owner: supabase_admin
---
-
-COPY realtime.subscription (id, subscription_id, entity, filters, claims, created_at) FROM stdin;
-\.
-
-
---
--- Data for Name: buckets; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.buckets (id, name, owner, created_at, updated_at, public, avif_autodetection, file_size_limit, allowed_mime_types, owner_id, type) FROM stdin;
-assets	assets	\N	2025-09-25 03:43:55.512182+00	2025-09-25 03:43:55.512182+00	t	f	\N	\N	\N	STANDARD
-\.
-
-
---
--- Data for Name: buckets_analytics; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.buckets_analytics (id, type, format, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: iceberg_namespaces; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.iceberg_namespaces (id, bucket_id, name, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: iceberg_tables; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.iceberg_tables (id, namespace_id, bucket_id, name, location, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: migrations; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.migrations (id, name, hash, executed_at) FROM stdin;
-0	create-migrations-table	e18db593bcde2aca2a408c4d1100f6abba2195df	2025-09-17 02:53:18.233847
-1	initialmigration	6ab16121fbaa08bbd11b712d05f358f9b555d777	2025-09-17 02:53:18.239937
-2	storage-schema	5c7968fd083fcea04050c1b7f6253c9771b99011	2025-09-17 02:53:18.243594
-3	pathtoken-column	2cb1b0004b817b29d5b0a971af16bafeede4b70d	2025-09-17 02:53:18.261213
-4	add-migrations-rls	427c5b63fe1c5937495d9c635c263ee7a5905058	2025-09-17 02:53:18.296507
-5	add-size-functions	79e081a1455b63666c1294a440f8ad4b1e6a7f84	2025-09-17 02:53:18.300752
-6	change-column-name-in-get-size	f93f62afdf6613ee5e7e815b30d02dc990201044	2025-09-17 02:53:18.3086
-7	add-rls-to-buckets	e7e7f86adbc51049f341dfe8d30256c1abca17aa	2025-09-17 02:53:18.314358
-8	add-public-to-buckets	fd670db39ed65f9d08b01db09d6202503ca2bab3	2025-09-17 02:53:18.319019
-9	fix-search-function	3a0af29f42e35a4d101c259ed955b67e1bee6825	2025-09-17 02:53:18.323758
-10	search-files-search-function	68dc14822daad0ffac3746a502234f486182ef6e	2025-09-17 02:53:18.32936
-11	add-trigger-to-auto-update-updated_at-column	7425bdb14366d1739fa8a18c83100636d74dcaa2	2025-09-17 02:53:18.335589
-12	add-automatic-avif-detection-flag	8e92e1266eb29518b6a4c5313ab8f29dd0d08df9	2025-09-17 02:53:18.343774
-13	add-bucket-custom-limits	cce962054138135cd9a8c4bcd531598684b25e7d	2025-09-17 02:53:18.350687
-14	use-bytes-for-max-size	941c41b346f9802b411f06f30e972ad4744dad27	2025-09-17 02:53:18.359257
-15	add-can-insert-object-function	934146bc38ead475f4ef4b555c524ee5d66799e5	2025-09-17 02:53:18.404759
-16	add-version	76debf38d3fd07dcfc747ca49096457d95b1221b	2025-09-17 02:53:18.410708
-17	drop-owner-foreign-key	f1cbb288f1b7a4c1eb8c38504b80ae2a0153d101	2025-09-17 02:53:18.417163
-18	add_owner_id_column_deprecate_owner	e7a511b379110b08e2f214be852c35414749fe66	2025-09-17 02:53:18.425254
-19	alter-default-value-objects-id	02e5e22a78626187e00d173dc45f58fa66a4f043	2025-09-17 02:53:18.433538
-20	list-objects-with-delimiter	cd694ae708e51ba82bf012bba00caf4f3b6393b7	2025-09-17 02:53:18.440766
-21	s3-multipart-uploads	8c804d4a566c40cd1e4cc5b3725a664a9303657f	2025-09-17 02:53:18.456368
-22	s3-multipart-uploads-big-ints	9737dc258d2397953c9953d9b86920b8be0cdb73	2025-09-17 02:53:18.502261
-23	optimize-search-function	9d7e604cddc4b56a5422dc68c9313f4a1b6f132c	2025-09-17 02:53:18.534291
-24	operation-function	8312e37c2bf9e76bbe841aa5fda889206d2bf8aa	2025-09-17 02:53:18.53973
-25	custom-metadata	d974c6057c3db1c1f847afa0e291e6165693b990	2025-09-17 02:53:18.545858
-26	objects-prefixes	ef3f7871121cdc47a65308e6702519e853422ae2	2025-09-17 02:53:18.550758
-27	search-v2	33b8f2a7ae53105f028e13e9fcda9dc4f356b4a2	2025-09-17 02:53:18.57861
-28	object-bucket-name-sorting	ba85ec41b62c6a30a3f136788227ee47f311c436	2025-09-17 02:53:18.596988
-29	create-prefixes	a7b1a22c0dc3ab630e3055bfec7ce7d2045c5b7b	2025-09-17 02:53:18.602588
-30	update-object-levels	6c6f6cc9430d570f26284a24cf7b210599032db7	2025-09-17 02:53:18.607569
-31	objects-level-index	33f1fef7ec7fea08bb892222f4f0f5d79bab5eb8	2025-09-17 02:53:18.621558
-32	backward-compatible-index-on-objects	2d51eeb437a96868b36fcdfb1ddefdf13bef1647	2025-09-17 02:53:18.634854
-33	backward-compatible-index-on-prefixes	fe473390e1b8c407434c0e470655945b110507bf	2025-09-17 02:53:18.646355
-34	optimize-search-function-v1	82b0e469a00e8ebce495e29bfa70a0797f7ebd2c	2025-09-17 02:53:18.648754
-35	add-insert-trigger-prefixes	63bb9fd05deb3dc5e9fa66c83e82b152f0caf589	2025-09-17 02:53:18.659225
-36	optimise-existing-functions	81cf92eb0c36612865a18016a38496c530443899	2025-09-17 02:53:18.669121
-37	add-bucket-name-length-trigger	3944135b4e3e8b22d6d4cbb568fe3b0b51df15c1	2025-09-17 02:53:18.68144
-38	iceberg-catalog-flag-on-buckets	19a8bd89d5dfa69af7f222a46c726b7c41e462c5	2025-09-17 02:53:18.687794
-\.
-
-
---
--- Data for Name: objects; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.objects (id, bucket_id, name, owner, created_at, updated_at, last_accessed_at, metadata, version, owner_id, user_metadata, level) FROM stdin;
-ccd2fa46-71cb-49e3-b5eb-74e202d2359d	assets	customize_service.jpg	\N	2025-09-25 05:36:40.3766+00	2025-09-25 05:36:40.3766+00	2025-09-25 05:36:40.3766+00	{"eTag": "\\"52f00f8c2f6f729f6fc156a3aa796565\\"", "size": 18755, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.142Z", "contentLength": 18755, "httpStatusCode": 200}	d7c95057-e89f-4fe8-bbe1-41a9076e3783	\N	\N	1
-681b4a40-2720-48ca-b1ea-187dd592efa8	assets	handshake.jpg	\N	2025-09-25 05:36:42.531863+00	2025-09-25 05:36:42.531863+00	2025-09-25 05:36:42.531863+00	{"eTag": "\\"c7cff19670f2be0d263e51ce99dd0566\\"", "size": 144003, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:41.847Z", "contentLength": 144003, "httpStatusCode": 200}	a98b3436-8c36-4e5b-9e6d-4dc793633abb	\N	\N	1
-b738b00f-1e23-4f68-aba3-5097be7a22a3	assets	ha.png	\N	2025-09-25 05:36:42.883374+00	2025-09-25 05:36:42.883374+00	2025-09-25 05:36:42.883374+00	{"eTag": "\\"ce824a6c4dca153f32cbffec7c993e18\\"", "size": 369096, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:42.130Z", "contentLength": 369096, "httpStatusCode": 200}	1a96d317-db93-4c27-8e18-017daa8e4d62	\N	\N	1
-23ca0540-9aea-4d4a-b9bc-3de7f9326dd3	assets	affordable.png	\N	2025-09-25 05:36:40.363697+00	2025-09-25 05:36:40.363697+00	2025-09-25 05:36:40.363697+00	{"eTag": "\\"4bb7794e1ca1f0869d1a1b06b87dc896\\"", "size": 3184, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.142Z", "contentLength": 3184, "httpStatusCode": 200}	8197bc89-c00e-4bbd-a8b9-145cb3eb1a1a	\N	\N	1
-51d5f473-46bd-4baf-ac88-b60ec40734e8	assets	feasible.png	\N	2025-09-25 05:36:41.331465+00	2025-09-25 05:36:41.331465+00	2025-09-25 05:36:41.331465+00	{"eTag": "\\"fd32aefe90668017dae691bcd2c0c3f5\\"", "size": 2614, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.737Z", "contentLength": 2614, "httpStatusCode": 200}	23441e38-eb31-4927-90ba-8fc8c8bca3a8	\N	\N	1
-0cc3837e-2920-4d78-8722-5307e372801a	assets	stable.png	\N	2025-09-25 05:36:42.960522+00	2025-09-25 05:36:42.960522+00	2025-09-25 05:36:42.960522+00	{"eTag": "\\"882d4cde4ce78cb74dba9dfe81ced86c\\"", "size": 4391, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:42.906Z", "contentLength": 4391, "httpStatusCode": 200}	ddf1c28d-11b2-4d5e-a7bd-5b0f9185e565	\N	\N	1
-ff4166ad-4f2a-410d-a4aa-29ef3e771bb2	assets	customize_button.jpg	\N	2025-09-25 05:36:40.363332+00	2025-09-25 05:36:40.363332+00	2025-09-25 05:36:40.363332+00	{"eTag": "\\"cebcd383da9d2fece0fc7102fe68932f\\"", "size": 9911, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.142Z", "contentLength": 9911, "httpStatusCode": 200}	cb811055-2524-4458-9aa1-dca43a9dfb41	\N	\N	1
-1a313183-a7c5-42f1-bbd3-b8db50719df6	assets	bedroom.jpg	\N	2025-09-25 05:36:40.544459+00	2025-09-25 05:36:40.544459+00	2025-09-25 05:36:40.544459+00	{"eTag": "\\"fd8f07333303a25179a6ffb47f387bf9\\"", "size": 294691, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.202Z", "contentLength": 294691, "httpStatusCode": 200}	e678adaa-c0c5-440b-8301-273cb653af9d	\N	\N	1
-909208da-f553-4636-a797-ff22a6fdc258	assets	comfortable.png	\N	2025-09-25 05:36:40.347075+00	2025-09-25 05:36:40.347075+00	2025-09-25 05:36:40.347075+00	{"eTag": "\\"33063bf4a317efa9ead121593902e3fb\\"", "size": 2695, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.130Z", "contentLength": 2695, "httpStatusCode": 200}	d0d415be-5bff-4648-a08c-27ea6936eda4	\N	\N	1
-03c5cea3-1fb7-4c7b-911e-74023d615442	assets	CTC_icon.png	\N	2025-09-25 05:36:40.395662+00	2025-09-25 05:36:40.395662+00	2025-09-25 05:36:40.395662+00	{"eTag": "\\"696347c31618923c72d30502689e3d15\\"", "size": 24663, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.164Z", "contentLength": 24663, "httpStatusCode": 200}	d26e5d6e-9782-46ce-bb13-728fa75d4d1a	\N	\N	1
-30dc8b7f-4d6b-4b7b-95b5-66aad56a5875	assets	DI.jpg	\N	2025-09-25 05:36:41.371626+00	2025-09-25 05:36:41.371626+00	2025-09-25 05:36:41.371626+00	{"eTag": "\\"6af25f7135621212ad650a2abab69416\\"", "size": 8833, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.746Z", "contentLength": 8833, "httpStatusCode": 200}	95638f29-fb95-4fbc-b650-f1088cc042f3	\N	\N	1
-a0a955e5-f325-4a86-8dce-96c7dce49ae3	assets	sqare_ctc_icon.png	\N	2025-09-25 05:36:42.973918+00	2025-09-25 05:36:42.973918+00	2025-09-25 05:36:42.973918+00	{"eTag": "\\"6e394d877a527b30c9cacac971fefe78\\"", "size": 74466, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:42.906Z", "contentLength": 74466, "httpStatusCode": 200}	7a7b5250-da78-4578-85e7-7c7dd193f60c	\N	\N	1
-37fbd915-e1b3-4486-99f9-9bf111c6b45c	assets	HA.jpg	\N	2025-09-25 05:36:41.342588+00	2025-09-25 05:36:41.342588+00	2025-09-25 05:36:41.342588+00	{"eTag": "\\"85a84a83a10c547a2b730e8553bd3e3b\\"", "size": 10989, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:40.742Z", "contentLength": 10989, "httpStatusCode": 200}	6d6d8287-d3e7-4058-8511-60de5212ad61	\N	\N	1
-36aa8ffc-7634-46c3-97e2-4027f0b2c32a	assets	homeassistant_logo.png	\N	2025-09-25 05:36:41.53261+00	2025-09-25 05:36:41.53261+00	2025-09-25 05:36:41.53261+00	{"eTag": "\\"762d73e78e8344561390ca97c89fa6a0\\"", "size": 62744, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:41.501Z", "contentLength": 62744, "httpStatusCode": 200}	9fbc64eb-7535-4274-a9a1-625bc08b8027	\N	\N	1
-91bd014f-e2a5-4568-9167-d8b3e0a80309	assets	living-room.jpg	\N	2025-09-25 05:36:42.981173+00	2025-09-25 05:36:42.981173+00	2025-09-25 05:36:42.981173+00	{"eTag": "\\"a3260fd94e3d230d41d22c092c9c1ec4\\"", "size": 396006, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:42.868Z", "contentLength": 396006, "httpStatusCode": 200}	8caa6ec4-9daf-4ca4-bd36-122ee6495da6	\N	\N	1
-8c78e1b4-ff3b-411d-838c-c6705ee8a28e	assets	smart_interface.jpg	\N	2025-09-25 05:36:42.951136+00	2025-09-25 05:36:42.951136+00	2025-09-25 05:36:42.951136+00	{"eTag": "\\"33b66e0043ff97d3a187067c1b8f4583\\"", "size": 15927, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:42.885Z", "contentLength": 15927, "httpStatusCode": 200}	24eafeeb-1514-4c84-9a1e-a343e7a9b739	\N	\N	1
-81ba7389-807d-4507-8009-dd98760ef9c8	assets	sustainable.png	\N	2025-09-25 05:36:43.000996+00	2025-09-25 05:36:43.000996+00	2025-09-25 05:36:43.000996+00	{"eTag": "\\"d9ff67954db6abb94a1c285e8ac4dc1a\\"", "size": 3137, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:42.940Z", "contentLength": 3137, "httpStatusCode": 200}	98524e4a-c0ba-4ca2-bbb6-cf2e06c0bb61	\N	\N	1
-60adcd56-29b4-4430-9b13-9ee03799a086	assets	floor_plans/1759297726696_scaled_2025_08_20_095939.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 05:48:46.152946+00	2025-10-01 05:48:46.152946+00	2025-10-01 05:48:46.152946+00	{"eTag": "\\"a4855451033aae5c63dc9c4eb351c152\\"", "size": 616314, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T05:48:46.132Z", "contentLength": 616314, "httpStatusCode": 200}	3e70ebbb-5f71-4457-96b9-efbc1383b42b	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-c730ca0b-1b64-42db-9693-8bd4072566fd	assets	floor_plans/1759297753860_scaled_2025_08_20_095939.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 05:49:14.59223+00	2025-10-01 05:49:14.59223+00	2025-10-01 05:49:14.59223+00	{"eTag": "\\"a4855451033aae5c63dc9c4eb351c152\\"", "size": 616314, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T05:49:14.580Z", "contentLength": 616314, "httpStatusCode": 200}	0105ae79-e748-4dac-8f40-9461472c2223	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-cf4132c4-1021-4a65-bdcb-2b0daac74858	assets	floor_plans/1759394864392_scaled_17593948440824051527099455416145.jpg	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:47:48.008266+00	2025-10-02 08:47:48.008266+00	2025-10-02 08:47:48.008266+00	{"eTag": "\\"5e5147e52abeab46ea9a2eec79a306ab\\"", "size": 215395, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-02T08:47:47.996Z", "contentLength": 215395, "httpStatusCode": 200}	60467797-bb62-46e1-afef-2ad698e767a9	967e7680-75e4-4b14-a15d-8936c7e92bc7	{}	2
-619767e1-5ba1-46cd-b0f7-9cec0823e39b	assets	floor_plans/1759394927567_scaled_17593949195145610732692331816620.jpg	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:48:50.885047+00	2025-10-02 08:48:50.885047+00	2025-10-02 08:48:50.885047+00	{"eTag": "\\"11acdb60e691ea92c688d3b4bbfc8c0a\\"", "size": 172197, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-02T08:48:50.874Z", "contentLength": 172197, "httpStatusCode": 200}	8376e248-2794-48c5-921e-84013e36f369	967e7680-75e4-4b14-a15d-8936c7e92bc7	{}	2
-784b4860-f012-41af-a23d-039eadae74d9	assets	floor_plans/1759394950892_scaled_1000000871.jpg	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:49:14.394406+00	2025-10-02 08:49:14.394406+00	2025-10-02 08:49:14.394406+00	{"eTag": "\\"3db16c5374d9e5c6dedc5e56ae26eba8\\"", "size": 269464, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-02T08:49:14.379Z", "contentLength": 269464, "httpStatusCode": 200}	0d5c2045-bdd5-4818-bde6-cf76ea5264b0	967e7680-75e4-4b14-a15d-8936c7e92bc7	{}	2
-059946c8-451c-42cd-8017-435895a4e47d	assets	floor_plans/1759892315894_scaled_S_5046274.jpg	a939945b-b080-4575-871b-91e222484828	2025-10-08 02:58:36.861033+00	2025-10-08 02:58:36.861033+00	2025-10-08 02:58:36.861033+00	{"eTag": "\\"365573b3f129bc4a8e764ce11489a5f7\\"", "size": 38933, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-08T02:58:36.832Z", "contentLength": 38933, "httpStatusCode": 200}	286842bd-e7b0-4e4a-8a57-5e73b699ff9e	a939945b-b080-4575-871b-91e222484828	{}	2
-12e24e51-3a05-44a3-9554-a8a462781b5a	assets	floor_plans/1759297744144_scaled_2025_08_20_095939.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 05:49:04.435774+00	2025-10-01 05:49:04.435774+00	2025-10-01 05:49:04.435774+00	{"eTag": "\\"a4855451033aae5c63dc9c4eb351c152\\"", "size": 616314, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T05:49:04.420Z", "contentLength": 616314, "httpStatusCode": 200}	fb2fdb9f-098e-4f3e-8ea9-100e72c98d41	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-52a4b258-e2b3-450c-9ee0-6201dcccd03c	assets	floor_plans/1759297802100_scaled_1F.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 05:50:02.296072+00	2025-10-01 05:50:02.296072+00	2025-10-01 05:50:02.296072+00	{"eTag": "\\"99dfea6748c2a7adf6f962a9c07aa39a\\"", "size": 33493, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T05:50:02.286Z", "contentLength": 33493, "httpStatusCode": 200}	85b1d5e1-ff7c-47de-98ca-9d0e79006d93	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-7085e231-8ac5-4ea3-b9fe-03642a97f798	assets	floor_plans/1759297838613_scaled_2025_08_19_182306.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 05:50:39.304621+00	2025-10-01 05:50:39.304621+00	2025-10-01 05:50:39.304621+00	{"eTag": "\\"079d6c569f535d39779cb145bbba2dd1\\"", "size": 763135, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T05:50:39.279Z", "contentLength": 763135, "httpStatusCode": 200}	c8c59fe7-0b4a-4330-8360-de5a556308ab	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-6654e93c-a5d9-433b-ba50-909c3b0834ad	assets	floor_plans/1759394883830_scaled_1000000869.jpg	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:48:06.288915+00	2025-10-02 08:48:06.288915+00	2025-10-02 08:48:06.288915+00	{"eTag": "\\"eea0335763b57402258caf69f4f4fdba\\"", "size": 107820, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-02T08:48:06.273Z", "contentLength": 107820, "httpStatusCode": 200}	e6adb017-872a-4ff9-810e-a40c0db9447a	967e7680-75e4-4b14-a15d-8936c7e92bc7	{}	2
-8a3f252e-3190-4878-a7a8-105a99f2fe41	assets	floor_plans/1759394937558_scaled_1000000871.jpg	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:49:00.298926+00	2025-10-02 08:49:00.298926+00	2025-10-02 08:49:00.298926+00	{"eTag": "\\"3db16c5374d9e5c6dedc5e56ae26eba8\\"", "size": 269464, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-02T08:49:00.279Z", "contentLength": 269464, "httpStatusCode": 200}	0a07188a-2a7c-40e6-a52c-a198bb4057cc	967e7680-75e4-4b14-a15d-8936c7e92bc7	{}	2
-aa3deeb8-fd40-4124-8978-94bade110645	assets	photos/1759394992938_scaled_17593949880424910763990775728596.jpg	967e7680-75e4-4b14-a15d-8936c7e92bc7	2025-10-02 08:49:57.852068+00	2025-10-02 08:49:57.852068+00	2025-10-02 08:49:57.852068+00	{"eTag": "\\"0be9d1e9aa52467ec097c516ecdd29a8\\"", "size": 200573, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-02T08:49:57.842Z", "contentLength": 200573, "httpStatusCode": 200}	65cb6be1-07f9-4215-a5ec-1d599fae7984	967e7680-75e4-4b14-a15d-8936c7e92bc7	{}	2
-9c3d3f0c-2278-4491-b926-cba1183def88	assets	floor_plans/1759298374165_scaled_2025_08_19_182306.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 05:59:34.561514+00	2025-10-01 05:59:34.561514+00	2025-10-01 05:59:34.561514+00	{"eTag": "\\"079d6c569f535d39779cb145bbba2dd1\\"", "size": 763135, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T05:59:34.537Z", "contentLength": 763135, "httpStatusCode": 200}	0f64b24b-05bb-4092-a75f-dcb81c8f864e	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-d964f022-1191-46d8-a4d2-91493ad20e4a	assets	photos/1759299378969_scaled_2025_08_19_182644.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 06:16:19.360508+00	2025-10-01 06:16:19.360508+00	2025-10-01 06:16:19.360508+00	{"eTag": "\\"c7ae8c02121878f02c26b96b80df1f36\\"", "size": 533605, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T06:16:19.348Z", "contentLength": 533605, "httpStatusCode": 200}	98e55853-99d7-456c-a269-39bb4b7bf3e7	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-387daaf9-471d-4064-9a21-5b1d24388c2f	assets	floor_plans/1759299778112_scaled_S_5046274.jpg	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 06:22:58.381348+00	2025-10-01 06:22:58.381348+00	2025-10-01 06:22:58.381348+00	{"eTag": "\\"8d3743e1cd83b7dc036c446331fce23e\\"", "size": 100331, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T06:22:58.369Z", "contentLength": 100331, "httpStatusCode": 200}	b208d0a9-045d-4828-884b-2c20694db6fa	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-91f1f88c-1df3-4da8-b29b-241c6b1d7cf7	assets	photos/1759299812538_scaled_2025_08_20_100239.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 06:23:33.157521+00	2025-10-01 06:23:33.157521+00	2025-10-01 06:23:33.157521+00	{"eTag": "\\"d6daae98bf358789dd7efd0a6ea8d967\\"", "size": 633694, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T06:23:33.136Z", "contentLength": 633694, "httpStatusCode": 200}	84141fcd-fc99-45a0-9d71-57a5c686948b	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-b942f2c0-8075-49d3-bb3f-e80c0d957e3e	assets	floor_plans/1759300256389_scaled_S_5046274.jpg	a939945b-b080-4575-871b-91e222484828	2025-10-01 06:30:56.745535+00	2025-10-01 06:30:56.745535+00	2025-10-01 06:30:56.745535+00	{"eTag": "\\"8d3743e1cd83b7dc036c446331fce23e\\"", "size": 100331, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T06:30:56.738Z", "contentLength": 100331, "httpStatusCode": 200}	6fa6c0ed-cb16-42a6-ae67-897de1862d65	a939945b-b080-4575-871b-91e222484828	{}	2
-da7efcf0-d4e1-43e2-9120-48dd58d1d649	assets	photos/1759300295189_scaled_1F.png	a939945b-b080-4575-871b-91e222484828	2025-10-01 06:31:36.058039+00	2025-10-01 06:31:36.058039+00	2025-10-01 06:31:36.058039+00	{"eTag": "\\"99dfea6748c2a7adf6f962a9c07aa39a\\"", "size": 33493, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T06:31:36.046Z", "contentLength": 33493, "httpStatusCode": 200}	4917d6dc-d3c2-42e5-9ac9-12d20deaa2b7	a939945b-b080-4575-871b-91e222484828	{}	2
-d8ef9012-e6c5-498c-9cd4-504e1313ec71	assets	photos/1759301492975_scaled_CTC_icon.png	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 06:51:33.347421+00	2025-10-01 06:51:33.347421+00	2025-10-01 06:51:33.347421+00	{"eTag": "\\"6a2f6c2c24067b558671a998209e9edc\\"", "size": 34384, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T06:51:33.339Z", "contentLength": 34384, "httpStatusCode": 200}	f173ec8a-9324-45e0-800e-dd8837a5cd12	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-778f9fbe-3dbf-45eb-bf48-0be8b7141c16	assets	floor_plans/1759304144723_scaled_1000003211.jpg	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 07:35:51.011859+00	2025-10-01 07:35:51.011859+00	2025-10-01 07:35:51.011859+00	{"eTag": "\\"d052ab1a7131fbdd482256763c8dcd1c\\"", "size": 145306, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T07:35:50.994Z", "contentLength": 145306, "httpStatusCode": 200}	5ca6b190-d89e-444e-a365-50802fcc83eb	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-2eaa4f1c-66a7-4dc4-adf1-0b943da7b3a1	assets	floor_plans/1759304169935_scaled_1000003211.jpg	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 07:36:20.976023+00	2025-10-01 07:36:20.976023+00	2025-10-01 07:36:20.976023+00	{"eTag": "\\"d052ab1a7131fbdd482256763c8dcd1c\\"", "size": 145306, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T07:36:20.966Z", "contentLength": 145306, "httpStatusCode": 200}	920d95be-8a48-4352-b8f4-5c75421f9302	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-2044f7d6-c5bf-4469-85fe-745a4bf4c539	assets	photos/1759304205678_scaled_1000003213.jpg	98568fd9-dd57-4f17-9a61-76a6951f1fac	2025-10-01 07:36:45.140329+00	2025-10-01 07:36:45.140329+00	2025-10-01 07:36:45.140329+00	{"eTag": "\\"a826803d6300766f1b062eac23d5101b\\"", "size": 154478, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-10-01T07:36:45.123Z", "contentLength": 154478, "httpStatusCode": 200}	cf1392f2-f880-4d2a-aada-a45fdc9170ff	98568fd9-dd57-4f17-9a61-76a6951f1fac	{}	2
-c6423f7f-ae3a-41e3-9038-a24302b862ce	assets	durable.png	\N	2025-09-25 05:36:41.40361+00	2025-09-25 05:36:41.40361+00	2025-09-25 05:36:41.40361+00	{"eTag": "\\"0c230fb01f9adc9257bb7512534f5f39\\"", "size": 2559, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:41.130Z", "contentLength": 2559, "httpStatusCode": 200}	88c9f79f-8f38-4c1a-b020-6f68facf0c40	\N	\N	1
-ff27ab0d-7a74-48b8-9480-72fe1acdc534	assets	homeassistant_phone_dashboard.png	\N	2025-09-25 05:36:41.54768+00	2025-09-25 05:36:41.54768+00	2025-09-25 05:36:41.54768+00	{"eTag": "\\"1bc22d8447b9e36df103b407c21d2973\\"", "size": 39104, "mimetype": "image/png", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:41.501Z", "contentLength": 39104, "httpStatusCode": 200}	abf102d2-66c5-4aaa-9bae-373de82b91b0	\N	\N	1
-25a52c62-21de-4a3b-80f0-7e3577e68504	assets	LIGHT.jpeg	\N	2025-09-25 05:36:41.738863+00	2025-09-25 05:36:41.738863+00	2025-09-25 05:36:41.738863+00	{"eTag": "\\"6462ed282d97b948dd80ad3168c5eadb\\"", "size": 17563, "mimetype": "image/jpeg", "cacheControl": "max-age=3600", "lastModified": "2025-09-25T05:36:41.543Z", "contentLength": 17563, "httpStatusCode": 200}	b07a71a0-8820-4187-8c3b-037ca1288728	\N	\N	1
-\.
-
-
---
--- Data for Name: prefixes; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.prefixes (bucket_id, name, created_at, updated_at) FROM stdin;
-assets	floor_plans	2025-10-01 05:48:46.152946+00	2025-10-01 05:48:46.152946+00
-assets	photos	2025-10-01 06:16:19.360508+00	2025-10-01 06:16:19.360508+00
-\.
-
-
---
--- Data for Name: s3_multipart_uploads; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.s3_multipart_uploads (id, in_progress_size, upload_signature, bucket_id, key, version, owner_id, created_at, user_metadata) FROM stdin;
-\.
-
-
---
--- Data for Name: s3_multipart_uploads_parts; Type: TABLE DATA; Schema: storage; Owner: supabase_storage_admin
---
-
-COPY storage.s3_multipart_uploads_parts (id, upload_id, size, part_number, bucket_id, key, etag, owner_id, version, created_at) FROM stdin;
-\.
-
-
---
--- Data for Name: hooks; Type: TABLE DATA; Schema: supabase_functions; Owner: supabase_functions_admin
---
-
-COPY supabase_functions.hooks (id, hook_table_id, hook_name, created_at, request_id) FROM stdin;
-\.
-
-
---
--- Data for Name: migrations; Type: TABLE DATA; Schema: supabase_functions; Owner: supabase_functions_admin
---
-
-COPY supabase_functions.migrations (version, inserted_at) FROM stdin;
-initial	2025-09-17 02:52:54.791204+00
-20210809183423_update_grants	2025-09-17 02:52:54.791204+00
-\.
-
-
---
--- Data for Name: secrets; Type: TABLE DATA; Schema: vault; Owner: supabase_admin
---
-
-COPY vault.secrets (id, name, description, secret, key_id, nonce, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE SET; Schema: auth; Owner: supabase_auth_admin
---
-
-SELECT pg_catalog.setval('auth.refresh_tokens_id_seq', 224, true);
-
-
---
--- Name: subscription_id_seq; Type: SEQUENCE SET; Schema: realtime; Owner: supabase_admin
---
-
-SELECT pg_catalog.setval('realtime.subscription_id_seq', 1, false);
-
-
---
--- Name: hooks_id_seq; Type: SEQUENCE SET; Schema: supabase_functions; Owner: supabase_functions_admin
---
-
-SELECT pg_catalog.setval('supabase_functions.hooks_id_seq', 1, false);
-
-
---
 -- Name: extensions extensions_pkey; Type: CONSTRAINT; Schema: _realtime; Owner: supabase_admin
 --
 
@@ -5496,6 +4732,22 @@ ALTER TABLE ONLY public.attendance_records
 
 
 --
+-- Name: customers customers_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.customers
+    ADD CONSTRAINT customers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: customers customers_user_id_key; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.customers
+    ADD CONSTRAINT customers_user_id_key UNIQUE (user_id);
+
+
+--
 -- Name: employee_skills employee_skills_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
 --
 
@@ -5541,6 +4793,22 @@ ALTER TABLE ONLY public.floor_plan_permissions
 
 ALTER TABLE ONLY public.floor_plans
     ADD CONSTRAINT floor_plans_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: holidays holidays_date_key; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.holidays
+    ADD CONSTRAINT holidays_date_key UNIQUE (date);
+
+
+--
+-- Name: holidays holidays_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.holidays
+    ADD CONSTRAINT holidays_pkey PRIMARY KEY (id);
 
 
 --
@@ -5600,11 +4868,51 @@ ALTER TABLE ONLY public.profiles
 
 
 --
+-- Name: project_clients project_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_clients
+    ADD CONSTRAINT project_clients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_comments project_comments_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_comments
+    ADD CONSTRAINT project_comments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: project_members project_members_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
 --
 
 ALTER TABLE ONLY public.project_members
     ADD CONSTRAINT project_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_members project_members_project_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_members
+    ADD CONSTRAINT project_members_project_id_user_id_key UNIQUE (project_id, user_id);
+
+
+--
+-- Name: project_tasks project_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_tasks
+    ADD CONSTRAINT project_tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_timeline project_timeline_pkey; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_timeline
+    ADD CONSTRAINT project_timeline_pkey PRIMARY KEY (id);
 
 
 --
@@ -5629,14 +4937,6 @@ ALTER TABLE ONLY public.system_settings
 
 ALTER TABLE ONLY public.employee_skills
     ADD CONSTRAINT unique_employee_skill UNIQUE (employee_id, skill_name);
-
-
---
--- Name: project_members unique_project_user; Type: CONSTRAINT; Schema: public; Owner: supabase_admin
---
-
-ALTER TABLE ONLY public.project_members
-    ADD CONSTRAINT unique_project_user UNIQUE (project_id, user_id);
 
 
 --
@@ -6134,6 +5434,27 @@ CREATE INDEX idx_attendance_records_employee_id ON public.attendance_records USI
 
 
 --
+-- Name: idx_customers_company; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_customers_company ON public.customers USING btree (company);
+
+
+--
+-- Name: idx_customers_email; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_customers_email ON public.customers USING btree (email);
+
+
+--
+-- Name: idx_customers_user_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_customers_user_id ON public.customers USING btree (user_id);
+
+
+--
 -- Name: idx_employees_department; Type: INDEX; Schema: public; Owner: supabase_admin
 --
 
@@ -6187,6 +5508,48 @@ CREATE INDEX idx_employees_role ON public.employees USING btree (role);
 --
 
 CREATE INDEX idx_employees_status ON public.employees USING btree (status);
+
+
+--
+-- Name: idx_floor_plan_permissions_floor_plan_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_floor_plan_permissions_floor_plan_id ON public.floor_plan_permissions USING btree (floor_plan_id);
+
+
+--
+-- Name: idx_floor_plan_permissions_user_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_floor_plan_permissions_user_id ON public.floor_plan_permissions USING btree (user_id);
+
+
+--
+-- Name: idx_floor_plans_project_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_floor_plans_project_id ON public.floor_plans USING btree (project_id);
+
+
+--
+-- Name: idx_holidays_date; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_holidays_date ON public.holidays USING btree (date);
+
+
+--
+-- Name: idx_holidays_workday; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_holidays_workday ON public.holidays USING btree (is_workday) WHERE (is_workday = false);
+
+
+--
+-- Name: idx_holidays_year; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_holidays_year ON public.holidays USING btree (year);
 
 
 --
@@ -6257,6 +5620,104 @@ CREATE INDEX idx_leave_requests_employee ON public.leave_requests USING btree (e
 --
 
 CREATE INDEX idx_leave_requests_status ON public.leave_requests USING btree (status);
+
+
+--
+-- Name: idx_project_clients_project_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_clients_project_id ON public.project_clients USING btree (project_id);
+
+
+--
+-- Name: idx_project_comments_parent_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_comments_parent_id ON public.project_comments USING btree (parent_id);
+
+
+--
+-- Name: idx_project_comments_project_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_comments_project_id ON public.project_comments USING btree (project_id);
+
+
+--
+-- Name: idx_project_members_project_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_members_project_id ON public.project_members USING btree (project_id);
+
+
+--
+-- Name: idx_project_members_user_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_members_user_id ON public.project_members USING btree (user_id);
+
+
+--
+-- Name: idx_project_tasks_assigned_to; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_tasks_assigned_to ON public.project_tasks USING btree (assigned_to);
+
+
+--
+-- Name: idx_project_tasks_next; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_tasks_next ON public.project_tasks USING btree (next_task_id);
+
+
+--
+-- Name: idx_project_tasks_previous; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_tasks_previous ON public.project_tasks USING btree (previous_task_id);
+
+
+--
+-- Name: idx_project_tasks_project_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_tasks_project_id ON public.project_tasks USING btree (project_id);
+
+
+--
+-- Name: idx_project_tasks_status; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_tasks_status ON public.project_tasks USING btree (status);
+
+
+--
+-- Name: idx_project_timeline_date; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_timeline_date ON public.project_timeline USING btree (milestone_date);
+
+
+--
+-- Name: idx_project_timeline_project_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_project_timeline_project_id ON public.project_timeline USING btree (project_id);
+
+
+--
+-- Name: idx_projects_owner_id; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_projects_owner_id ON public.projects USING btree (owner_id);
+
+
+--
+-- Name: idx_projects_status; Type: INDEX; Schema: public; Owner: supabase_admin
+--
+
+CREATE INDEX idx_projects_status ON public.projects USING btree (status);
 
 
 --
@@ -6428,6 +5889,13 @@ CREATE TRIGGER update_attendance_records_updated_at BEFORE UPDATE ON public.atte
 
 
 --
+-- Name: customers update_customers_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
+--
+
+CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: employees update_employees_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
 --
 
@@ -6435,10 +5903,38 @@ CREATE TRIGGER update_employees_updated_at BEFORE UPDATE ON public.employees FOR
 
 
 --
--- Name: job_vacancies update_job_vacancies_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
+-- Name: project_clients update_project_clients_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
 --
 
-CREATE TRIGGER update_job_vacancies_updated_at BEFORE UPDATE ON public.job_vacancies FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_project_clients_updated_at BEFORE UPDATE ON public.project_clients FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: project_comments update_project_comments_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
+--
+
+CREATE TRIGGER update_project_comments_updated_at BEFORE UPDATE ON public.project_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: project_tasks update_project_tasks_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
+--
+
+CREATE TRIGGER update_project_tasks_updated_at BEFORE UPDATE ON public.project_tasks FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: project_timeline update_project_timeline_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
+--
+
+CREATE TRIGGER update_project_timeline_updated_at BEFORE UPDATE ON public.project_timeline FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: projects update_projects_updated_at; Type: TRIGGER; Schema: public; Owner: supabase_admin
+--
+
+CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -6625,6 +6121,14 @@ ALTER TABLE ONLY public.attendance_records
 
 
 --
+-- Name: customers customers_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.customers
+    ADD CONSTRAINT customers_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: employee_skills employee_skills_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
 --
 
@@ -6677,7 +6181,7 @@ ALTER TABLE ONLY public.floor_plan_permissions
 --
 
 ALTER TABLE ONLY public.floor_plans
-    ADD CONSTRAINT floor_plans_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
+    ADD CONSTRAINT floor_plans_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
 
 
 --
@@ -6686,14 +6190,6 @@ ALTER TABLE ONLY public.floor_plans
 
 ALTER TABLE ONLY public.floor_plans
     ADD CONSTRAINT floor_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
-
-
---
--- Name: images images_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
---
-
-ALTER TABLE ONLY public.images
-    ADD CONSTRAINT images_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
 
 
 --
@@ -6753,6 +6249,38 @@ ALTER TABLE ONLY public.profiles
 
 
 --
+-- Name: project_clients project_clients_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_clients
+    ADD CONSTRAINT project_clients_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_comments project_comments_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_comments
+    ADD CONSTRAINT project_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.project_comments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_comments project_comments_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_comments
+    ADD CONSTRAINT project_comments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_comments project_comments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_comments
+    ADD CONSTRAINT project_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: project_members project_members_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
 --
 
@@ -6765,7 +6293,63 @@ ALTER TABLE ONLY public.project_members
 --
 
 ALTER TABLE ONLY public.project_members
-    ADD CONSTRAINT project_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+    ADD CONSTRAINT project_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_tasks project_tasks_assigned_to_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_tasks
+    ADD CONSTRAINT project_tasks_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: project_tasks project_tasks_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_tasks
+    ADD CONSTRAINT project_tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: project_tasks project_tasks_next_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_tasks
+    ADD CONSTRAINT project_tasks_next_task_id_fkey FOREIGN KEY (next_task_id) REFERENCES public.project_tasks(id) ON DELETE SET NULL;
+
+
+--
+-- Name: project_tasks project_tasks_previous_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_tasks
+    ADD CONSTRAINT project_tasks_previous_task_id_fkey FOREIGN KEY (previous_task_id) REFERENCES public.project_tasks(id) ON DELETE SET NULL;
+
+
+--
+-- Name: project_tasks project_tasks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_tasks
+    ADD CONSTRAINT project_tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_timeline project_timeline_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_timeline
+    ADD CONSTRAINT project_timeline_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: project_timeline project_timeline_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE ONLY public.project_timeline
+    ADD CONSTRAINT project_timeline_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -6773,7 +6357,7 @@ ALTER TABLE ONLY public.project_members
 --
 
 ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id);
+    ADD CONSTRAINT projects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -6945,6 +6529,13 @@ ALTER TABLE auth.sso_providers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: holidays Anyone can read holidays; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Anyone can read holidays" ON public.holidays FOR SELECT TO authenticated USING (true);
+
+
+--
 -- Name: job_vacancies Anyone can view active job vacancies; Type: POLICY; Schema: public; Owner: supabase_admin
 --
 
@@ -7005,6 +6596,15 @@ CREATE POLICY "Employees can update own info" ON public.employees FOR UPDATE USI
 --
 
 CREATE POLICY "Employees can update own pending requests" ON public.attendance_leave_requests FOR UPDATE USING (((employee_id = auth.uid()) AND (status = 'pending'::text)));
+
+
+--
+-- Name: customers Employees can view all customers; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Employees can view all customers" ON public.customers FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.id = auth.uid()) AND (employees.status = '在職'::text)))));
 
 
 --
@@ -7085,10 +6685,183 @@ CREATE POLICY "Managers can view all requests" ON public.attendance_leave_reques
 
 
 --
+-- Name: holidays Only admins can manage holidays; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Only admins can manage holidays" ON public.holidays TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.id = auth.uid()) AND (employees.role = 'admin'::text)))));
+
+
+--
+-- Name: project_clients Owners and admins can manage clients; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Owners and admins can manage clients" ON public.project_clients USING (public.has_project_admin_access(project_id, auth.uid())) WITH CHECK (public.has_project_admin_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_members Owners and admins can manage members; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Owners and admins can manage members" ON public.project_members USING (public.has_project_admin_access(project_id, auth.uid())) WITH CHECK (public.has_project_admin_access(project_id, auth.uid()));
+
+
+--
+-- Name: projects Owners and admins can update projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Owners and admins can update projects" ON public.projects FOR UPDATE USING (((owner_id = auth.uid()) OR public.has_project_admin_access(id, auth.uid()))) WITH CHECK (((owner_id = auth.uid()) OR public.has_project_admin_access(id, auth.uid())));
+
+
+--
+-- Name: projects Owners can delete their projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Owners can delete their projects" ON public.projects FOR DELETE USING ((owner_id = auth.uid()));
+
+
+--
+-- Name: project_comments Project members can add comments; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can add comments" ON public.project_comments FOR INSERT WITH CHECK ((public.has_project_access(project_id, auth.uid()) AND (user_id = auth.uid())));
+
+
+--
+-- Name: project_tasks Project members can manage tasks; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can manage tasks" ON public.project_tasks USING (public.has_project_access(project_id, auth.uid())) WITH CHECK (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_timeline Project members can manage timeline; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can manage timeline" ON public.project_timeline USING (public.has_project_access(project_id, auth.uid())) WITH CHECK (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_clients Project members can view clients; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can view clients" ON public.project_clients FOR SELECT USING (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_comments Project members can view comments; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can view comments" ON public.project_comments FOR SELECT USING (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_members Project members can view other members; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can view other members" ON public.project_members FOR SELECT USING (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_tasks Project members can view tasks; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can view tasks" ON public.project_tasks FOR SELECT USING (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_timeline Project members can view timeline; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project members can view timeline" ON public.project_timeline FOR SELECT USING (public.has_project_access(project_id, auth.uid()));
+
+
+--
+-- Name: project_members Project owners can delete members; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project owners can delete members" ON public.project_members FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM public.projects p
+  WHERE ((p.id = project_members.project_id) AND (p.owner_id = auth.uid())))));
+
+
+--
+-- Name: projects Project owners can delete their projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project owners can delete their projects" ON public.projects FOR DELETE USING ((owner_id = auth.uid()));
+
+
+--
+-- Name: project_members Project owners can insert members; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project owners can insert members" ON public.project_members FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.projects p
+  WHERE ((p.id = project_members.project_id) AND (p.owner_id = auth.uid())))));
+
+
+--
+-- Name: project_clients Project owners can manage clients; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project owners can manage clients" ON public.project_clients USING ((EXISTS ( SELECT 1
+   FROM public.projects p
+  WHERE ((p.id = project_clients.project_id) AND (p.owner_id = auth.uid())))));
+
+
+--
+-- Name: project_members Project owners can update members; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project owners can update members" ON public.project_members FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM public.projects p
+  WHERE ((p.id = project_members.project_id) AND (p.owner_id = auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.projects p
+  WHERE ((p.id = project_members.project_id) AND (p.owner_id = auth.uid())))));
+
+
+--
+-- Name: projects Project owners can update their projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Project owners can update their projects" ON public.projects FOR UPDATE USING ((owner_id = auth.uid())) WITH CHECK ((owner_id = auth.uid()));
+
+
+--
+-- Name: projects Users can create their own projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can create their own projects" ON public.projects FOR INSERT WITH CHECK ((owner_id = auth.uid()));
+
+
+--
+-- Name: project_comments Users can delete their own comments; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can delete their own comments" ON public.project_comments FOR DELETE USING ((user_id = auth.uid()));
+
+
+--
 -- Name: attendance_records Users can insert own attendance; Type: POLICY; Schema: public; Owner: supabase_admin
 --
 
 CREATE POLICY "Users can insert own attendance" ON public.attendance_records FOR INSERT WITH CHECK ((employee_id = auth.uid()));
+
+
+--
+-- Name: customers Users can insert their own customer profile; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can insert their own customer profile" ON public.customers FOR INSERT WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: projects Users can insert their own projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can insert their own projects" ON public.projects FOR INSERT WITH CHECK ((owner_id = auth.uid()));
 
 
 --
@@ -7099,10 +6872,40 @@ CREATE POLICY "Users can update own today attendance" ON public.attendance_recor
 
 
 --
+-- Name: project_comments Users can update their own comments; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can update their own comments" ON public.project_comments FOR UPDATE USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: customers Users can update their own customer profile; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can update their own customer profile" ON public.customers FOR UPDATE USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: projects Users can view accessible projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can view accessible projects" ON public.projects FOR SELECT USING (((owner_id = auth.uid()) OR public.has_project_access(id, auth.uid())));
+
+
+--
 -- Name: user_profiles Users can view and update own profile; Type: POLICY; Schema: public; Owner: supabase_admin
 --
 
 CREATE POLICY "Users can view and update own profile" ON public.user_profiles USING ((auth.uid() = user_id));
+
+
+--
+-- Name: project_members Users can view members of their projects; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can view members of their projects" ON public.project_members FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM public.projects p
+  WHERE ((p.id = project_members.project_id) AND (p.owner_id = auth.uid())))) OR (user_id = auth.uid())));
 
 
 --
@@ -7120,6 +6923,13 @@ CREATE POLICY "Users can view own profile" ON public.employees FOR SELECT USING 
 
 
 --
+-- Name: customers Users can view their own customer profile; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY "Users can view their own customer profile" ON public.customers FOR SELECT USING ((auth.uid() = user_id));
+
+
+--
 -- Name: attendance_leave_requests; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
 --
 
@@ -7132,6 +6942,12 @@ ALTER TABLE public.attendance_leave_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: customers; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: employee_skills; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
 --
 
@@ -7142,6 +6958,66 @@ ALTER TABLE public.employee_skills ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: floor_plan_permissions; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.floor_plan_permissions ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: floor_plan_permissions floor_plan_permissions_manage_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY floor_plan_permissions_manage_policy ON public.floor_plan_permissions TO authenticated USING (public.has_floor_plan_admin_access(floor_plan_id, auth.uid())) WITH CHECK (public.has_floor_plan_admin_access(floor_plan_id, auth.uid()));
+
+
+--
+-- Name: floor_plan_permissions floor_plan_permissions_select_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY floor_plan_permissions_select_policy ON public.floor_plan_permissions FOR SELECT TO authenticated USING ((public.has_floor_plan_admin_access(floor_plan_id, auth.uid()) OR (user_id = auth.uid())));
+
+
+--
+-- Name: floor_plans; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.floor_plans ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: floor_plans floor_plans_delete_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY floor_plans_delete_policy ON public.floor_plans FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+
+
+--
+-- Name: floor_plans floor_plans_insert_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY floor_plans_insert_policy ON public.floor_plans FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: floor_plans floor_plans_select_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY floor_plans_select_policy ON public.floor_plans FOR SELECT TO authenticated USING (((user_id = auth.uid()) OR public.has_floor_plan_access(id, auth.uid())));
+
+
+--
+-- Name: floor_plans floor_plans_update_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY floor_plans_update_policy ON public.floor_plans FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: holidays; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.holidays ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: job_vacancies; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
@@ -7160,6 +7036,76 @@ ALTER TABLE public.leave_balances ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.leave_requests ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: photo_records; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.photo_records ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: photo_records photo_records_delete_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY photo_records_delete_policy ON public.photo_records FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+
+
+--
+-- Name: photo_records photo_records_insert_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY photo_records_insert_policy ON public.photo_records FOR INSERT TO authenticated WITH CHECK (((user_id = auth.uid()) AND public.has_floor_plan_edit_access(floor_plan_id, auth.uid())));
+
+
+--
+-- Name: photo_records photo_records_select_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY photo_records_select_policy ON public.photo_records FOR SELECT TO authenticated USING (((user_id = auth.uid()) OR public.has_floor_plan_access(floor_plan_id, auth.uid())));
+
+
+--
+-- Name: photo_records photo_records_update_policy; Type: POLICY; Schema: public; Owner: supabase_admin
+--
+
+CREATE POLICY photo_records_update_policy ON public.photo_records FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: project_clients; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.project_clients ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_comments; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.project_comments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_members; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.project_members ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_tasks; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.project_tasks ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_timeline; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.project_timeline ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: projects; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
+--
+
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: user_profiles; Type: ROW SECURITY; Schema: public; Owner: supabase_admin
@@ -7948,6 +7894,26 @@ GRANT ALL ON FUNCTION public.get_employee_leave_balance(p_employee_id uuid, p_ye
 
 
 --
+-- Name: FUNCTION get_floor_plan_permissions(p_floor_plan_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.get_floor_plan_permissions(p_floor_plan_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.get_floor_plan_permissions(p_floor_plan_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_floor_plan_permissions(p_floor_plan_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_floor_plan_permissions(p_floor_plan_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION get_project_statistics(p_project_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.get_project_statistics(p_project_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.get_project_statistics(p_project_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_project_statistics(p_project_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_project_statistics(p_project_id uuid) TO service_role;
+
+
+--
 -- Name: FUNCTION get_user_role(); Type: ACL; Schema: public; Owner: supabase_admin
 --
 
@@ -7965,6 +7931,56 @@ GRANT ALL ON FUNCTION public.handle_new_user() TO postgres;
 GRANT ALL ON FUNCTION public.handle_new_user() TO anon;
 GRANT ALL ON FUNCTION public.handle_new_user() TO authenticated;
 GRANT ALL ON FUNCTION public.handle_new_user() TO service_role;
+
+
+--
+-- Name: FUNCTION has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.has_floor_plan_access(p_floor_plan_id uuid, p_user_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.has_floor_plan_admin_access(p_floor_plan_id uuid, p_user_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.has_floor_plan_edit_access(p_floor_plan_id uuid, p_user_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION has_project_access(p_project_id uuid, p_user_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.has_project_access(p_project_id uuid, p_user_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION has_project_admin_access(p_project_id uuid, p_user_id uuid); Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid) TO postgres;
+GRANT ALL ON FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.has_project_admin_access(p_project_id uuid, p_user_id uuid) TO service_role;
 
 
 --
@@ -8438,6 +8454,16 @@ GRANT ALL ON TABLE public.attendance_records TO service_role;
 
 
 --
+-- Name: TABLE customers; Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON TABLE public.customers TO postgres;
+GRANT ALL ON TABLE public.customers TO anon;
+GRANT ALL ON TABLE public.customers TO authenticated;
+GRANT ALL ON TABLE public.customers TO service_role;
+
+
+--
 -- Name: TABLE employee_skills; Type: ACL; Schema: public; Owner: supabase_admin
 --
 
@@ -8475,6 +8501,16 @@ GRANT ALL ON TABLE public.floor_plans TO postgres;
 GRANT ALL ON TABLE public.floor_plans TO anon;
 GRANT ALL ON TABLE public.floor_plans TO authenticated;
 GRANT ALL ON TABLE public.floor_plans TO service_role;
+
+
+--
+-- Name: TABLE holidays; Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON TABLE public.holidays TO postgres;
+GRANT ALL ON TABLE public.holidays TO anon;
+GRANT ALL ON TABLE public.holidays TO authenticated;
+GRANT ALL ON TABLE public.holidays TO service_role;
 
 
 --
@@ -8538,6 +8574,26 @@ GRANT ALL ON TABLE public.profiles TO service_role;
 
 
 --
+-- Name: TABLE project_clients; Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON TABLE public.project_clients TO postgres;
+GRANT ALL ON TABLE public.project_clients TO anon;
+GRANT ALL ON TABLE public.project_clients TO authenticated;
+GRANT ALL ON TABLE public.project_clients TO service_role;
+
+
+--
+-- Name: TABLE project_comments; Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON TABLE public.project_comments TO postgres;
+GRANT ALL ON TABLE public.project_comments TO anon;
+GRANT ALL ON TABLE public.project_comments TO authenticated;
+GRANT ALL ON TABLE public.project_comments TO service_role;
+
+
+--
 -- Name: TABLE project_members; Type: ACL; Schema: public; Owner: supabase_admin
 --
 
@@ -8545,6 +8601,26 @@ GRANT ALL ON TABLE public.project_members TO postgres;
 GRANT ALL ON TABLE public.project_members TO anon;
 GRANT ALL ON TABLE public.project_members TO authenticated;
 GRANT ALL ON TABLE public.project_members TO service_role;
+
+
+--
+-- Name: TABLE project_tasks; Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON TABLE public.project_tasks TO postgres;
+GRANT ALL ON TABLE public.project_tasks TO anon;
+GRANT ALL ON TABLE public.project_tasks TO authenticated;
+GRANT ALL ON TABLE public.project_tasks TO service_role;
+
+
+--
+-- Name: TABLE project_timeline; Type: ACL; Schema: public; Owner: supabase_admin
+--
+
+GRANT ALL ON TABLE public.project_timeline TO postgres;
+GRANT ALL ON TABLE public.project_timeline TO anon;
+GRANT ALL ON TABLE public.project_timeline TO authenticated;
+GRANT ALL ON TABLE public.project_timeline TO service_role;
 
 
 --
