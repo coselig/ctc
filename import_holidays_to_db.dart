@@ -209,9 +209,9 @@ void main(List<String> args) async {
   
   // 從環境變數讀取 Supabase 設定
   final supabaseUrl = Platform.environment['SUPABASE_URL'] ?? 
-                      'https://fxxnvskuqajusgxvhqrr.supabase.co';
+                      'https://coselig.com/api';
   final supabaseKey = Platform.environment['SUPABASE_KEY'] ?? 
-                      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4eG52c2t1cWFqdXNneHZocXJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjYxMzYyNTIsImV4cCI6MjA0MTcxMjI1Mn0.2EOnTnCJu1vS25wT3CnPxgwgT2PGhFvnrLxF7pxeJzY';
+                      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
   
   await Supabase.initialize(
     url: supabaseUrl,
