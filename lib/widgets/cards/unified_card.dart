@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ctc/services/image_service.dart';
 import 'package:flutter/material.dart';
 
@@ -50,34 +49,36 @@ class UnifiedCard extends StatelessWidget {
 
         if (cardType == CardType.mission) {
           // Mission卡片樣式：圖標風格，contain fit，可著色
-          return CachedNetworkImage(
-            imageUrl: snapshot.data!,
-            color: invertColors && theme.brightness == Brightness.dark
-                ? Colors.white
-                : theme.colorScheme.primary,
-            fit: BoxFit.contain,
-            placeholder: (context, url) => Container(
-              color: theme.colorScheme.surface,
-              child: const Center(child: CircularProgressIndicator()),
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: theme.colorScheme.surface,
-              child: const Icon(Icons.error),
-            ),
-          );
+          return Image.asset("home/$imageName");
+          // return CachedNetworkImage(
+          //   imageUrl: snapshot.data!,
+          //   color: invertColors && theme.brightness == Brightness.dark
+          //       ? Colors.white
+          //       : theme.colorScheme.primary,
+          //   fit: BoxFit.contain,
+          //   placeholder: (context, url) => Container(
+          //     color: theme.colorScheme.surface,
+          //     child: const Center(child: CircularProgressIndicator()),
+          //   ),
+          //   errorWidget: (context, url, error) => Container(
+          //     color: theme.colorScheme.surface,
+          //     child: const Icon(Icons.error),
+          //   ),
+          // );
         } else {
           // Product卡片樣式：照片風格，cover fit，可反色
           Widget imageWidget = Container(
             alignment: Alignment.center,
-            child: CachedNetworkImage(
-              imageUrl: snapshot.data!,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              placeholder: (context, url) =>
-                  const Center(child: CircularProgressIndicator()),
-              errorWidget: (context, url, error) =>
-                  const Center(child: Icon(Icons.error)),
-            ),
+            child: Image.asset("home/$imageName"),
+            // CachedNetworkImage(
+            //   imageUrl: snapshot.data!,
+            //   width: double.infinity,
+            //   fit: BoxFit.cover,
+            //   placeholder: (context, url) =>
+            //       const Center(child: CircularProgressIndicator()),
+            //   errorWidget: (context, url, error) =>
+            //       const Center(child: Icon(Icons.error)),
+            // ),
           );
 
           if (invertColors) {

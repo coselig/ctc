@@ -1,13 +1,11 @@
 import 'dart:async';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../services/services.dart';
 import '../../widgets/widgets.dart';
-import '../employee/employee_pages.dart'; // 引用 user_settings_page
-import 'public_pages.dart'; // 引用同資料夾的其他頁面
+import '../employee/employee_pages.dart';
+import 'public_pages.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({
@@ -98,26 +96,30 @@ class _WelcomePageState extends State<WelcomePage> {
   void _loadImages() async {
     try {
       debugPrint('Loading carousel images...');
-      final imageService = ImageService();
+      // final imageService = ImageService();
       final List<String> fileNames = ['bedroom.jpg', 'living-room.jpg'];
 
-      // 分批載入，避免同時載入太多圖片
       for (String fileName in fileNames) {
-        try {
-          final url = await imageService
-              .getImageUrl(fileName)
-              .timeout(const Duration(seconds: 5));
-
-          if (mounted) {
-            setState(() {
-              _imageUrls.add(url);
-              debugPrint('Added carousel URL: $url');
-            });
-          }
-        } catch (e) {
-          debugPrint('Failed to load image $fileName: $e');
-        }
+        _imageUrls.add("home/$fileName");
       }
+
+      // 分批載入，避免同時載入太多圖片
+      // for (String fileName in fileNames) {
+      //   try {
+      //     final url = await imageService
+      //         .getImageUrl(fileName)
+      //         .timeout(const Duration(seconds: 5));
+
+      //     if (mounted) {
+      //       setState(() {
+      //         _imageUrls.add(url);
+      //         debugPrint('Added carousel URL: $url');
+      //       });
+      //     }
+      //   } catch (e) {
+      //     debugPrint('Failed to load image $fileName: $e');
+      //   }
+      // }
     } catch (error) {
       debugPrint('Error loading carousel images: $error');
     }
@@ -190,21 +192,24 @@ class _WelcomePageState extends State<WelcomePage> {
                                   child: child,
                                 );
                               },
-                          child: CachedNetworkImage(
-                            key: ValueKey(_currentImageIndex),
-                            imageUrl: _imageUrls[_currentImageIndex],
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                            width: MediaQuery.of(context).size.width,
-                            height: 600,
-                            errorWidget: (context, url, error) {
-                              debugPrint('Image load error: $error');
-                              return const Center(child: Icon(Icons.error));
-                            },
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(),
-                            ),
+                          child: Image.asset(
+                            "${_imageUrls[_currentImageIndex]}",
                           ),
+                          // CachedNetworkImage(
+                          //   key: ValueKey(_currentImageIndex),
+                          //   imageUrl: _imageUrls[_currentImageIndex],
+                          //   fit: BoxFit.cover,
+                          //   alignment: Alignment.center,
+                          //   width: MediaQuery.of(context).size.width,
+                          //   height: 600,
+                          //   errorWidget: (context, url, error) {
+                          //     debugPrint('Image load error: $error');
+                          //     return const Center(child: Icon(Icons.error));
+                          //   },
+                          //   placeholder: (context, url) => const Center(
+                          //     child: CircularProgressIndicator(),
+                          //   ),
+                          // ),
                         ),
                       ),
                     ),
