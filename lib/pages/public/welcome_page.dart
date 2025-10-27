@@ -149,7 +149,22 @@ class _WelcomePageState extends State<WelcomePage> {
           onToggle: widget.onThemeToggle,
           color: primaryColor,
         ),
-        if (user != null)
+        if (user == null)
+          IconButton(
+            icon: Icon(Icons.login, color: primaryColor),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => AuthPage(
+                    onThemeToggle: widget.onThemeToggle,
+                    currentThemeMode: widget.currentThemeMode,
+                  ),
+                ),
+              );
+            },
+            tooltip: '登入',
+          )
+        else
           IconButton(
             icon: Icon(Icons.settings, color: primaryColor),
             onPressed: () {
