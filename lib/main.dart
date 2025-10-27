@@ -20,10 +20,10 @@ void main() async {
       await initializeDateFormatting('zh_TW', null);
       await initializeDateFormatting('en_US', null);
     
-    await Supabase.initialize(
-        url: 'https://coselig.com/api',
+      await Supabase.initialize(  
+        url: 'http://192.168.1.10:8000',
       anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MTUzNTgwNX0.ZektOIBBAUq3m3wP9M2vjjLnpiBNas1IrLkWV9_9n3A',
     );
     runApp(const AppRoot());
   }, (error, stack) {
