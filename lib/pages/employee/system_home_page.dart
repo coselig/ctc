@@ -1,10 +1,11 @@
+import 'package:ctc/pages/pages.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/models.dart';
 import '../../services/services.dart';
 import '../../widgets/widgets.dart';
-import '../pages.dart'; // 統一匯入所有頁面
+import '../upload_asset_page.dart';
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({
@@ -241,6 +242,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
                           onThemeToggle: widget.onThemeToggle,
                           currentThemeMode: widget.currentThemeMode,
                         ),
+                      ),
+                    );
+                  },
+                ),
+
+                // 資產圖片上傳
+                _buildSystemCard(
+                  context,
+                  icon: Icons.upload_file,
+                  title: '資產圖片上傳',
+                  subtitle: '上傳照片至公司資產 bucket',
+                  color: Colors.teal,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const UploadAssetPage(),
                       ),
                     );
                   },

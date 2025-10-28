@@ -5,6 +5,97 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PhotoUploadService {
+  /// 多檔案上傳到 assets 根目錄，檔名為原始檔名
+  Future<List<String>> uploadMultipleToAssetsRoot() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 80,
+      );
+      if (images.isEmpty) return [];
+      List<String> urls = [];
+      for (final image in images) {
+        if (kIsWeb) {
+          final imageBytes = await image.readAsBytes();
+          await supabase.storage
+              .from('assets')
+              .uploadBinary(image.name, imageBytes);
+        } else {
+          final imageFile = File(image.path);
+          await supabase.storage.from('assets').upload(image.name, imageFile);
+        }
+        final imageUrl = supabase.storage
+            .from('assets')
+            .getPublicUrl(image.name);
+        urls.add(imageUrl);
+      }
+      return urls;
+    } catch (e) {
+      print('多檔案 assets 根目錄上傳失敗: $e');
+      throw Exception('多檔案 assets 根目錄上傳失敗: $e');
+    }
+  }
+
+  /// 多檔案上傳到指定資料夾（photos, floor_plans）
+  Future<List<String>> pickMultipleAndUploadToFolder(String folder) async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 80,
+      );
+      if (images.isEmpty) return [];
+      List<String> urls = [];
+      for (final image in images) {
+        if (kIsWeb) {
+          final imageBytes = await image.readAsBytes();
+          final url = await uploadPhotoFromBytes(
+            imageBytes,
+            image.name,
+            folder: folder,
+          );
+          urls.add(url);
+        } else {
+          final imageFile = File(image.path);
+          final url = await uploadPhoto(imageFile, image.name, folder: folder);
+          urls.add(url);
+        }
+      }
+      return urls;
+    } catch (e) {
+      print('多檔案資料夾上傳失敗: $e');
+      throw Exception('多檔案資料夾上傳失敗: $e');
+    }
+  }
+
+  /// 上傳到 assets 根目錄，檔名為原始檔名
+  Future<String?> uploadToAssetsRoot() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 80,
+      );
+      if (image == null) return null;
+      if (kIsWeb) {
+        final imageBytes = await image.readAsBytes();
+        await supabase.storage
+            .from('assets')
+            .uploadBinary(image.name, imageBytes);
+      } else {
+        final imageFile = File(image.path);
+        await supabase.storage.from('assets').upload(image.name, imageFile);
+      }
+      // 回傳公開網址
+      final imageUrl = supabase.storage.from('assets').getPublicUrl(image.name);
+      return imageUrl;
+    } catch (e) {
+      print('assets 根目錄上傳失敗: $e');
+      throw Exception('assets 根目錄上傳失敗: $e');
+    }
+  }
   final SupabaseClient supabase;
   final ImagePicker _picker = ImagePicker();
 
@@ -44,7 +135,11 @@ class PhotoUploadService {
   }
 
   /// 上傳照片到 Supabase Storage (移動平台專用)
-  Future<String> uploadPhoto(File imageFile, String fileName) async {
+  Future<String> uploadPhoto(
+    File imageFile,
+    String fileName, {
+    String folder = 'photos',
+  }) async {
     if (kIsWeb) {
       throw UnsupportedError('請在Web平台使用 uploadPhotoFromBytes 方法');
     }
@@ -59,15 +154,15 @@ class PhotoUploadService {
 
       print('照片上傳：原檔名=$fileName, 清理後=$sanitizedFileName, 最終=$uniqueFileName');
 
-      // 上傳照片到 assets/photos/ bucket
+      // 上傳照片到 assets/{folder}/ bucket
       await supabase.storage
           .from('assets')
-          .upload('photos/$uniqueFileName', imageFile);
+          .upload('$folder/$uniqueFileName', imageFile);
 
       // 獲取公開URL
       final imageUrl = supabase.storage
           .from('assets')
-          .getPublicUrl('photos/$uniqueFileName');
+          .getPublicUrl('$folder/$uniqueFileName');
 
       return imageUrl;
     } catch (e) {
@@ -80,6 +175,9 @@ class PhotoUploadService {
   Future<String> uploadPhotoFromBytes(
     Uint8List imageBytes,
     String fileName,
+    {
+    String folder = 'photos',
+  }
   ) async {
     try {
       // 清理檔名，移除不安全字符
@@ -93,11 +191,11 @@ class PhotoUploadService {
 
       await supabase.storage
           .from('assets')
-          .uploadBinary('photos/$uniqueFileName', imageBytes);
+          .uploadBinary('$folder/$uniqueFileName', imageBytes);
 
       final imageUrl = supabase.storage
           .from('assets')
-          .getPublicUrl('photos/$uniqueFileName');
+          .getPublicUrl('$folder/$uniqueFileName');
 
       return imageUrl;
     } catch (e) {
@@ -132,8 +230,8 @@ class PhotoUploadService {
     }
   }
 
-  /// 從圖庫選擇照片並上傳
-  Future<String?> pickPhotoAndUpload() async {
+  /// 從圖庫選擇照片並上傳，可指定資料夾
+  Future<String?> pickPhotoAndUpload({String folder = 'photos'}) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -147,10 +245,14 @@ class PhotoUploadService {
       // 根據平台選擇上傳方式
       if (kIsWeb) {
         final imageBytes = await image.readAsBytes();
-        return await uploadPhotoFromBytes(imageBytes, image.name);
+        return await uploadPhotoFromBytes(
+          imageBytes,
+          image.name,
+          folder: folder,
+        );
       } else {
         final imageFile = File(image.path);
-        return await uploadPhoto(imageFile, image.name);
+        return await uploadPhoto(imageFile, image.name, folder: folder);
       }
     } catch (e) {
       print('選擇並上傳照片失敗: $e');
