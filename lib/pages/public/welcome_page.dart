@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../services/services.dart';
-import '../../widgets/pdf_viewer_widget.dart';
 import '../../widgets/widgets.dart';
 import '../employee/employee_pages.dart';
 import 'public_pages.dart';
@@ -460,20 +459,7 @@ class _WelcomePageState extends State<WelcomePage> {
                       PdfCard(
                         title: 'PDF 預覽',
                         subtitle: '線上瀏覽公司電子書',
-                        pdfUrl:
-                            'http://cosleig.com:8000/storage/v1/object/public/assets/books/19441861.pdf',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const PdfViewerWidget(
-                                url:
-                                    'http://cosleig.com:8000/storage/v1/object/public/assets/books/19441861.pdf',
-                                title: '公司電子書',
-                              ),
-                            ),
-                          );
-                        },
+                        pdfName: 'front.pdf',
                       ),
                     ],
                   ),

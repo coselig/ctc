@@ -5,7 +5,7 @@ class FeatureCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String imageName;
-  final _imageService = ImageService();
+  final _imageService = FileService();
 
   FeatureCard({
     super.key,

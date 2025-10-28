@@ -45,7 +45,6 @@ dependencies:
   intl: ^0.19.0
 
   # pdf viewer
-  flutter_pdfview: ^1.4.3
   syncfusion_flutter_pdfviewer: ^31.2.3
   file_picker: ^10.3.3
 

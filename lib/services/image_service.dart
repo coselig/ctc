@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ImageService {
-  static final ImageService _instance = ImageService._internal();
-  factory ImageService() => _instance;
-  ImageService._internal();
+class FileService {
+  static final FileService _instance = FileService._internal();
+  factory FileService() => _instance;
+  FileService._internal();
 
   final _supabase = Supabase.instance.client;
   final _cache = <String, String>{};
@@ -19,14 +19,23 @@ class ImageService {
       return _cache[fileName]!;
     }
     try {
-      final url = _supabase.storage
-          .from('assets')
-          .getPublicUrl(fileName);
+      final url = _supabase.storage.from('assets').getPublicUrl(fileName);
       _cache[fileName] = url;
       return url;
     } catch (e) {
-      // 提供備用的本地圖片或占位圖
       throw Exception('Failed to load image $fileName: $e');
+    }
+  }
+
+  /// 取得 PDF 公開連結（assets/books/xxx.pdf）
+  Future<String> getPdfUrl(String pdfName) async {
+    try {
+      final url = _supabase.storage
+          .from('assets')
+          .getPublicUrl('books/$pdfName');
+      return url;
+    } catch (e) {
+      throw Exception('Failed to get PDF url $pdfName: $e');
     }
   }
 

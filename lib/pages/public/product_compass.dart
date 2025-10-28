@@ -13,7 +13,7 @@ class ProductCompassPage extends StatefulWidget {
 }
 
 class _ProductCompassPageState extends State<ProductCompassPage> {
-  final _imageService = ImageService();
+  final _imageService = FileService();
 
   void _showHomeAssistantDialog() {
     final theme = Theme.of(context);

@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:ctc/widgets/pdf_viewer_widget.dart';
+import 'package:flutter/material.dart';
 
 class PdfCard extends StatelessWidget {
-  final String pdfUrl;
+  final String pdfName;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
@@ -10,7 +10,7 @@ class PdfCard extends StatelessWidget {
 
   const PdfCard({
     Key? key,
-    required this.pdfUrl,
+    required this.pdfName,
     required this.title,
     required this.subtitle,
     this.onTap,
@@ -30,7 +30,8 @@ class PdfCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => PdfViewerWidget(url: pdfUrl, title: title),
+                  builder: (context) =>
+                      PdfViewerWidget(fileName: pdfName, title: title),
             ),
           );
         },
@@ -61,7 +62,10 @@ class PdfCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PdfViewerWidget(url: pdfUrl, title: title),
+                            builder: (context) => PdfViewerWidget(
+                              fileName: pdfName,
+                              title: title,
+                            ),
                       ),
                     );
                   },

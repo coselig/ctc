@@ -28,7 +28,7 @@ class UnifiedCard extends StatelessWidget {
 
   Widget _buildImage(BuildContext context, String imageName, ThemeData theme) {
     return FutureBuilder<String>(
-      future: ImageService().getImageUrl(imageName),
+      future: FileService().getImageUrl(imageName),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
