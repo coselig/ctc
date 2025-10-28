@@ -1,10 +1,56 @@
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PhotoUploadService {
+  final SupabaseClient supabase;
+  final ImagePicker _picker = ImagePicker();
+
+  /// 上傳 PDF 到 assets/books/，檔名為原始檔名
+  Future<String?> uploadPdfToBooksFolder() async {
+    // 需在 pubspec.yaml 加入 file_picker: ^5.0.0
+    // import 'package:file_picker/file_picker.dart';
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: kIsWeb,
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final file = result.files.first;
+      final fileName = file.name;
+      final fileBytes = file.bytes;
+      if (fileBytes == null) {
+        if (kIsWeb) {
+          throw Exception('瀏覽器無法取得檔案內容，請確認瀏覽器權限或換用其他瀏覽器。');
+        }
+        // 非 web 平台需用 path
+        final filePath = file.path;
+        if (filePath == null) {
+          throw Exception('無法取得檔案路徑，請確認檔案選擇權限。');
+        }
+        final fileObj = File(filePath);
+        await supabase.storage
+            .from('assets')
+            .upload('books/$fileName', fileObj);
+      } else {
+        await supabase.storage
+            .from('assets')
+            .uploadBinary('books/$fileName', fileBytes);
+      }
+      final url = supabase.storage
+          .from('assets')
+          .getPublicUrl('books/$fileName');
+      return url;
+    } catch (e) {
+      print('PDF 上傳失敗: $e');
+      throw Exception('PDF 上傳失敗: $e');
+    }
+  }
   /// 多檔案上傳到 assets 根目錄，檔名為原始檔名
   Future<List<String>> uploadMultipleToAssetsRoot() async {
     try {
@@ -96,8 +142,6 @@ class PhotoUploadService {
       throw Exception('assets 根目錄上傳失敗: $e');
     }
   }
-  final SupabaseClient supabase;
-  final ImagePicker _picker = ImagePicker();
 
   PhotoUploadService(this.supabase);
 

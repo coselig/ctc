@@ -15,6 +15,28 @@ class _UploadAssetPageState extends State<UploadAssetPage> {
   bool _isUploading = false;
   String? _uploadedUrl;
   List<String>? _uploadedUrls;
+  String? _uploadedPdfUrl;
+  Future<void> _pickAndUploadPdf() async {
+    setState(() {
+      _isUploading = true;
+      _error = null;
+      _uploadedPdfUrl = null;
+    });
+    try {
+      final result = await _uploadService.uploadPdfToBooksFolder();
+      setState(() {
+        _uploadedPdfUrl = result;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
   String? _error;
 
   final PhotoUploadService _uploadService = PhotoUploadService(Supabase.instance.client);
@@ -103,8 +125,20 @@ class _UploadAssetPageState extends State<UploadAssetPage> {
                   onPressed: _isUploading ? null : () => _pickAndUpload(multiple: true),
                   child: _isUploading ? const CircularProgressIndicator() : const Text('多檔上傳'),
                 ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _isUploading ? null : _pickAndUploadPdf,
+                  child: _isUploading
+                      ? const CircularProgressIndicator()
+                      : const Text('PDF 上傳到 books'),
+                ),
               ],
             ),
+            if (_uploadedPdfUrl != null) ...[
+              const SizedBox(height: 24),
+              const Text('PDF 上傳成功！檔案連結：'),
+              SelectableText(_uploadedPdfUrl!),
+            ],
             if (_uploadedUrl != null) ...[
               const SizedBox(height: 24),
               const Text('上傳成功！圖片連結：'),
