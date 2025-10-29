@@ -1,58 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../pages/public/auth_page.dart';
 
-/// 登出按鈕
-/// 統一的登出按鈕元件，包含確認對話框和登出邏輯
-class LogoutButton extends StatelessWidget {
-  const LogoutButton({
+/// 自動判定登入/登出按鈕
+class AuthActionButton extends StatelessWidget {
+  const AuthActionButton({
     super.key,
     this.color,
+    this.onLogin,
     this.onLogoutStart,
     this.onLogoutSuccess,
     this.onLogoutError,
   });
 
   final Color? color;
+  final VoidCallback? onLogin;
   final VoidCallback? onLogoutStart;
   final VoidCallback? onLogoutSuccess;
   final ValueChanged<String>? onLogoutError;
 
+  bool get _isLoggedIn => Supabase.instance.client.auth.currentSession != null;
+
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? Theme.of(context).colorScheme.primary;
-
     return IconButton(
-      icon: Icon(Icons.logout, color: effectiveColor),
-      onPressed: () => _handleLogout(context),
-      tooltip: '登出',
+      icon: Icon(_isLoggedIn ? Icons.logout : Icons.login, color: effectiveColor),
+      onPressed: () => _isLoggedIn ? _handleLogout(context) : _handleLogin(context),
+      tooltip: _isLoggedIn ? '登出' : '登入',
+    );
+  }
+
+  Future<void> _handleLogin(BuildContext context) async {
+    onLogin?.call();
+    // 導向 AuthPage
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AuthPage(
+          onThemeToggle: () {},
+          currentThemeMode: ThemeMode.system,
+        ),
+      ),
     );
   }
 
   Future<void> _handleLogout(BuildContext context) async {
-    // 顯示確認對話框
     final shouldLogout = await _showLogoutConfirmationDialog(context);
-
     if (shouldLogout == true) {
       onLogoutStart?.call();
-
       try {
-        // 先清除所有頁面到根級別
         if (context.mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
-
-        // 執行登出 - 全域認證監聽器會處理 UI 更新
         await Supabase.instance.client.auth.signOut();
-
         onLogoutSuccess?.call();
       } catch (e) {
         final errorMessage = '登出失敗: $e';
         onLogoutError?.call(errorMessage);
-
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(errorMessage)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
         }
       }
     }

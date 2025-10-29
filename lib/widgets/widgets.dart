@@ -18,13 +18,13 @@ export 'dialogs/info_dialog.dart';
 export 'dialogs/month_year_picker.dart';
 export 'dialogs/name_input_dialog.dart';
 export 'dialogs/photo_dialog.dart';
+export 'general_components/auth_action_button.dart';
 export 'general_components/category_section.dart';
 // ==================== 表單元件 ====================
 export 'general_components/custom_text_field.dart';
 // ==================== 通用佈局元件 ====================
 export 'general_components/general_page.dart';
 export 'general_components/loading_overlay.dart';
-export 'general_components/logout_button.dart';
 // ==================== 輔助元件 ====================
 export 'general_components/message_helper.dart';
 export 'general_components/theme_toggle_button.dart';

@@ -1,3 +1,4 @@
+import 'package:ctc/widgets/general_components/auth_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -101,7 +102,7 @@ class _UserSelectionPageState extends State<UserSelectionPage> {
       return GeneralPage(
         actions: [
           ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
-          const LogoutButton(),
+          const AuthActionButton(),
         ],
         children: const [
           SizedBox(
@@ -117,7 +118,7 @@ class _UserSelectionPageState extends State<UserSelectionPage> {
     return GeneralPage(
       actions: [
         ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
-        const LogoutButton(),
+        const AuthActionButton(),
       ],
       children: [
         // 標題和說明
@@ -470,7 +471,7 @@ class _CreateEmployeeFromUserPageState extends State<CreateEmployeeFromUserPage>
     return GeneralPage(
       actions: [
         ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
-        const LogoutButton(),
+        const AuthActionButton(),
       ],
       children: [
         // 用戶資訊卡片

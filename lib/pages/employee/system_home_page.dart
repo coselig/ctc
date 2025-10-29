@@ -1,4 +1,5 @@
 import 'package:ctc/pages/pages.dart';
+import 'package:ctc/widgets/general_components/auth_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -79,50 +80,13 @@ class _SystemHomePageState extends State<SystemHomePage> {
     }
   }
 
-  /// 建構歡迎文字
-  Widget _buildWelcomeText(BuildContext context, User? user) {
-    if (_isLoadingEmployee) {
-      return Row(
-        children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '載入用戶資料中...',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
-          ),
-        ],
-      );
-    }
-
-    String displayText;
-    if (_currentEmployee != null) {
-      // 如果是員工，顯示姓名
-      displayText = '歡迎您，${_currentEmployee!.name}';
-    } else {
-      // 如果不是員工，顯示郵箱
-      displayText = '歡迎您，${user?.email ?? '使用者'}';
-    }
-
-    return Text(
-      displayText,
-      style: Theme.of(
-        context,
-      ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
 
     return GeneralPage(
       actions: [
+        Text("您好，${_currentEmployee?.name ?? user?.email ?? '訪客'}"),
         IconButton(
           icon: const Icon(Icons.home),
           onPressed: () {
@@ -138,31 +102,21 @@ class _SystemHomePageState extends State<SystemHomePage> {
           tooltip: '回到首頁',
         ),
         ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
-        const LogoutButton(),
+        IconButton(
+          icon: Icon(Icons.settings),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    UserSettingsPage(onThemeChanged: widget.onThemeToggle),
+              ),
+            );
+          },
+          tooltip: '用戶設置',
+        ),
+        const AuthActionButton(),
       ],
       children: [
-        // 歡迎信息
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '歡迎使用光悅科技管理系統',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildWelcomeText(context, user),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // 系統功能選單
         Text(
           '系統功能',
           style: Theme.of(

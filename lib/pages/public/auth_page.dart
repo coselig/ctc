@@ -23,6 +23,58 @@ class _AuthPageState extends State<AuthPage> {
   bool _isLoading = false;
   bool _isSignUp = false;
 
+  Future<void> _resetPassword() async {
+    final TextEditingController emailController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('重設密碼'),
+          content: TextField(
+            controller: emailController,
+            decoration: const InputDecoration(labelText: '請輸入您的電子郵件'),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailController.text.trim();
+                if (email.isEmpty) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('請輸入電子郵件')));
+                  return;
+                }
+                try {
+                  await Supabase.instance.client.auth.resetPasswordForEmail(
+                    email,
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('重設密碼郵件已發送，請檢查您的信箱')),
+                    );
+                  }
+                  Navigator.of(context).pop();
+                } catch (error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('重設失敗: ${error.toString()}')),
+                    );
+                  }
+                }
+              },
+              child: const Text('送出'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -197,6 +249,13 @@ class _AuthPageState extends State<AuthPage> {
                               },
                             ),
                             const SizedBox(height: 24),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _isLoading ? null : _resetPassword,
+                                child: const Text('忘記密碼？'),
+                              ),
+                            ),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(

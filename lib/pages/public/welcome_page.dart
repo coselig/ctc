@@ -2,10 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../../services/services.dart';
 import '../../widgets/widgets.dart';
-import '../employee/employee_pages.dart';
 import 'public_pages.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -30,60 +27,25 @@ class _WelcomePageState extends State<WelcomePage> {
   StreamSubscription<AuthState>? _authSubscription;
   User? _currentUser;
   bool _hasEmployeePermission = false;
-  late UserPermissionService _userPermissionService;
 
   @override
   void initState() {
     super.initState();
     _currentUser = supabase.auth.currentUser;
-    _userPermissionService = UserPermissionService(supabase);
     _setupAuthListener();
-    _loadImages();
-    _startImageTimer();
-    _checkEmployeePermission();
   }
 
-  /// 檢查用戶的員工權限
-  Future<void> _checkEmployeePermission() async {
-    if (_currentUser == null) {
-      setState(() {
-        _hasEmployeePermission = false;
-      });
-      return;
-    }
 
-    try {
-      final hasPermission = await _userPermissionService.isUserInEmployeeList();
-      if (mounted) {
-        setState(() {
-          _hasEmployeePermission = hasPermission;
-        });
-      }
-    } catch (e) {
-      debugPrint('檢查員工權限失敗: $e');
-      if (mounted) {
-        setState(() {
-          _hasEmployeePermission = false;
-        });
-      }
-    }
-  }
 
   void _setupAuthListener() {
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
-      final AuthChangeEvent event = data.event;
       final Session? session = data.session;
-
       if (mounted) {
         setState(() {
           _currentUser = session?.user;
         });
-        // 當用戶狀態改變時，重新檢查員工權限
-        _checkEmployeePermission();
       }
-
-      // 可選：添加日誌以便調試
-      debugPrint('Auth state changed: $event, User: ${_currentUser?.email}');
+      // debugPrint('Auth state changed: $event, User: ${_currentUser?.email}');
     });
   }
 
@@ -92,48 +54,6 @@ class _WelcomePageState extends State<WelcomePage> {
     _timer?.cancel();
     _authSubscription?.cancel();
     super.dispose();
-  }
-
-  void _loadImages() async {
-    try {
-      debugPrint('Loading carousel images...');
-      // final imageService = ImageService();
-      final List<String> fileNames = ['bedroom.jpg', 'living-room.jpg'];
-
-      for (String fileName in fileNames) {
-        _imageUrls.add("home/$fileName");
-      }
-
-      // 分批載入，避免同時載入太多圖片
-      // for (String fileName in fileNames) {
-      //   try {
-      //     final url = await imageService
-      //         .getImageUrl(fileName)
-      //         .timeout(const Duration(seconds: 5));
-
-      //     if (mounted) {
-      //       setState(() {
-      //         _imageUrls.add(url);
-      //         debugPrint('Added carousel URL: $url');
-      //       });
-      //     }
-      //   } catch (e) {
-      //     debugPrint('Failed to load image $fileName: $e');
-      //   }
-      // }
-    } catch (error) {
-      debugPrint('Error loading carousel images: $error');
-    }
-  }
-
-  void _startImageTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted && _imageUrls.isNotEmpty) {
-        setState(() {
-          _currentImageIndex = (_currentImageIndex + 1) % _imageUrls.length;
-        });
-      }
-    });
   }
 
   @override
@@ -149,34 +69,13 @@ class _WelcomePageState extends State<WelcomePage> {
           onToggle: widget.onThemeToggle,
           color: primaryColor,
         ),
-        if (user == null)
-          IconButton(
-            icon: Icon(Icons.login, color: primaryColor),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => AuthPage(
-                    onThemeToggle: widget.onThemeToggle,
-                    currentThemeMode: widget.currentThemeMode,
-                  ),
-                ),
-              );
-            },
-            tooltip: '登入',
-          )
-        else
-          IconButton(
-            icon: Icon(Icons.settings, color: primaryColor),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) =>
-                      UserSettingsPage(onThemeChanged: widget.onThemeToggle),
-                ),
-              );
-            },
-            tooltip: '用戶設置',
-          ),
+        AuthActionButton(),
+        Text("首頁"),
+        Text("產品型錄"),
+        Text("智能方案流程"),
+        Text("居家智能提案"),
+        Text("商業空間智能提案"),
+
       ],
       children: [
         if (_imageUrls.isEmpty) ...[
@@ -356,20 +255,6 @@ class _WelcomePageState extends State<WelcomePage> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const ProductPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          UnifiedCard(
-                            imageName: 'HA.jpg',
-                            title: '開源整合平台',
-                            subtitle: '啟動智慧生活\nHome Assistant',
-                            cardType: CardType.product,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => HAPage(),
                                 ),
                               );
                             },

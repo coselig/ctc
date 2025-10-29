@@ -4,7 +4,6 @@ library public_pages;
 
 // ==================== 認證相關頁面 ====================
 export 'auth_page.dart';
-export 'ha_page.dart';
 export 'intro_page.dart';
 export 'join_company_page.dart';
 export 'login_page.dart';

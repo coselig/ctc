@@ -1,3 +1,4 @@
+import 'package:ctc/widgets/general_components/auth_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/employee.dart';
@@ -368,7 +369,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       return GeneralPage(
         actions: [
           ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
-          const LogoutButton(),
+          const AuthActionButton(),
         ],
         children: const [
           Expanded(
@@ -390,7 +391,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           tooltip: '編輯員工資料',
         ),
         ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
-        const LogoutButton(),
+        const AuthActionButton(),
       ],
       children: [
         // 員工基本資訊
