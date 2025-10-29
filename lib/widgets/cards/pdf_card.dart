@@ -14,6 +14,7 @@ class PdfCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: Color.fromARGB(0, 0, 0, 0),
       elevation: 4,
       child: GestureDetector(
         onTap: () {

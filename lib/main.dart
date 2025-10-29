@@ -31,8 +31,11 @@ void main() async {
 void _showErrorSnackBar(String message) {
   final context = navigatorKey.currentContext;
   if (context != null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+      if (scaffoldMessenger != null) {
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
+      }
+    });
   }
 }
