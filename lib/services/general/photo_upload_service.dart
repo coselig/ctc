@@ -10,8 +10,8 @@ class PhotoUploadService {
   final SupabaseClient supabase;
   final ImagePicker _picker = ImagePicker();
 
-  /// 上傳 PDF 到 assets/books/，檔名為原始檔名
-  Future<String?> uploadPdfToBooksFolder() async {
+  /// 上傳 PDF 到 assets/books/，可自訂檔名 name
+  Future<String?> uploadPdfToBooksFolder({String? name}) async {
     // 需在 pubspec.yaml 加入 file_picker: ^5.0.0
     // import 'package:file_picker/file_picker.dart';
     try {
@@ -22,7 +22,11 @@ class PhotoUploadService {
       );
       if (result == null || result.files.isEmpty) return null;
       final file = result.files.first;
-      final fileName = file.name;
+      String fileName = name != null && name.trim().isNotEmpty ? name.trim() : file.name;
+      // 確保副檔名
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        fileName = fileName + '.pdf';
+      }
       final fileBytes = file.bytes;
       if (fileBytes == null) {
         if (kIsWeb) {

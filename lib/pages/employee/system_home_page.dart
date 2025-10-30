@@ -1,3 +1,4 @@
+import 'package:ctc/pages/management/upload_pdf_page.dart';
 import 'package:ctc/pages/pages.dart';
 import 'package:ctc/widgets/page_components/system_page/system_card.dart';
 import 'package:ctc/widgets/page_components/system_page/system_card_data.dart';
@@ -7,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
 import '../../services/services.dart';
 import '../../widgets/widgets.dart';
-import '../upload_asset_page.dart';
+import '../management/upload_asset_page.dart';
 
 
 
@@ -53,6 +54,13 @@ class _SystemHomePageState extends State<SystemHomePage> {
       subtitle: '上傳照片至公司資產 bucket',
       color: Colors.teal,
       page: const UploadAssetPage(),
+    ),
+    SystemCardData(
+      icon: Icons.upload_file,
+      title: '首頁頁面管理',
+      subtitle: '上傳pdf至資料庫',
+      color: Colors.teal,
+      page: const UploadPdfPage(),
     ),
     SystemCardData(
       icon: Icons.people,

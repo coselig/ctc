@@ -29,4 +29,4 @@ export 'image_service.dart';
 export 'job_vacancy_service.dart';
 // ==================== 相片相關服務 ====================
 export 'photo_record_system/photo_record_service.dart';
-export 'photo_record_system/photo_upload_service.dart';
+export 'general/photo_upload_service.dart';
