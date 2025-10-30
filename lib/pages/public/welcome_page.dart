@@ -31,8 +31,9 @@ class _WelcomePageState extends State<WelcomePage>
 
   SfPdfViewer? pdf;
 
-  String? _activePdf; // ✅ 紀錄目前選中的 PDF
-  String? _hoverPdf; // ✅ 紀錄目前 hover 的 PDF
+  final List<String> pdfFiles = ['p1-3(content).pdf', 'front.pdf'];
+  int? _activePdfIndex; // ✅ 目前選中的 PDF index
+  int? _hoverPdfIndex; // ✅ 目前 hover 的 PDF index
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -46,7 +47,7 @@ class _WelcomePageState extends State<WelcomePage>
       setState(() {
         _pdfUrl = url;
         _loading = false;
-        _activePdf = fileName; // ✅ 點擊後更新 active 狀態
+        // _activePdf 由 index 控制
       });
       pdf = SfPdfViewer.network(
         _pdfUrl!,
@@ -67,7 +68,11 @@ class _WelcomePageState extends State<WelcomePage>
     super.initState();
     _currentUser = supabase.auth.currentUser;
     _setupAuthListener();
-    _loadPdfUrl('p.123.pdf');
+    // 初始不載入 PDF
+    _activePdfIndex = null;
+    _hoverPdfIndex = null;
+
+    _loadPdfUrl(pdfFiles[0]);
 
     _fadeController = AnimationController(
       vsync: this,
@@ -99,8 +104,9 @@ class _WelcomePageState extends State<WelcomePage>
   }
 
   Widget getBookMark(String name, String pdfName, Color primaryColor) {
-    final bool isActive = _activePdf == pdfName;
-    final bool isHover = _hoverPdf == pdfName;
+    final int idx = pdfFiles.indexOf(pdfName);
+    final bool isActive = _activePdfIndex == idx;
+    final bool isHover = _hoverPdfIndex == idx;
 
     final Color baseColor = isActive
         ? primaryColor
@@ -111,14 +117,15 @@ class _WelcomePageState extends State<WelcomePage>
         : (isHover ? Colors.white.withAlpha(120) : Colors.white.withAlpha(80));
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _hoverPdf = pdfName),
-      onExit: (_) => setState(() => _hoverPdf = null),
+      onEnter: (_) => setState(() => _hoverPdfIndex = idx),
+      onExit: (_) => setState(() => _hoverPdfIndex = null),
       child: GestureDetector(
         onTap: () {
           setState(() {
             _loading = true;
-            _loadPdfUrl(pdfName);
+            _activePdfIndex = idx;
           });
+          _loadPdfUrl(pdfFiles[idx]);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -142,7 +149,7 @@ class _WelcomePageState extends State<WelcomePage>
             style: TextStyle(
               color: baseColor,
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: MediaQuery.of(context).textScaler.scale(20),
               letterSpacing: 1.2,
             ),
           ),
@@ -153,11 +160,12 @@ class _WelcomePageState extends State<WelcomePage>
 
   List<Widget> getBookMarks(Color primaryColor) {
     return [
-      getBookMark("首頁", 'p1-3(content).pdf', primaryColor),
-      getBookMark("產品型錄", 'front.pdf', primaryColor),
+      getBookMark("首頁", pdfFiles[0], primaryColor),
+      getBookMark("產品型錄", pdfFiles[1], primaryColor),
       // getBookMark("智能方案流程", 'front.pdf', primaryColor),
       // getBookMark("居家智能提案", 'front.pdf', primaryColor),
       // getBookMark("商業空間智能提案", 'front.pdf', primaryColor),
+      // 其他書籤可依序加入 pdfFiles
     ];
   }
 
