@@ -1,5 +1,6 @@
 import 'package:ctc/pages/pages.dart';
-import 'package:ctc/widgets/general_components/auth_action_button.dart';
+import 'package:ctc/widgets/page_components/system_page/system_card.dart';
+import 'package:ctc/widgets/page_components/system_page/system_card_data.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,6 +8,8 @@ import '../../models/models.dart';
 import '../../services/services.dart';
 import '../../widgets/widgets.dart';
 import '../upload_asset_page.dart';
+
+
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({
@@ -25,6 +28,62 @@ class SystemHomePage extends StatefulWidget {
 }
 
 class _SystemHomePageState extends State<SystemHomePage> {
+  List<SystemCardData> get systemCards => [
+    SystemCardData(
+      icon: Icons.folder_special,
+      title: '專案管理',
+      subtitle: '專案、任務、時程管理',
+      color: Colors.deepPurple,
+      page: const ProjectManagementPage(),
+    ),
+    SystemCardData(
+      icon: Icons.camera_alt,
+      title: '照片記錄',
+      subtitle: '工地照片記錄管理',
+      color: Colors.blue,
+      page: PhotoRecordPage(
+        title: '工地照片記錄系統',
+        onThemeToggle: widget.onThemeToggle,
+        currentThemeMode: widget.currentThemeMode,
+      ),
+    ),
+    SystemCardData(
+      icon: Icons.upload_file,
+      title: '資產圖片上傳',
+      subtitle: '上傳照片至公司資產 bucket',
+      color: Colors.teal,
+      page: const UploadAssetPage(),
+    ),
+    SystemCardData(
+      icon: Icons.people,
+      title: '員工管理',
+      subtitle: '人力資源管理系統',
+      color: Colors.green,
+      page: EmployeeManagementPage(
+        title: '員工管理系統',
+        onThemeToggle: widget.onThemeToggle,
+        currentThemeMode: widget.currentThemeMode,
+      ),
+    ),
+    SystemCardData(
+      icon: Icons.access_time,
+      title: '打卡系統',
+      subtitle: '員工考勤打卡管理',
+      color: Colors.orange,
+      page: AttendancePage(
+        title: '打卡系統',
+        onThemeToggle: widget.onThemeToggle,
+        currentThemeMode: widget.currentThemeMode,
+      ),
+    ),
+    SystemCardData(
+      icon: Icons.assessment,
+      title: '個人出勤中心',
+      subtitle: '出勤統計、請假、補打卡申請',
+      color: Colors.purple,
+      page: const AttendanceStatsPage(),
+    ),
+  ];
   final supabase = Supabase.instance.client;
   late final EmployeeService _employeeService;
   late final PermissionService _permissionService;
@@ -54,21 +113,16 @@ class _SystemHomePageState extends State<SystemHomePage> {
       print('載入權限失敗: $e');
     }
   }
-
+  
   /// 載入當前用戶的員工資料
   Future<void> _loadCurrentEmployee() async {
     try {
-      final user = supabase.auth.currentUser;
-      if (user != null) {
-        // 直接用當前用戶的 ID 查詢自己的員工資料（避免 RLS 權限問題）
-        final employee = await _employeeService.getEmployeeById(user.id);
-
-        if (mounted) {
-          setState(() {
-            _currentEmployee = employee;
-            _isLoadingEmployee = false;
-          });
-        }
+      final employee = await _employeeService.getCurrentEmployee();
+      if (mounted) {
+        setState(() {
+          _currentEmployee = employee;
+          _isLoadingEmployee = false;
+        });
       }
     } catch (e) {
       print('載入員工資料失敗: $e');
@@ -101,7 +155,10 @@ class _SystemHomePageState extends State<SystemHomePage> {
           },
           tooltip: '回到首頁',
         ),
-        ThemeToggleButton(currentThemeMode: widget.currentThemeMode, onToggle: widget.onThemeToggle),
+        ThemeToggleButton(
+          currentThemeMode: widget.currentThemeMode,
+          onToggle: widget.onThemeToggle,
+        ),
         IconButton(
           icon: Icon(Icons.settings),
           onPressed: () {
@@ -165,129 +222,22 @@ class _SystemHomePageState extends State<SystemHomePage> {
               crossAxisSpacing: 16,
               childAspectRatio: childAspectRatio,
               children: [
-                // 專案管理系統
-                _buildSystemCard(
-                  context,
-                  icon: Icons.folder_special,
-                  title: '專案管理',
-                  subtitle: '專案、任務、時程管理',
-                  color: Colors.deepPurple,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ProjectManagementPage(),
-                      ),
-                    );
-                  },
+                ...systemCards.map(
+                  (data) => SystemCard(
+                    icon: data.icon,
+                    title: data.title,
+                    subtitle: data.subtitle,
+                    color: data.color,
+                    page: data.page,
+                  ),
                 ),
-
-                // 照片記錄系統
-                _buildSystemCard(
-                  context,
-                  icon: Icons.camera_alt,
-                  title: '照片記錄',
-                  subtitle: '工地照片記錄管理',
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => PhotoRecordPage(
-                          title: '工地照片記錄系統',
-                          onThemeToggle: widget.onThemeToggle,
-                          currentThemeMode: widget.currentThemeMode,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // 資產圖片上傳
-                _buildSystemCard(
-                  context,
-                  icon: Icons.upload_file,
-                  title: '資產圖片上傳',
-                  subtitle: '上傳照片至公司資產 bucket',
-                  color: Colors.teal,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const UploadAssetPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                // 員工管理系統
-                _buildSystemCard(
-                  context,
-                  icon: Icons.people,
-                  title: '員工管理',
-                  subtitle: '人力資源管理系統',
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => EmployeeManagementPage(
-                          title: '員工管理系統',
-                          onThemeToggle: widget.onThemeToggle,
-                          currentThemeMode: widget.currentThemeMode,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // 打卡系統
-                _buildSystemCard(
-                  context,
-                  icon: Icons.access_time,
-                  title: '打卡系統',
-                  subtitle: '員工考勤打卡管理',
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => AttendancePage(
-                          title: '打卡系統',
-                          onThemeToggle: widget.onThemeToggle,
-                          currentThemeMode: widget.currentThemeMode,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // 個人出勤中心（整合打卡統計、請假申請、補打卡申請）
-                _buildSystemCard(
-                  context,
-                  icon: Icons.assessment,
-                  title: '個人出勤中心',
-                  subtitle: '出勤統計、請假、補打卡申請',
-                  color: Colors.purple,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AttendanceStatsPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                // 人事管理（僅 HR 和老闆可見）
                 if (_canViewAllAttendance)
-                  _buildSystemCard(
-                    context,
+                  SystemCard(
                     icon: Icons.badge,
                     title: '人事管理',
                     subtitle: '出勤管理、請假與補打卡審核',
                     color: Colors.indigo,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const HRReviewPage(),
-                        ),
-                      );
-                    },
+                    page: const HRReviewPage(),
                   ),
               ],
             );
@@ -297,53 +247,5 @@ class _SystemHomePageState extends State<SystemHomePage> {
     );
   }
 
-  Widget _buildSystemCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withAlpha(25),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 32, color: color),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  
 }

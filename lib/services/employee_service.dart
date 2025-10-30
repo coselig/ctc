@@ -2,6 +2,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/employee.dart';
 
 class EmployeeService {
+  /// 取得目前登入者的員工資料
+  Future<Employee?> getCurrentEmployee() async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('必須登入才能查看員工資料');
+    }
+    return getEmployeeById(user.id);
+  }
   final SupabaseClient _client;
 
   EmployeeService(this._client);
