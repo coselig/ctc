@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -19,7 +18,8 @@ class WelcomePage extends StatefulWidget {
   State<WelcomePage> createState() => _WelcomePageState();
 }
 
-class _WelcomePageState extends State<WelcomePage> {
+class _WelcomePageState extends State<WelcomePage>
+    with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
   Timer? _timer;
   StreamSubscription<AuthState>? _authSubscription;
@@ -31,6 +31,12 @@ class _WelcomePageState extends State<WelcomePage> {
 
   SfPdfViewer? pdf;
 
+  String? _activePdf; // ✅ 紀錄目前選中的 PDF
+  String? _hoverPdf; // ✅ 紀錄目前 hover 的 PDF
+
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
   Future<void> _loadPdfUrl(String fileName) async {
     try {
       final supabase = Supabase.instance.client;
@@ -40,19 +46,20 @@ class _WelcomePageState extends State<WelcomePage> {
       setState(() {
         _pdfUrl = url;
         _loading = false;
+        _activePdf = fileName; // ✅ 點擊後更新 active 狀態
       });
+      pdf = SfPdfViewer.network(
+        _pdfUrl!,
+        pageSpacing: 0,
+        canShowScrollStatus: false,
+        canShowScrollHead: false,
+      );
     } catch (e) {
       setState(() {
         _error = 'PDF 連結取得失敗: $e';
         _loading = false;
       });
     }
-    pdf = SfPdfViewer.network(
-      _pdfUrl!,
-      pageSpacing: 0,
-      canShowScrollStatus: false,
-      canShowScrollHead: false,
-    );
   }
 
   @override
@@ -61,6 +68,15 @@ class _WelcomePageState extends State<WelcomePage> {
     _currentUser = supabase.auth.currentUser;
     _setupAuthListener();
     _loadPdfUrl('p.123.pdf');
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..forward();
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
   }
 
   void _setupAuthListener() {
@@ -71,7 +87,6 @@ class _WelcomePageState extends State<WelcomePage> {
           _currentUser = session?.user;
         });
       }
-      // debugPrint('Auth state changed: $event, User: ${_currentUser?.email}');
     });
   }
 
@@ -79,43 +94,80 @@ class _WelcomePageState extends State<WelcomePage> {
   void dispose() {
     _timer?.cancel();
     _authSubscription?.cancel();
+    _fadeController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final user = _currentUser;
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
+  Widget getBookMark(String name, String pdfName, Color primaryColor) {
+    final bool isActive = _activePdf == pdfName;
+    final bool isHover = _hoverPdf == pdfName;
 
-    Widget getBookMark(String name, String pdfName) {
-      return GestureDetector(
+    final Color baseColor = isActive
+        ? primaryColor
+        : (isHover ? primaryColor.withAlpha(180) : Colors.black87);
+
+    final Color bgColor = isActive
+        ? primaryColor.withAlpha(38)
+        : (isHover ? Colors.white.withAlpha(120) : Colors.white.withAlpha(80));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoverPdf = pdfName),
+      onExit: (_) => setState(() => _hoverPdf = null),
+      child: GestureDetector(
         onTap: () {
           setState(() {
             _loading = true;
             _loadPdfUrl(pdfName);
           });
         },
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: primaryColor.withAlpha(76),
+                      blurRadius: 6,
+                      offset: const Offset(2, 2),
+                    ),
+                  ]
+                : [],
+          ),
           child: Text(
-            name,
+            name.split('').join('\n'),
             style: TextStyle(
-              color: primaryColor,
-              fontSize: MediaQuery.textScalerOf(context).scale(20),
+              color: baseColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              letterSpacing: 1.2,
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+
+  List<Widget> getBookMarks(Color primaryColor) {
+    return [
+      getBookMark("首頁", 'p1-3(content).pdf', primaryColor),
+      getBookMark("產品型錄", 'front.pdf', primaryColor),
+      // getBookMark("智能方案流程", 'front.pdf', primaryColor),
+      // getBookMark("居家智能提案", 'front.pdf', primaryColor),
+      // getBookMark("商業空間智能提案", 'front.pdf', primaryColor),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
 
     return GeneralPage(
       actions: [
-        getBookMark("首頁", 'p.123.pdf'),
-        getBookMark("產品型錄", 'front.pdf'),
-        getBookMark("智能方案流程", 'front.pdf'),
-        getBookMark("居家智能提案", 'front.pdf'),
-        getBookMark("商業空間智能提案", 'front.pdf'),
         ThemeToggleButton(
           currentThemeMode: widget.currentThemeMode,
           onToggle: widget.onThemeToggle,
@@ -124,31 +176,47 @@ class _WelcomePageState extends State<WelcomePage> {
         AuthActionButton(),
       ],
       children: [
-        Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height,
-          ),
-          child: Center(
-            child: Container(
-              constraints: BoxConstraints(maxWidth: 800,
+        Stack(
+          children: [
+            // PDF Viewer
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height,
               ),
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    )
-                  : (_pdfUrl == null || _pdfUrl!.isEmpty)
-                  ? const Center(child: Text('無法載入 PDF，連結不存在或路徑錯誤'))
-                  : pdf,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null
+                      ? Center(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        )
+                      : (_pdfUrl == null || _pdfUrl!.isEmpty)
+                      ? const Center(child: Text('無法載入 PDF，連結不存在或路徑錯誤'))
+                      : pdf,
+                ),
+              ),
             ),
-          ),
+
+            // 固定左側垂直導航列（淡入 + hover + active）
+            Positioned(
+              left: 8,
+              top: MediaQuery.of(context).size.height * 0.2,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: getBookMarks(primaryColor),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
-      // const CompanyInfoFooter(),
     );
   }
 }
