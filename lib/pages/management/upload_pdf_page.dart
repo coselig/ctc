@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:ctc/models/pdf_page.dart';
 import 'package:ctc/services/general/photo_upload_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,7 +13,7 @@ class UploadPdfPage extends StatefulWidget {
 }
 
 class _UploadPdfPageState extends State<UploadPdfPage> {
-  Future<void> _deletePdf(_PdfFile file) async {
+  Future<void> _deletePdf(PdfPage file) async {
     try {
       final storage = Supabase.instance.client.storage.from('assets');
       await storage.remove(['books/${file.name}']);
@@ -21,14 +24,41 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
       });
     }
   }
+
   bool _isUploading = false;
   String? _uploadedPdfUrl;
   String? _error;
   String _pdfName = '';
-  List<_PdfFile> _pdfFiles = [];
+  List<PdfPage> _pdfFiles = [];
+  Map<String, String> _pdfLabels = {};
   final PhotoUploadService _uploadService = PhotoUploadService(
     Supabase.instance.client,
   );
+
+  Future<void> _fetchPdfLabels() async {
+    try {
+      final storage = Supabase.instance.client.storage.from('assets');
+      final res = await storage.download('books/pdf_labels.json');
+
+      final String jsonStr = utf8.decode(res);
+      _pdfLabels = Map<String, String>.from(json.decode(jsonStr));
+    } catch (e) {
+      print('取得 pdf_labels.json 失敗: $e');
+      _pdfLabels = {};
+    }
+  }
+
+  Future<void> _savePdfLabels() async {
+    try {
+      final storage = Supabase.instance.client.storage.from('assets');
+      await storage.updateBinary(
+        'books/pdf_labels.json',
+        utf8.encode(json.encode(_pdfLabels)),
+      );
+    } catch (e) {
+      print('儲存 pdf_labels.json 失敗: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -41,17 +71,17 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
       final response = await Supabase.instance.client.storage
           .from('assets')
           .list(path: 'books');
-      print('Supabase books list response:');
-      print(response);
+      await _fetchPdfLabels();
       setState(() {
         _pdfFiles = response
             .where((f) => f.name.toLowerCase().endsWith('.pdf'))
             .map(
-              (f) => _PdfFile(
+              (f) => PdfPage(
                 name: f.name,
                 url: Supabase.instance.client.storage
                     .from('assets')
                     .getPublicUrl('books/${f.name}'),
+                label: _pdfLabels[f.name],
               ),
             )
             .toList();
@@ -70,7 +100,9 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
       _uploadedPdfUrl = null;
     });
     try {
-      final result = await _uploadService.uploadPdfToBooksFolder(name: _pdfName.trim().isEmpty ? null : _pdfName.trim());
+      final result = await _uploadService.uploadPdfToBooksFolder(
+        name: _pdfName.trim().isEmpty ? null : _pdfName.trim(),
+      );
       setState(() {
         _uploadedPdfUrl = result;
       });
@@ -86,7 +118,7 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
     }
   }
 
-  Future<void> _renamePdf(_PdfFile file, String newName) async {
+  Future<void> _renamePdf(PdfPage file, String newName) async {
     if (newName.trim().isEmpty || newName == file.name) return;
     String targetName = newName.trim();
     if (!targetName.toLowerCase().endsWith('.pdf')) {
@@ -158,14 +190,10 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
   }
 }
 
-class _PdfFile {
-  final String name;
-  final String url;
-  _PdfFile({required this.name, required this.url});
-}
+
 
 class _PdfFileTile extends StatefulWidget {
-  final _PdfFile file;
+  final PdfPage file;
   final ValueChanged<String> onRename;
   const _PdfFileTile({required this.file, required this.onRename, Key? key})
     : super(key: key);
@@ -177,11 +205,13 @@ class _PdfFileTile extends StatefulWidget {
 class _PdfFileTileState extends State<_PdfFileTile> {
   late TextEditingController _controller;
   bool _editing = false;
-
+bool _editingLabel = false;
+  String? _label;
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.file.name);
+    _label = widget.file.label;
   }
 
   @override
@@ -189,6 +219,9 @@ class _PdfFileTileState extends State<_PdfFileTile> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.file.name != widget.file.name) {
       _controller.text = widget.file.name;
+    }
+    if (oldWidget.file.label != widget.file.label) {
+      _label = widget.file.label;
     }
   }
 
@@ -224,6 +257,51 @@ class _PdfFileTileState extends State<_PdfFileTile> {
                             widget.file.name,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _editingLabel
+                              ? TextField(
+                                  decoration: const InputDecoration(
+                                    labelText: '中文標籤',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  controller: TextEditingController(
+                                    text: _label ?? '',
+                                  ),
+                                  onSubmitted: (v) async {
+                                    setState(() {
+                                      _editingLabel = false;
+                                      _label = v;
+                                    });
+                                    final parentState = context
+                                        .findAncestorStateOfType<
+                                          _UploadPdfPageState
+                                        >();
+                                    if (parentState != null) {
+                                      parentState._pdfLabels[widget.file.name] =
+                                          v;
+                                      await parentState._savePdfLabels();
+                                      await parentState._fetchPdfFiles();
+                                    }
+                                  },
+                                )
+                              : GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _editingLabel = true),
+                                  child: Text(
+                                    _label ?? '（點擊編輯中文標籤）',
+                                    style: const TextStyle(
+                                      color: Colors.blueAccent,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
                   SelectableText(
                     widget.file.url,

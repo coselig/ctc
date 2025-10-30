@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -31,9 +32,10 @@ class _WelcomePageState extends State<WelcomePage>
 
   SfPdfViewer? pdf;
 
-  final List<String> pdfFiles = ['p1-3(content).pdf', 'front.pdf'];
-  int? _activePdfIndex; // ✅ 目前選中的 PDF index
-  int? _hoverPdfIndex; // ✅ 目前 hover 的 PDF index
+  List<String> pdfFiles = [];
+  Map<String, String> pdfLabels = {};
+  int? _activePdfIndex;
+  int? _hoverPdfIndex;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -63,17 +65,29 @@ class _WelcomePageState extends State<WelcomePage>
     }
   }
 
+  Future<void> _fetchPdfLabels() async {
+    try {
+      final storage = Supabase.instance.client.storage.from('assets');
+      final res = await storage.download('books/pdf_labels.json');
+      if (res.isNotEmpty) {
+        final jsonStr = utf8.decode(res);
+        pdfLabels = Map<String, String>.from(json.decode(jsonStr));
+        pdfFiles = pdfLabels.keys.toList();
+      }
+    } catch (e) {
+      print('取得 pdf_labels.json 失敗: $e');
+      pdfLabels = {};
+      pdfFiles = [];
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _currentUser = supabase.auth.currentUser;
     _setupAuthListener();
-    // 初始不載入 PDF
     _activePdfIndex = null;
     _hoverPdfIndex = null;
-
-    _loadPdfUrl(pdfFiles[0]);
-
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -82,6 +96,17 @@ class _WelcomePageState extends State<WelcomePage>
       parent: _fadeController,
       curve: Curves.easeInOut,
     );
+    _initLabelsAndPdf();
+  }
+
+  Future<void> _initLabelsAndPdf() async {
+    await _fetchPdfLabels();
+    if (pdfFiles.isNotEmpty) {
+      _loadPdfUrl(pdfFiles[0]);
+      setState(() {
+        _activePdfIndex = 0;
+      });
+    }
   }
 
   void _setupAuthListener() {
@@ -160,14 +185,19 @@ class _WelcomePageState extends State<WelcomePage>
 
   List<Widget> getBookMarks(Color primaryColor) {
     return [
-      getBookMark("首頁", pdfFiles[0], primaryColor),
-      getBookMark("產品型錄", pdfFiles[1], primaryColor),
-      // getBookMark("智能方案流程", 'front.pdf', primaryColor),
-      // getBookMark("居家智能提案", 'front.pdf', primaryColor),
-      // getBookMark("商業空間智能提案", 'front.pdf', primaryColor),
-      // 其他書籤可依序加入 pdfFiles
+      for (int i = 0; i < pdfFiles.length; i++)
+        getBookMark(
+          pdfLabels[pdfFiles[i]] ?? pdfFiles[i],
+          pdfFiles[i],
+          primaryColor,
+        ),
     ];
-  }
+    //首頁
+    //產品型錄
+    //智能方案流程
+    //居家智能提案
+    //商業空間智能提案
+}
 
   @override
   Widget build(BuildContext context) {
