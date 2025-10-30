@@ -88,7 +88,6 @@ class _SystemHomePageState extends State<SystemHomePage> {
   late final EmployeeService _employeeService;
   late final PermissionService _permissionService;
   Employee? _currentEmployee;
-  bool _isLoadingEmployee = true;
   bool _canViewAllAttendance = false; // 是否可以查看所有出勤（HR/老闆）
 
   @override
@@ -113,7 +112,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
       print('載入權限失敗: $e');
     }
   }
-  
+
   /// 載入當前用戶的員工資料
   Future<void> _loadCurrentEmployee() async {
     try {
@@ -121,14 +120,12 @@ class _SystemHomePageState extends State<SystemHomePage> {
       if (mounted) {
         setState(() {
           _currentEmployee = employee;
-          _isLoadingEmployee = false;
         });
       }
     } catch (e) {
       print('載入員工資料失敗: $e');
       if (mounted) {
         setState(() {
-          _isLoadingEmployee = false;
         });
       }
     }
@@ -140,7 +137,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
 
     return GeneralPage(
       actions: [
-        Text("您好，${_currentEmployee?.name ?? user?.email ?? '訪客'}"),
+        Text("${_currentEmployee?.name ?? user?.email ?? '訪客'}"),
         IconButton(
           icon: const Icon(Icons.home),
           onPressed: () {
