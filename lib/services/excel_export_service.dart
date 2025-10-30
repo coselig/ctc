@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
-import '../services/attendance_service.dart';
-import '../services/employee_service.dart';
+import 'employee/attendance/attendance_service.dart';
+import 'employee/employee_general_service.dart';
 
 class ExcelExportService {
   final SupabaseClient supabase;

@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/customer.dart';
 import '../../models/project.dart';
-import '../../services/customer_service.dart';
+import '../../services/customer/customer_service.dart';
 
 /// 客戶主頁面
 /// 顯示客戶可訪問的專案列表和個人資料

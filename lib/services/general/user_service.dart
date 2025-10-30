@@ -1,17 +1,26 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user_profile.dart';
+import '../../models/user_profile.dart';
 
 /// 用戶服務
 /// 處理與用戶資料相關的所有操作
 class UserService {
-  final SupabaseClient _client;
+  /// 檢查是否有登入，回傳 User，否則丟出 Exception
+  User requireAuthUser() {
+    final user = client.auth.currentUser;
+    if (user == null) {
+      throw Exception('沒有用戶登入');
+    }
+    return user;
+  }
 
-  UserService(this._client);
+  final SupabaseClient client;
+
+  UserService(this.client);
 
   /// 透過 auth.users.id 取得用戶的 profile 資料
   Future<UserProfile?> getUserProfileById(String userId) async {
     try {
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select('*')
           .eq('id', userId)
@@ -32,13 +41,8 @@ class UserService {
   /// 取得當前登入用戶的 profile 資料
   Future<UserProfile?> getCurrentUserProfile() async {
     try {
-      final currentUser = _client.auth.currentUser;
-      if (currentUser == null) {
-        print('沒有用戶登入');
-        return null;
-      }
-
-      return await getUserProfileById(currentUser.id);
+      final user = requireAuthUser();
+      return await getUserProfileById(user.id);
     } catch (e) {
       print('獲取當前用戶 profile 失敗: $e');
       return null;
@@ -65,7 +69,7 @@ class UserService {
         'updated_at': now.toIso8601String(),
       };
 
-      final response = await _client
+      final response = await client
           .from('profiles')
           .insert(data)
           .select('*')
@@ -97,7 +101,7 @@ class UserService {
       if (themePreference != null)
         updateData['theme_preference'] = themePreference;
 
-      final response = await _client
+      final response = await client
           .from('profiles')
           .update(updateData)
           .eq('id', userId)
@@ -119,7 +123,7 @@ class UserService {
     String? themePreference,
   }) async {
     try {
-      final currentUser = _client.auth.currentUser;
+      final currentUser = client.auth.currentUser;
       if (currentUser == null) {
         print('沒有用戶登入');
         return null;
@@ -157,7 +161,7 @@ class UserService {
         'updated_at': now.toIso8601String(),
       };
 
-      final response = await _client
+      final response = await client
           .from('profiles')
           .upsert(data)
           .select('*')
@@ -177,7 +181,7 @@ class UserService {
     String themePreference = 'system',
   }) async {
     try {
-      final currentUser = _client.auth.currentUser;
+      final currentUser = client.auth.currentUser;
       if (currentUser == null) {
         print('沒有用戶登入');
         return null;
@@ -199,7 +203,7 @@ class UserService {
   /// 刪除用戶 profile
   Future<bool> deleteUserProfile(String userId) async {
     try {
-      await _client.from('profiles').delete().eq('id', userId);
+      await client.from('profiles').delete().eq('id', userId);
 
       return true;
     } catch (e) {
@@ -211,7 +215,7 @@ class UserService {
   /// 檢查用戶 profile 是否存在
   Future<bool> userProfileExists(String userId) async {
     try {
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select('id')
           .eq('id', userId)
@@ -229,7 +233,7 @@ class UserService {
     try {
       if (userIds.isEmpty) return [];
 
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select('*')
           .inFilter('id', userIds);
@@ -250,7 +254,7 @@ class UserService {
     int limit = 50,
   }) async {
     try {
-      var query = _client.from('profiles').select('*');
+      var query = client.from('profiles').select('*');
 
       if (email != null && email.isNotEmpty) {
         query = query.ilike('email', '%$email%');
@@ -280,7 +284,7 @@ class UserService {
       final from = page * pageSize;
       final to = from + pageSize - 1;
 
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select('*')
           .order('created_at', ascending: false)

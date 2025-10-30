@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
-import '../../services/attendance_service.dart';
-import '../../services/employee_service.dart';
-import '../../services/permission_service.dart';
+import '../../services/employee/attendance/attendance_service.dart';
+import '../../services/employee/employee_general_service.dart';
+import '../../services/general/permission_service.dart';
 
 /// 手動補打卡頁面（僅 HR/老闆可用）
 class ManualAttendancePage extends StatefulWidget {
@@ -76,22 +76,14 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   /// 載入當前用戶的員工資料
   Future<void> _loadCurrentEmployee() async {
     setState(() => _isLoading = true);
-
     try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('用戶未登入');
-      }
-
-      final employee = await _employeeService.getEmployeeByEmail(user.email!);
+      final employee = await _employeeService.getCurrentEmployee();
       if (employee == null) {
         throw Exception('找不到員工資料');
       }
-
       setState(() {
         _currentEmployee = employee;
       });
-
       // 載入完員工資料後,檢查今天是否已有打卡記錄
       await _checkExistingRecord();
     } catch (e) {

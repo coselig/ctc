@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/attendance_record.dart';
-import '../models/employee.dart';
+import '../../../models/attendance_record.dart';
+import '../../../models/employee.dart';
 import 'holiday_service.dart';
 
 /// 打卡記錄服務類

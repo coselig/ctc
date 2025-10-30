@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/company_location.dart';
+import '../../../models/company_location.dart';
 
 /// 公司位置管理服務
 class CompanyLocationService {

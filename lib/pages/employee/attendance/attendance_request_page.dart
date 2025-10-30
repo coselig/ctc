@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../models/attendance_leave_request.dart';
-import '../../../services/attendance_leave_request_service.dart';
-import '../../../services/permission_service.dart';
+import '../../../services/employee/attendance/attendance_leave_request_service.dart';
+import '../../../services/general/permission_service.dart';
 import 'attendance_request_form_page.dart';
 
 /// 補打卡申請頁面 - 顯示我的申請列表

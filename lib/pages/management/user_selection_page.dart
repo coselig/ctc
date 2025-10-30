@@ -1,9 +1,8 @@
-import 'package:ctc/widgets/general_components/auth_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../services/employee_service.dart';
-import '../../services/registered_user_service.dart';
+import '../../services/employee/employee_general_service.dart';
+import '../../services/general/registered_user_service.dart';
 import '../../widgets/widgets.dart';
 
 class UserSelectionPage extends StatefulWidget {

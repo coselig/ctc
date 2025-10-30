@@ -11,5 +11,5 @@ export 'product_compass.dart';
 export 'product_page.dart';
 // ==================== 啟動與歡迎頁面 ====================
 export 'splash_page.dart';
-export 'user_selection_page.dart';
+export '../management/user_selection_page.dart';
 export 'welcome_page.dart';

@@ -1,18 +1,16 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/employee.dart';
 
-class EmployeeService {
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/employee.dart';
+import '../general/user_service.dart';
+
+class EmployeeService extends UserService {
+  EmployeeService(SupabaseClient client) : super(client);
+
   /// 取得目前登入者的員工資料
   Future<Employee?> getCurrentEmployee() async {
-    final user = _client.auth.currentUser;
-    if (user == null) {
-      throw Exception('必須登入才能查看員工資料');
-    }
+    final user = requireAuthUser();
     return getEmployeeById(user.id);
   }
-  final SupabaseClient _client;
-
-  EmployeeService(this._client);
 
   /// 獲取所有員工列表
   Future<List<Employee>> getAllEmployees({
@@ -21,25 +19,24 @@ class EmployeeService {
     String? searchQuery,
   }) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看員工資料');
-      }
+      requireAuthUser();
 
-      var query = _client.from('employees').select('*');
+      var query = client.from('employees').select('*');
 
       // 篩選條件
       if (department != null && department.isNotEmpty) {
         query = query.eq('department', department);
       }
-      
+
       if (status != null) {
         query = query.eq('status', status.value);
       }
 
       // 搜尋功能（姓名或員工編號）
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        query = query.or('name.ilike.%$searchQuery%,employee_id.ilike.%$searchQuery%');
+        query = query.or(
+          'name.ilike.%$searchQuery%,employee_id.ilike.%$searchQuery%',
+        );
       }
 
       final response = await query.order('created_at', ascending: false);
@@ -53,12 +50,9 @@ class EmployeeService {
   /// 根據ID獲取單個員工資料
   Future<Employee?> getEmployeeById(String id) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看員工資料');
-      }
+      requireAuthUser();
 
-      final response = await _client
+      final response = await client
           .from('employees')
           .select('*')
           .eq('id', id)
@@ -74,12 +68,9 @@ class EmployeeService {
   /// 根據Email獲取員工資料
   Future<Employee?> getEmployeeByEmail(String email) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看員工資料');
-      }
+      requireAuthUser();
 
-      final response = await _client
+      final response = await client
           .from('employees')
           .select('*')
           .eq('email', email)
@@ -99,13 +90,10 @@ class EmployeeService {
   /// 創建新員工
   Future<Employee> createEmployee(Employee employee) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能創建員工資料');
-      }
+      final user = requireAuthUser();
 
       // 檢查員工編號是否重複
-      final existingEmployee = await _client
+      final existingEmployee = await client
           .from('employees')
           .select('employee_id')
           .eq('employee_id', employee.employeeId)
@@ -121,7 +109,7 @@ class EmployeeService {
         updatedAt: DateTime.now(),
       );
 
-      final response = await _client
+      final response = await client
           .from('employees')
           .insert(newEmployee.toJsonForInsert())
           .select()
@@ -137,17 +125,14 @@ class EmployeeService {
   /// 更新員工資料
   Future<Employee> updateEmployee(String id, Employee employee) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能更新員工資料');
-      }
+      requireAuthUser();
 
       final updatedEmployee = employee.copyWith(
         id: id,
         updatedAt: DateTime.now(),
       );
 
-      final response = await _client
+      final response = await client
           .from('employees')
           .update(updatedEmployee.toJson())
           .eq('id', id)
@@ -164,12 +149,9 @@ class EmployeeService {
   /// 刪除員工（軟刪除，設為離職狀態）
   Future<void> deleteEmployee(String id) async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能刪除員工資料');
-      }
+      requireAuthUser();
 
-      await _client
+      await client
           .from('employees')
           .update({
             'status': EmployeeStatus.resigned.value,
@@ -185,12 +167,9 @@ class EmployeeService {
   /// 獲取所有部門列表
   Future<List<String>> getDepartments() async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看部門資料');
-      }
+      requireAuthUser();
 
-      final response = await _client
+      final response = await client
           .from('employees')
           .select('department')
           .neq('status', 'resigned');
@@ -199,7 +178,7 @@ class EmployeeService {
           .map((row) => row['department'] as String)
           .toSet()
           .toList();
-      
+
       departments.sort();
       return departments;
     } catch (e) {
@@ -211,12 +190,9 @@ class EmployeeService {
   /// 獲取所有職位列表
   Future<List<String>> getPositions() async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看職位資料');
-      }
+      requireAuthUser();
 
-      final response = await _client
+      final response = await client
           .from('employees')
           .select('position')
           .neq('status', 'resigned');
@@ -225,7 +201,7 @@ class EmployeeService {
           .map((row) => row['position'] as String)
           .toSet()
           .toList();
-      
+
       positions.sort();
       return positions;
     } catch (e) {
@@ -237,7 +213,7 @@ class EmployeeService {
   /// 生成下一個員工編號
   Future<String> generateEmployeeId() async {
     try {
-      final response = await _client
+      final response = await client
           .from('employees')
           .select('employee_id')
           .order('employee_id', ascending: false)
@@ -249,7 +225,7 @@ class EmployeeService {
 
       final lastId = response.first['employee_id'] as String;
       final match = RegExp(r'EMP(\d+)').firstMatch(lastId);
-      
+
       if (match != null) {
         final number = int.parse(match.group(1)!) + 1;
         return 'EMP${number.toString().padLeft(3, '0')}';
@@ -265,13 +241,10 @@ class EmployeeService {
   /// 獲取員工統計資料
   Future<Map<String, int>> getEmployeeStatistics() async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看統計資料');
-      }
+      requireAuthUser();
 
-      final response = await _client.from('employees').select('status');
-      
+      final response = await client.from('employees').select('status');
+
       final stats = <String, int>{};
       for (final status in EmployeeStatus.values) {
         stats[status.displayName] = response
@@ -283,129 +256,6 @@ class EmployeeService {
     } catch (e) {
       print('獲取統計資料失敗: $e');
       return {};
-    }
-  }
-}
-
-class EmployeeSkillService {
-  final SupabaseClient _client;
-
-  EmployeeSkillService(this._client);
-
-  /// 獲取員工技能列表
-  Future<List<EmployeeSkill>> getEmployeeSkills(String employeeId) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看技能資料');
-      }
-
-      final response = await _client
-          .from('employee_skills')
-          .select('*')
-          .eq('employee_id', employeeId)
-          .order('created_at', ascending: false);
-
-      return response.map<EmployeeSkill>((json) => EmployeeSkill.fromJson(json)).toList();
-    } catch (e) {
-      print('獲取員工技能失敗: $e');
-      rethrow;
-    }
-  }
-
-  /// 添加員工技能
-  Future<EmployeeSkill> addEmployeeSkill(EmployeeSkill skill) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能添加技能');
-      }
-
-      final response = await _client
-          .from('employee_skills')
-          .insert(skill.toJsonForInsert())
-          .select()
-          .single();
-
-      return EmployeeSkill.fromJson(response);
-    } catch (e) {
-      print('添加員工技能失敗: $e');
-      rethrow;
-    }
-  }
-
-  /// 刪除員工技能
-  Future<void> deleteEmployeeSkill(String skillId) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能刪除技能');
-      }
-
-      await _client.from('employee_skills').delete().eq('id', skillId);
-    } catch (e) {
-      print('刪除員工技能失敗: $e');
-      rethrow;
-    }
-  }
-}
-
-class EmployeeAttendanceService {
-  final SupabaseClient _client;
-
-  EmployeeAttendanceService(this._client);
-
-  /// 獲取員工考勤記錄
-  Future<List<EmployeeAttendance>> getEmployeeAttendance(
-    String employeeId, {
-    DateTime? startDate,
-    DateTime? endDate,
-  }) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能查看考勤記錄');
-      }
-
-      var query = _client
-          .from('employee_attendance')
-          .select('*')
-          .eq('employee_id', employeeId);
-
-      if (startDate != null) {
-        query = query.gte('date', startDate.toIso8601String().split('T')[0]);
-      }
-
-      if (endDate != null) {
-        query = query.lte('date', endDate.toIso8601String().split('T')[0]);
-      }
-
-      final response = await query.order('date', ascending: false);
-      return response.map<EmployeeAttendance>((json) => EmployeeAttendance.fromJson(json)).toList();
-    } catch (e) {
-      print('獲取考勤記錄失敗: $e');
-      rethrow;
-    }
-  }
-
-  /// 記錄考勤
-  Future<EmployeeAttendance> recordAttendance(EmployeeAttendance attendance) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        throw Exception('必須登入才能記錄考勤');
-      }
-
-      final response = await _client
-          .from('employee_attendance')
-          .upsert(attendance.toJson())
-          .select()
-          .single();
-
-      return EmployeeAttendance.fromJson(response);
-    } catch (e) {
-      print('記錄考勤失敗: $e');
-      rethrow;
     }
   }
 }

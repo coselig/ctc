@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/employee.dart';
-import '../models/user_role.dart';
+import '../../models/employee.dart';
+import '../../models/user_role.dart';
 
 /// 權限管理服務
 class PermissionService {

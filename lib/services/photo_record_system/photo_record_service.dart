@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/photo_record.dart';
+import '../../models/photo_record.dart';
 
 class PhotoRecordService {
   final SupabaseClient _client;

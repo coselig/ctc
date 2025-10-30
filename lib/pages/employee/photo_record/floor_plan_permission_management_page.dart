@@ -1,4 +1,4 @@
-import 'package:ctc/services/floor_plan_permission_service.dart';
+import 'package:ctc/services/photo_record_system/floor_plan_permission_service.dart';
 import 'package:ctc/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

@@ -1,7 +1,7 @@
 // import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/photo_upload_service.dart';
+import '../services/photo_record_system/photo_upload_service.dart';
 
 class UploadAssetPage extends StatefulWidget {
   const UploadAssetPage({Key? key}) : super(key: key);

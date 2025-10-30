@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/attendance_leave_request.dart';
+import '../../../models/attendance_leave_request.dart';
 
 /// 補打卡申請服務
 class AttendanceLeaveRequestService {

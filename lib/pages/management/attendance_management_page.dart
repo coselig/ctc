@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/models.dart';
-import '../../services/attendance_service.dart';
-import '../../services/employee_service.dart';
+import '../../services/employee/attendance/attendance_service.dart';
+import '../../services/employee/employee_general_service.dart';
 import '../../services/excel_export_service.dart';
 import '../../widgets/dialogs/month_year_picker.dart';
 import '../../widgets/general_components/general_page.dart';

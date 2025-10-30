@@ -4,8 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../models/attendance_leave_request.dart';
 import '../../../models/employee.dart';
-import '../../../services/attendance_leave_request_service.dart';
-import '../../../services/employee_service.dart';
+import '../../../services/employee/attendance/attendance_leave_request_service.dart';
+import '../../../services/employee/employee_general_service.dart';
 import '../../../widgets/general_components/general_page.dart';
 
 /// 補打卡申請表單頁面 - 新增/編輯申請

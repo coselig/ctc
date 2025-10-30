@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../services/user_preferences_service.dart';
+import '../../services/general/user_preferences_service.dart';
 import '../../widgets/general_components/general_page.dart';
 
 /// 用戶設置頁面

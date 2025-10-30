@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/customer_service.dart';
+import '../../services/customer/customer_service.dart';
 
 /// 客戶註冊頁面
 /// 新用戶註冊後填寫客戶資料

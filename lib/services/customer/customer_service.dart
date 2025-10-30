@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/customer.dart';
+import '../../models/customer.dart';
 
 /// 客戶管理服務
 class CustomerService {
