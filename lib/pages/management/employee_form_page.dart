@@ -1,4 +1,3 @@
-import 'package:ctc/widgets/general_components/auth_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/employee.dart';

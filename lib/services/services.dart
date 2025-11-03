@@ -19,6 +19,7 @@ export 'excel_export_service.dart';
 export 'floor_plans_service.dart';
 // ==================== 權限相關服務 ====================
 export 'general/permission_service.dart';
+export 'general/photo_upload_service.dart';
 export 'general/registered_user_service.dart';
 export 'general/user_permission_service.dart';
 export 'general/user_preferences_service.dart';
@@ -29,4 +30,3 @@ export 'image_service.dart';
 export 'job_vacancy_service.dart';
 // ==================== 相片相關服務 ====================
 export 'photo_record_system/photo_record_service.dart';
-export 'general/photo_upload_service.dart';

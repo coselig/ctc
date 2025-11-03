@@ -1,9 +1,8 @@
 import 'package:ctc/models/photo_record.dart';
 import 'package:ctc/pages/employee/photo_record/floor_plan_permission_management_page.dart';
 import 'package:ctc/services/floor_plans_service.dart';
-import 'package:ctc/services/photo_record_system/photo_record_service.dart';
 import 'package:ctc/services/general/photo_upload_service.dart';
-import 'package:ctc/widgets/general_components/auth_action_button.dart';
+import 'package:ctc/services/photo_record_system/photo_record_service.dart';
 import 'package:ctc/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

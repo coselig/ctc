@@ -17,6 +17,11 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
     try {
       final storage = Supabase.instance.client.storage.from('assets');
       await storage.remove(['books/${file.name}']);
+      
+      // 同時從 pdf_labels.json 中移除該檔案的標籤
+      _pdfLabels.remove(file.name);
+      await _savePdfLabels();
+      
       await _fetchPdfFiles();
     } catch (e) {
       setState(() {
@@ -72,6 +77,33 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
           .from('assets')
           .list(path: 'books');
       await _fetchPdfLabels();
+      
+      // 取得實際存在的 PDF 檔案名稱
+      final existingPdfFiles = response
+          .where((f) => f.name.toLowerCase().endsWith('.pdf'))
+          .map((f) => f.name)
+          .toSet();
+
+      // 檢查並清理 _pdfLabels 中不存在的 PDF 檔案
+      bool labelsChanged = false;
+      final keysToRemove = <String>[];
+      for (String fileName in _pdfLabels.keys) {
+        if (!existingPdfFiles.contains(fileName)) {
+          keysToRemove.add(fileName);
+          labelsChanged = true;
+        }
+      }
+
+      // 移除不存在的檔案標籤
+      for (String key in keysToRemove) {
+        _pdfLabels.remove(key);
+      }
+
+      // 如果有變更，重新儲存 pdf_labels.json
+      if (labelsChanged) {
+        await _savePdfLabels();
+      }
+      
       setState(() {
         _pdfFiles = response
             .where((f) => f.name.toLowerCase().endsWith('.pdf'))
