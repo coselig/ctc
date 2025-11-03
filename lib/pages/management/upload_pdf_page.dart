@@ -76,37 +76,29 @@ class _UploadPdfPageState extends State<UploadPdfPage> {
       final response = await Supabase.instance.client.storage
           .from('assets')
           .list(path: 'books');
-      await _fetchPdfLabels();
       
-      // 取得實際存在的 PDF 檔案名稱
-      final existingPdfFiles = response
+      // 載入舊的標籤資料
+      await _fetchPdfLabels();
+      final oldLabels = Map<String, String>.from(_pdfLabels);
+      
+      // 取得實際存在的 PDF 檔案
+      final pdfFileObjects = response
           .where((f) => f.name.toLowerCase().endsWith('.pdf'))
-          .map((f) => f.name)
-          .toSet();
-
-      // 檢查並清理 _pdfLabels 中不存在的 PDF 檔案
-      bool labelsChanged = false;
-      final keysToRemove = <String>[];
-      for (String fileName in _pdfLabels.keys) {
-        if (!existingPdfFiles.contains(fileName)) {
-          keysToRemove.add(fileName);
-          labelsChanged = true;
+          .toList();
+      
+      // 重建標籤 Map，只保留實際存在檔案的標籤
+      _pdfLabels.clear();
+      for (final file in pdfFileObjects) {
+        if (oldLabels.containsKey(file.name)) {
+          _pdfLabels[file.name] = oldLabels[file.name]!;
         }
       }
-
-      // 移除不存在的檔案標籤
-      for (String key in keysToRemove) {
-        _pdfLabels.remove(key);
-      }
-
-      // 如果有變更，重新儲存 pdf_labels.json
-      if (labelsChanged) {
-        await _savePdfLabels();
-      }
+      
+      // 重新儲存乾淨的 pdf_labels.json
+      await _savePdfLabels();
       
       setState(() {
-        _pdfFiles = response
-            .where((f) => f.name.toLowerCase().endsWith('.pdf'))
+        _pdfFiles = pdfFileObjects
             .map(
               (f) => PdfPage(
                 name: f.name,
