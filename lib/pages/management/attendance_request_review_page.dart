@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../models/models.dart'; // 統一匯入所有模型
-import '../../services/services.dart'; // 統一匯入所有服務
+import '../../models/models.dart';
+import '../../services/services.dart';
 
-/// 補打卡審核頁面 - HR/老闆審核申請
 class AttendanceRequestReviewPage extends StatefulWidget {
   const AttendanceRequestReviewPage({
     super.key,
@@ -33,7 +32,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
   bool _canReview = false;
   int _pendingCount = 0;
 
-  // 篩選條件
   AttendanceRequestStatus? _selectedStatus;
   String? _selectedEmployeeId;
   List<Employee> _allEmployees = [];
@@ -51,7 +49,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     _loadRequests();
   }
 
-  /// 檢查審核權限
   Future<void> _checkPermissions() async {
     try {
       final canReview = await _permissionService.canViewAllAttendance();
@@ -72,7 +69,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     }
   }
 
-  /// 載入當前員工資料（審核人）
   Future<void> _loadCurrentEmployee() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -89,7 +85,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     }
   }
 
-  /// 載入所有員工（用於篩選）
   Future<void> _loadAllEmployees() async {
     try {
       final employees = await _employeeService.getAllEmployees();
@@ -103,7 +98,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     }
   }
 
-  /// 載入申請列表
   Future<void> _loadRequests() async {
     if (!mounted) return;
 
@@ -138,7 +132,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     }
   }
 
-  /// 審核申請
   Future<void> _reviewRequest(
     AttendanceLeaveRequest request,
     bool approve,
@@ -150,16 +143,14 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
       return;
     }
 
-    // 如果拒絕，要求填寫原因
     String? comment;
     if (!approve) {
       final result = await _showRejectDialog();
       if (result == null || result.isEmpty) {
-        return; // 取消拒絕
+        return;
       }
       comment = result;
     } else {
-      // 核准時可選填意見
       comment = await _showApproveDialog();
     }
 
@@ -172,7 +163,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
           comment: comment,
         );
 
-        // 核准後自動補打卡
         bool autoAttendanceSuccess = true;
         try {
           await _createAttendanceRecord(request);
@@ -209,7 +199,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         }
       }
 
-      _loadRequests(); // 重新載入列表
+      _loadRequests();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -219,10 +209,8 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     }
   }
 
-  /// 創建打卡記錄（核准後）
   Future<void> _createAttendanceRecord(AttendanceLeaveRequest request) async {
     try {
-      // 獲取申請人的員工資料
       final employee = await _employeeService.getEmployeeById(
         request.employeeId,
       );
@@ -232,7 +220,6 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
 
       switch (request.requestType) {
         case AttendanceRequestType.checkIn:
-          // 補上班打卡
           await _attendanceService.createManualCheckIn(
             employeeId: request.employeeId,
             employeeName: request.employeeName,
@@ -245,11 +232,10 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
           break;
 
         case AttendanceRequestType.checkOut:
-          // 補下班打卡（可能同時修改上班時間）
           await _attendanceService.createManualCheckOut(
             employeeId: request.employeeId,
             checkOutTime: request.requestTime!,
-            checkInTime: request.checkInTime, // 傳入上班時間（如果有提供）
+            checkInTime: request.checkInTime,
             location: '補打卡申請',
             notes: '補打卡申請已核准\n原因：${request.reason}',
           );
