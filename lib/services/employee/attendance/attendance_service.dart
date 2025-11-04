@@ -486,6 +486,8 @@ class AttendanceService {
       final startOfDay = DateTime(date.year, date.month, date.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
+      print('🔍 查詢打卡記錄: 員工=$employeeId, 日期範圍=$startOfDay 到 $endOfDay');
+
       final response = await _client
           .from('attendance_records')
           .select('*')
@@ -495,12 +497,33 @@ class AttendanceService {
           .order('check_in_time', ascending: false)
           .limit(1);
 
+      print('查詢結果: ${response.length} 筆記錄');
       if (response.isNotEmpty) {
+        print('找到記錄: ${response.first}');
         return AttendanceRecord.fromJson(response.first);
       }
+      
+      // 如果找不到記錄，擴大搜尋範圍檢查
+      print('⚠️ 在指定日期找不到記錄，擴大搜尋範圍...');
+      final expandedResponse = await _client
+          .from('attendance_records')
+          .select('id, check_in_time, check_out_time')
+          .eq('employee_id', employeeId)
+          .gte(
+            'check_in_time',
+            startOfDay.subtract(const Duration(days: 2)).toIso8601String(),
+          )
+          .lt(
+            'check_in_time',
+            endOfDay.add(const Duration(days: 2)).toIso8601String(),
+          )
+          .order('check_in_time', ascending: false)
+          .limit(10);
+
+      print('附近日期的記錄: $expandedResponse');
       return null;
     } catch (e) {
-      print('獲取指定日期打卡記錄失敗: $e');
+      print('❌ 獲取指定日期打卡記錄失敗: $e');
       rethrow;
     }
   }
@@ -565,6 +588,9 @@ class AttendanceService {
       print('🔄 建立補下班打卡記錄...');
       print('員工ID: $employeeId');
       print('下班時間: $checkOutTime');
+      print(
+        '查詢日期: ${checkOutTime.year}-${checkOutTime.month.toString().padLeft(2, '0')}-${checkOutTime.day.toString().padLeft(2, '0')}',
+      );
       if (checkInTime != null) {
         print('上班時間（修改）: $checkInTime');
       }
@@ -576,7 +602,20 @@ class AttendanceService {
       );
 
       if (existingRecord == null) {
-        throw Exception('找不到該日期的上班打卡記錄，無法補下班打卡');
+        // 詳細檢查該員工最近的打卡記錄
+        print('❌ 找不到該日期的打卡記錄，檢查最近記錄...');
+        final recentRecords = await _client
+            .from('attendance_records')
+            .select('id, check_in_time, check_out_time, created_at')
+            .eq('employee_id', employeeId)
+            .order('check_in_time', ascending: false)
+            .limit(5);
+
+        print('該員工最近5筆記錄: $recentRecords');
+
+        final targetDate =
+            '${checkOutTime.year}-${checkOutTime.month.toString().padLeft(2, '0')}-${checkOutTime.day.toString().padLeft(2, '0')}';
+        throw Exception('找不到 $targetDate 的上班打卡記錄，無法補下班打卡。請確認該日期是否有上班打卡記錄。');
       }
 
       if (existingRecord.checkOutTime != null) {
@@ -613,17 +652,60 @@ class AttendanceService {
         updateData['notes'] = notes;
       }
 
-      final result = await _client
-          .from('attendance_records')
-          .update(updateData)
-          .eq('id', existingRecord.id)
-          .select()
-          .single();
+      print('🔄 正在更新打卡記錄...');
+      print('更新資料: $updateData');
+      print('目標記錄ID: ${existingRecord.id}');
 
-      print('✅ 補下班打卡記錄建立成功');
-      print('記錄ID: ${result['id']}');
-      if (checkInTime != null) {
-        print('已同時更新上班時間');
+      try {
+        final result = await _client
+            .from('attendance_records')
+            .update(updateData)
+            .eq('id', existingRecord.id)
+            .select()
+            .single();
+
+        print('✅ 補下班打卡記錄建立成功');
+        print('記錄ID: ${result['id']}');
+        print('更新後的下班時間: ${result['check_out_time']}');
+        print('更新後的工作時數: ${result['work_hours']}');
+        if (checkInTime != null) {
+          print('已同時更新上班時間: ${result['check_in_time']}');
+        }
+      } catch (updateError) {
+        print('❌ 直接更新失敗: $updateError');
+        print('錯誤詳情: ${updateError.toString()}');
+
+        // 檢查是否為權限問題
+        if (updateError.toString().toLowerCase().contains('policy') ||
+            updateError.toString().toLowerCase().contains('rls') ||
+            updateError.toString().toLowerCase().contains('permission')) {
+          print('🔄 檢測到權限問題，嘗試使用 RPC 函數...');
+
+          try {
+            final rpcResult = await _client.rpc(
+              'update_cross_day_checkout',
+              params: {
+                'record_id': existingRecord.id,
+                'checkout_time': checkOutTime.toIso8601String(),
+                'work_hours': workHours,
+                'location_text': location,
+                'notes_text': notes,
+              },
+            );
+
+            print('✅ RPC 函數更新成功');
+            print('RPC 結果: $rpcResult');
+            return; // 成功完成
+          } catch (rpcError) {
+            print('❌ RPC 函數也失敗: $rpcError');
+            throw Exception(
+              '更新下班打卡失敗：直接更新和 RPC 函數都失敗。\n直接更新錯誤：$updateError\nRPC 錯誤：$rpcError',
+            );
+          }
+        } else {
+          // 非權限問題，直接拋出原始錯誤
+          rethrow;
+        }
       }
     } catch (e, stack) {
       print('❌ 建立補下班打卡記錄失敗: $e');
