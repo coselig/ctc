@@ -773,12 +773,28 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
 
   /// 取得請假時間文字
   String _getRequestTimeText(AttendanceLeaveRequest request) {
-    if (request.requestType == AttendanceRequestType.fullDay) {
-      final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
-      final checkOut = DateFormat('HH:mm').format(request.checkOutTime!);
-      return '$checkIn - $checkOut';
-    } else {
-      return DateFormat('HH:mm').format(request.requestTime!);
+    switch (request.requestType) {
+      case AttendanceRequestType.fullDay:
+        // 補整天：顯示上班時間 - 下班時間
+        final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
+        final checkOut = DateFormat('HH:mm').format(request.checkOutTime!);
+        return '$checkIn - $checkOut';
+        
+      case AttendanceRequestType.checkOut:
+        // 補下班打卡：檢查是否同時修改上班時間
+        if (request.checkInTime != null) {
+          // 有修改上班時間：顯示修改的上班時間 - 下班時間
+          final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
+          final checkOut = DateFormat('HH:mm').format(request.requestTime!);
+          return '$checkIn - $checkOut';
+        } else {
+          // 只補下班：顯示下班時間
+          return '下班: ${DateFormat('HH:mm').format(request.requestTime!)}';
+        }
+
+      case AttendanceRequestType.checkIn:
+        // 補上班打卡：只顯示上班時間
+        return '上班: ${DateFormat('HH:mm').format(request.requestTime!)}';
     }
   }
 

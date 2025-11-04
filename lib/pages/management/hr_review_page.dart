@@ -718,20 +718,7 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
             const Divider(height: 24),
             
             // 補打卡資訊
-            _buildInfoRow(
-              Icons.login,
-              '上班時間',
-              request.checkInTime != null ? _formatDateTime(request.checkInTime!) : '未填寫',
-            ),
-            const SizedBox(height: 8),
-            if (request.checkOutTime != null) ...[
-              _buildInfoRow(
-                Icons.logout,
-                '下班時間',
-                _formatDateTime(request.checkOutTime!),
-              ),
-              const SizedBox(height: 8),
-            ],
+            ..._buildAttendanceTimeRows(request),
             _buildInfoRow(
               Icons.note,
               '申請原因',
@@ -801,6 +788,76 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
         ),
       ],
     );
+  }
+
+  /// 建立補打卡時間資訊行
+  List<Widget> _buildAttendanceTimeRows(AttendanceLeaveRequest request) {
+    final List<Widget> rows = [];
+
+    switch (request.requestType) {
+      case AttendanceRequestType.fullDay:
+        // 補整天：顯示上班和下班時間
+        rows.addAll([
+          _buildInfoRow(
+            Icons.login,
+            '上班時間',
+            _formatDateTime(request.checkInTime!),
+          ),
+          const SizedBox(height: 8),
+          _buildInfoRow(
+            Icons.logout,
+            '下班時間',
+            _formatDateTime(request.checkOutTime!),
+          ),
+          const SizedBox(height: 8),
+        ]);
+        break;
+
+      case AttendanceRequestType.checkOut:
+        // 補下班打卡：檢查是否同時修改上班時間
+        if (request.checkInTime != null) {
+          // 有修改上班時間
+          rows.addAll([
+            _buildInfoRow(
+              Icons.edit,
+              '修改上班時間',
+              _formatDateTime(request.checkInTime!),
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.logout,
+              '補下班時間',
+              _formatDateTime(request.requestTime!),
+            ),
+            const SizedBox(height: 8),
+          ]);
+        } else {
+          // 只補下班
+          rows.addAll([
+            _buildInfoRow(
+              Icons.logout,
+              '補下班時間',
+              _formatDateTime(request.requestTime!),
+            ),
+            const SizedBox(height: 8),
+          ]);
+        }
+        break;
+
+      case AttendanceRequestType.checkIn:
+        // 補上班打卡
+        rows.addAll([
+          _buildInfoRow(
+            Icons.login,
+            '補上班時間',
+            _formatDateTime(request.requestTime!),
+          ),
+          const SizedBox(height: 8),
+        ]);
+        break;
+    }
+
+    return rows;
   }
 }
 

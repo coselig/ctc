@@ -427,12 +427,28 @@ class _AttendanceRequestPageState extends State<AttendanceRequestPage> {
 
   /// 取得請假時間文字
   String _getRequestTimeText(AttendanceLeaveRequest request) {
-    if (request.requestType == AttendanceRequestType.fullDay) {
-      final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
-      final checkOut = DateFormat('HH:mm').format(request.checkOutTime!);
-      return '$checkIn - $checkOut';
-    } else {
-      return DateFormat('HH:mm').format(request.requestTime!);
+    switch (request.requestType) {
+      case AttendanceRequestType.fullDay:
+        // 補整天：顯示上班時間 - 下班時間
+        final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
+        final checkOut = DateFormat('HH:mm').format(request.checkOutTime!);
+        return '$checkIn - $checkOut';
+        
+      case AttendanceRequestType.checkOut:
+        // 補下班打卡：檢查是否同時修改上班時間
+        if (request.checkInTime != null) {
+          // 有修改上班時間：顯示修改的上班時間 - 下班時間
+          final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
+          final checkOut = DateFormat('HH:mm').format(request.requestTime!);
+          return '$checkIn - $checkOut';
+        } else {
+          // 只補下班：顯示下班時間
+          return '下班: ${DateFormat('HH:mm').format(request.requestTime!)}';
+        }
+
+      case AttendanceRequestType.checkIn:
+        // 補上班打卡：只顯示上班時間
+        return '上班: ${DateFormat('HH:mm').format(request.requestTime!)}';
     }
   }
 
@@ -556,7 +572,7 @@ class _AttendanceRequestPageState extends State<AttendanceRequestPage> {
               ],
               _buildDetailRow('日期', DateFormat('yyyy-MM-dd').format(request.requestDate)),
               const SizedBox(height: 8),
-              _buildDetailRow('時間', _getRequestTimeText(request)),
+              ..._buildTimeDetailsRows(request),
               const SizedBox(height: 8),
               _buildDetailRow('原因', request.reason),
               const Divider(height: 24),
@@ -585,6 +601,66 @@ class _AttendanceRequestPageState extends State<AttendanceRequestPage> {
         ],
       ),
     );
+  }
+
+  /// 建立時間詳情行列
+  List<Widget> _buildTimeDetailsRows(AttendanceLeaveRequest request) {
+    final List<Widget> rows = [];
+
+    switch (request.requestType) {
+      case AttendanceRequestType.fullDay:
+        // 補整天：顯示上班和下班時間
+        rows.addAll([
+          _buildDetailRow(
+            '上班時間',
+            DateFormat('HH:mm').format(request.checkInTime!),
+          ),
+          const SizedBox(height: 8),
+          _buildDetailRow(
+            '下班時間',
+            DateFormat('HH:mm').format(request.checkOutTime!),
+          ),
+        ]);
+        break;
+
+      case AttendanceRequestType.checkOut:
+        // 補下班打卡：檢查是否同時修改上班時間
+        if (request.checkInTime != null) {
+          // 有修改上班時間
+          rows.addAll([
+            _buildDetailRow(
+              '修改上班時間',
+              DateFormat('HH:mm').format(request.checkInTime!),
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              '補下班時間',
+              DateFormat('HH:mm').format(request.requestTime!),
+            ),
+          ]);
+        } else {
+          // 只補下班
+          rows.add(
+            _buildDetailRow(
+              '補下班時間',
+              DateFormat('HH:mm').format(request.requestTime!),
+            ),
+          );
+        }
+        break;
+
+      case AttendanceRequestType.checkIn:
+        // 補上班打卡
+        rows.add(
+          _buildDetailRow(
+            '補上班時間',
+            DateFormat('HH:mm').format(request.requestTime!),
+          ),
+        );
+        break;
+    }
+
+    return rows;
   }
 
   /// 詳情行
