@@ -157,14 +157,57 @@ class AttendanceService {
         'updated_at': now.toIso8601String(),
       };
 
-      final response = await _client
-          .from('attendance_records')
-          .update(updateData)
-          .eq('id', recordId)
-          .select()
-          .single();
+      try {
+        // 嘗試直接更新
+        final response = await _client
+            .from('attendance_records')
+            .update(updateData)
+            .eq('id', recordId)
+            .select()
+            .single();
 
-      return AttendanceRecord.fromJson(response);
+        return AttendanceRecord.fromJson(response);
+      } catch (updateError) {
+        print('直接更新失敗，錯誤：$updateError');
+
+        // 如果是權限問題（可能是跨日打卡），嘗試使用 RPC 函數
+        if (updateError.toString().contains('policy') ||
+            updateError.toString().contains('permission') ||
+            updateError.toString().contains('RLS')) {
+          print('嘗試使用 RPC 函數進行跨日下班打卡...');
+
+          try {
+            final rpcResponse = await _client.rpc(
+              'update_cross_day_checkout',
+              params: {
+                'record_id': recordId,
+                'checkout_time': now.toIso8601String(),
+                'work_hours': workHours,
+                'location_text': location,
+                'notes_text': notes,
+              },
+            );
+
+            print('RPC 函數執行成功：$rpcResponse');
+            return AttendanceRecord.fromJson(rpcResponse);
+          } catch (rpcError) {
+            print('RPC 函數執行失敗：$rpcError');
+
+            // 如果 RPC 函數也失敗，提供更友好的錯誤信息
+            throw Exception(
+              '下班打卡失敗，可能原因：\n'
+              '1. 跨日打卡權限限制\n'
+              '2. 網路連線問題\n'
+              '3. 系統暫時無法使用\n\n'
+              '請聯絡 HR 或 IT 管理員協助處理。\n'
+              '錯誤詳情：$updateError',
+            );
+          }
+        } else {
+          // 如果不是權限問題，直接拋出原始錯誤
+          rethrow;
+        }
+      }
     } catch (e) {
       print('打卡下班失敗: $e');
       rethrow;
