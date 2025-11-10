@@ -24,13 +24,11 @@ class EmployeeFormPage extends StatefulWidget {
 }
 
 class _EmployeeFormPageState extends State<EmployeeFormPage> {
-  final _formKey = GlobalKey<FormState>();
+  final supabase = Supabase.instance.client;
   late final EmployeeService _employeeService;
   late final RegisteredUserService _registeredUserService;
-  bool _isLoading = false;
-  bool _isEditMode = false;
-
-  // 表單控制器
+  
+  final _formKey = GlobalKey<FormState>();
   final _employeeIdController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -38,9 +36,15 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
   final _departmentController = TextEditingController();
   final _positionController = TextEditingController();
   final _salaryController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _emergencyNameController = TextEditingController();
+  final _emergencyPhoneController = TextEditingController();
+  final _notesController = TextEditingController();
 
   DateTime _hireDate = DateTime.now();
-  final supabase = Supabase.instance.client;
+  EmployeeStatus _status = EmployeeStatus.active;
+  bool _isLoading = false;
+  bool _isEditMode = false;
 
   @override
   void initState() {
@@ -60,32 +64,37 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
     _departmentController.dispose();
     _positionController.dispose();
     _salaryController.dispose();
+    _addressController.dispose();
+    _emergencyNameController.dispose();
+    _emergencyPhoneController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
-  void _initializeForm() {
+  void _initializeForm() async {
     if (_isEditMode && widget.employee != null) {
-      // 編輯模式 - 填入現有數據
-      _employeeIdController.text = widget.employee!.employeeId;
-      _nameController.text = widget.employee!.name;
-      _emailController.text = widget.employee!.email ?? '';
-      _phoneController.text = widget.employee!.phone ?? '';
-      _departmentController.text = widget.employee!.department;
-      _positionController.text = widget.employee!.position;
-      _salaryController.text = widget.employee!.salary?.toString() ?? '';
-      _hireDate = widget.employee!.hireDate;
+      final employee = widget.employee!;
+      _employeeIdController.text = employee.employeeId;
+      _nameController.text = employee.name;
+      _emailController.text = employee.email ?? '';
+      _phoneController.text = employee.phone ?? '';
+      _departmentController.text = employee.department;
+      _positionController.text = employee.position;
+      _salaryController.text = employee.salary?.toString() ?? '';
+      _addressController.text = employee.address ?? '';
+      _emergencyNameController.text = employee.emergencyContactName ?? '';
+      _emergencyPhoneController.text = employee.emergencyContactPhone ?? '';
+      _notesController.text = employee.notes ?? '';
+      _hireDate = employee.hireDate;
+      _status = employee.status;
     } else {
       // 新增模式 - 生成員工編號
-      _generateEmployeeId();
-    }
-  }
-
-  Future<void> _generateEmployeeId() async {
-    try {
-      final employeeId = await _employeeService.generateEmployeeId();
-      _employeeIdController.text = employeeId;
-    } catch (e) {
-      print('生成員工編號失敗：$e');
+      try {
+        final employeeId = await _employeeService.generateEmployeeId();
+        _employeeIdController.text = employeeId;
+      } catch (e) {
+        print('生成員工編號失敗：$e');
+      }
     }
   }
 
@@ -108,12 +117,6 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
       return;
     }
 
-    if (!_isEditMode) {
-      // 新增模式時顯示引導對話框
-      _showCreateEmployeeGuidance();
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
@@ -124,40 +127,74 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
         throw Exception('請先登入');
       }
 
-      final employee = Employee(
-        id: widget.employee!.id,
-        employeeId: _employeeIdController.text.trim(),
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim().isEmpty
-            ? null
-            : _emailController.text.trim(),
-        phone: _phoneController.text.trim().isEmpty
-            ? null
-            : _phoneController.text.trim(),
-        department: _departmentController.text.trim(),
-        position: _positionController.text.trim(),
-        hireDate: _hireDate,
-        salary: _salaryController.text.trim().isEmpty
-            ? null
-            : double.tryParse(_salaryController.text.trim()),
-        status: widget.employee!.status,
-        role: widget.employee!.role,
-        managerId: widget.employee!.managerId,
-        avatarUrl: widget.employee!.avatarUrl,
-        address: widget.employee!.address,
-        emergencyContactName: widget.employee!.emergencyContactName,
-        emergencyContactPhone: widget.employee!.emergencyContactPhone,
-        notes: widget.employee!.notes,
-        createdBy: widget.employee!.createdBy,
-        createdAt: widget.employee!.createdAt,
-        updatedAt: DateTime.now(),
-      );
+      if (_isEditMode) {
+        // 編輯模式：使用現有 ID 更新
+        final employee = Employee(
+          id: widget.employee!.id,
+          employeeId: _employeeIdController.text.trim(),
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          department: _departmentController.text.trim(),
+          position: _positionController.text.trim(),
+          hireDate: _hireDate,
+          salary: _salaryController.text.trim().isEmpty ? null : double.tryParse(_salaryController.text.trim()),
+          status: _status,
+          address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+          emergencyContactName: _emergencyNameController.text.trim().isEmpty ? null : _emergencyNameController.text.trim(),
+          emergencyContactPhone: _emergencyPhoneController.text.trim().isEmpty ? null : _emergencyPhoneController.text.trim(),
+          notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          createdBy: user.id,
+          createdAt: widget.employee!.createdAt,
+          updatedAt: DateTime.now(),
+        );
 
-      await _employeeService.updateEmployee(widget.employee!.id!, employee);
+        await _employeeService.updateEmployee(widget.employee!.id!, employee);
+      } else {
+        // 新增模式：不支持直接創建員工，必須從已註冊用戶創建
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('無法直接創建員工'),
+              content: const Text(
+                '為了確保系統安全性，員工記錄必須從已註冊的系統用戶創建。\n\n'
+                '請按照以下步驟操作：\n'
+                '1. 請用戶先註冊系統帳號\n'
+                '2. 從「用戶管理」頁面選擇已註冊用戶\n'
+                '3. 為選定用戶創建員工記錄',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('了解'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pop(); // 返回上一頁
+                    // 導航到用戶選擇頁面
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => UserSelectionPage(
+                          onThemeToggle: widget.onThemeToggle,
+                          currentThemeMode: widget.currentThemeMode,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('前往用戶管理'),
+                ),
+              ],
+            ),
+          );
+        }
+        return; // 不執行實際的保存操作
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('員工資料更新成功')),
+          SnackBar(content: Text('員工資料${_isEditMode ? '更新' : '創建'}成功')),
         );
         Navigator.of(context).pop(true);
       }
@@ -168,53 +205,47 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
-  /// 顯示創建員工引導對話框
-  void _showCreateEmployeeGuidance() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.info, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('員工創建說明'),
-          ],
-        ),
-        content: const Text(
-          '為了確保資料完整性和系統安全，員工創建需要通過以下流程：\n\n'
-          '1. 用戶必須先註冊系統帳號\n'
-          '2. 從「用戶管理」頁面選擇已註冊用戶\n'
-          '3. 將用戶轉換為員工\n\n'
-          '這樣可以避免重複帳號，確保每位員工都有對應的系統登入權限。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
+  @override
+
+  /// 測試創建員工功能
+  Future<void> _testCreateEmployee() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final testResult = await _registeredUserService.testCreateEmployee();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(testResult['success'] == true ? '測試成功' : '測試失敗'),
+            content: SingleChildScrollView(
+              child: Text(_formatDiagnosisResult(testResult)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('關閉'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop(); // 返回上一頁
-              // 導航到用戶選擇頁面
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => UserSelectionPage(
-                    onThemeToggle: widget.onThemeToggle,
-                    currentThemeMode: widget.currentThemeMode,
-                  ),
-                ),
-              );
-            },
-            child: const Text('前往用戶管理'),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('測試失敗：$e')));
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   /// 顯示員工創建工作流程說明
@@ -359,6 +390,135 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
         ),
       );
     }
+  }
+
+  /// 檢查認證問題
+  Future<void> _checkAuthIssues() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final authCheck = await _registeredUserService.checkAuthIssues();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('認證問題檢查'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('認證問題分析：\n${_formatDiagnosisResult(authCheck)}'),
+                  if (authCheck['solutions'] != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      '建議解決方案：',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    ...List.generate(
+                      authCheck['solutions'].length,
+                      (index) => Text(
+                        '${index + 1}. ${authCheck['solutions'][index]}',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('關閉'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('認證檢查失敗：$e')));
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// 測試用戶註冊功能
+  Future<void> _testUserRegistration() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final testResult = await _registeredUserService.testUserRegistration();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(
+              testResult['registration']?['success'] == true
+                  ? '註冊測試成功'
+                  : '註冊測試失敗',
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('註冊測試結果：\n${_formatDiagnosisResult(testResult)}'),
+                  if (testResult['error_analysis'] != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      '錯誤分析：',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_formatDiagnosisResult(testResult['error_analysis'])),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('關閉'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('註冊測試失敗：$e')));
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// 格式化診斷結果為可讀文本
+  String _formatDiagnosisResult(Map<String, dynamic> result) {
+    final buffer = StringBuffer();
+
+    void formatValue(String key, dynamic value, [int indent = 0]) {
+      final prefix = '  ' * indent;
+      if (value is Map<String, dynamic>) {
+        buffer.writeln('$prefix$key:');
+        value.forEach((k, v) => formatValue(k, v, indent + 1));
+      } else if (value is List) {
+        buffer.writeln('$prefix$key: [${value.join(', ')}]');
+      } else {
+        buffer.writeln('$prefix$key: $value');
+      }
+    }
+
+    result.forEach((key, value) => formatValue(key, value));
+    return buffer.toString();
   }
 
   @override
@@ -533,12 +693,28 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
                       Row(
                         children: [
                           Expanded(
+                            child: InkWell(
+                              onTap: () => _selectDate(context),
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: '入職日期 *',
+                                  border: OutlineInputBorder(),
+                                  suffixIcon: Icon(Icons.calendar_today),
+                                ),
+                                child: Text(
+                                  '${_hireDate.year}/${_hireDate.month}/${_hireDate.day}',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
                             child: TextFormField(
                               controller: _salaryController,
                               decoration: const InputDecoration(
                                 labelText: '薪資',
                                 border: OutlineInputBorder(),
-                                suffixText: 'NT\$',
+                                prefixText: '\$ ',
                               ),
                               keyboardType: TextInputType.number,
                               validator: (value) {
@@ -551,36 +727,114 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
                               },
                             ),
                           ),
-                          const SizedBox(width: 16),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<EmployeeStatus>(
+                        initialValue: _status,
+                        decoration: const InputDecoration(
+                          labelText: '狀態',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: EmployeeStatus.values.map((status) => 
+                          DropdownMenuItem<EmployeeStatus>(
+                            value: status,
+                            child: Text(status.displayName),
+                          ),
+                        ).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _status = value;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '聯絡資訊',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _addressController,
+                        decoration: const InputDecoration(
+                          labelText: '住址',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
                           Expanded(
-                            child: InkWell(
-                              onTap: () => _selectDate(context),
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: '到職日期 *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                child: Text(
-                                  '${_hireDate.year}/${_hireDate.month.toString().padLeft(2, '0')}/${_hireDate.day.toString().padLeft(2, '0')}',
-                                ),
+                            child: TextFormField(
+                              controller: _emergencyNameController,
+                              decoration: const InputDecoration(
+                                labelText: '緊急聯絡人',
+                                border: OutlineInputBorder(),
                               ),
                             ),
                           ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _emergencyPhoneController,
+                              decoration: const InputDecoration(
+                                labelText: '緊急聯絡電話',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.phone,
+                            ),
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(
+                          labelText: '備註',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
                       ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 32),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveEmployee,
-                  child: _isLoading
-                      ? const CircularProgressIndicator()
-                      : Text(_isEditMode ? '更新' : '創建'),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveEmployee,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_isEditMode ? '更新' : '創建'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
