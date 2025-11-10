@@ -32,17 +32,16 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Employee? _currentEmployee;
   AttendanceRecord? _todayRecord;
-  List<AttendanceRecord> _recentRecords = [];
   bool _isLoading = true;
   bool _isCheckingIn = false;
   bool _canManualAttendance = false; // 是否可以手動補打卡（HR/老闆）
 
   final _locationController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _otherLocationController = TextEditingController(); // 其他地點說明
 
   // 地點類型選擇
   String _selectedLocationType = '辦公室';
-  final List<String> _locationTypes = ['辦公室', '出差'];
+  final List<String> _locationTypes = ['辦公室', '出差', '其他'];
 
   // 公司位置設定 (從本地存儲讀取)
   CompanyLocation? _companyLocation;
@@ -156,18 +155,13 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   void dispose() {
     _locationController.dispose();
-    _notesController.dispose();
+    _otherLocationController.dispose();
     super.dispose();
   }
 
   /// 格式化時間為 HH:mm
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-  }
-
-  /// 格式化日期為 MM/dd
-  String _formatDate(DateTime dateTime) {
-    return '${dateTime.month.toString().padLeft(2, '0')}/${dateTime.day.toString().padLeft(2, '0')}';
   }
 
   /// 格式化完整日期為 yyyy/MM/dd
@@ -190,12 +184,6 @@ class _AttendancePageState extends State<AttendancePage> {
           // 載入今日打卡記錄
           _todayRecord = await _attendanceService.getTodayAttendance(
             _currentEmployee!.id!,
-          );
-
-          // 載入最近的打卡記錄
-          _recentRecords = await _attendanceService.getAllAttendanceRecords(
-            employeeId: _currentEmployee!.id,
-            limit: 10,
           );
         } else {
           // 如果找不到員工資料，顯示提示
@@ -232,27 +220,42 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
+    // 驗證其他地點說明
+    if (_selectedLocationType == '其他' &&
+        _otherLocationController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('請填寫地點說明'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     try {
       setState(() => _isCheckingIn = true);
 
+      // 組合地點內容
+      final locationContent = _selectedLocationType == '其他'
+          ? _otherLocationController.text.trim()
+          : _selectedLocationType;
+
       final record = await _attendanceService.checkIn(
         employee: _currentEmployee!,
-        location: _selectedLocationType,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        location: locationContent,
+        notes: null,
       );
-
-      _notesController.clear();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '打卡成功！上班時間：${_formatTime(record.checkInTime)} 地點：$_selectedLocationType',
+              '打卡成功！上班時間：${_formatTime(record.checkInTime)} 地點：$locationContent',
             ),
           ),
         );
+        
+        _otherLocationController.clear();
         _loadData();
       }
     } catch (e) {
@@ -277,29 +280,44 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
+    // 驗證其他地點說明
+    if (_selectedLocationType == '其他' &&
+        _otherLocationController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('請填寫地點說明'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     try {
       setState(() => _isCheckingIn = true);
 
+      // 組合地點內容
+      final locationContent = _selectedLocationType == '其他'
+          ? _otherLocationController.text.trim()
+          : _selectedLocationType;
+
       final record = await _attendanceService.checkOut(
         recordId: _todayRecord!.id,
-        location: _selectedLocationType,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        location: locationContent,
+        notes: null,
       );
-
-      _notesController.clear();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               '打卡成功！下班時間：${_formatTime(record.checkOutTime!)} '
-              '地點：$_selectedLocationType '
+              '地點：$locationContent '
               '工作時數：${record.calculatedWorkHours?.toStringAsFixed(1)}小時',
             ),
           ),
         );
+        
+        _otherLocationController.clear();
         _loadData();
       }
     } catch (e) {
@@ -684,23 +702,29 @@ class _AttendancePageState extends State<AttendancePage> {
                 if (newValue != null) {
                   setState(() {
                     _selectedLocationType = newValue;
+                    // 切換地點類型時清空其他地點說明
+                    if (newValue != '其他') {
+                      _otherLocationController.clear();
+                    }
                   });
                 }
               },
             ),
             const SizedBox(height: 12),
 
-            // 備註輸入
-            TextField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: '備註 (選填)',
-                hintText: '請輸入備註信息',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.note),
+            // 其他地點詳細說明
+            if (_selectedLocationType == '其他') ...[
+              TextField(
+                controller: _otherLocationController,
+                decoration: const InputDecoration(
+                  labelText: '地點說明',
+                  hintText: '例如：客戶公司、展場等',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.edit_location),
+                ),
               ),
-              maxLines: 2,
-            ),
+              const SizedBox(height: 12),
+            ],
             const SizedBox(height: 16),
 
             // 打卡按鈕
@@ -773,85 +797,6 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  /// 建構最近記錄列表
-  Widget _buildRecentRecords() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '最近記錄',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                TextButton(
-                  onPressed: () {
-                    // TODO: 導航到完整的打卡記錄頁面
-                  },
-                  child: const Text('查看全部'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            if (_recentRecords.isEmpty)
-              const Center(child: Text('暫無打卡記錄'))
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _recentRecords.length,
-                separatorBuilder: (context, index) => const Divider(),
-                itemBuilder: (context, index) {
-                  final record = _recentRecords[index];
-                  return _buildRecordTile(record);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 建構記錄項目
-  Widget _buildRecordTile(AttendanceRecord record) {
-    final dateStr = _formatDate(record.checkInTime);
-    final checkInStr = _formatTime(record.checkInTime);
-    final checkOutStr = record.checkOutTime != null
-        ? _formatTime(record.checkOutTime!)
-        : '---';
-
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: record.isCheckedOut
-            ? Colors.green.shade100
-            : Colors.blue.shade100,
-        child: Icon(
-          record.isCheckedOut ? Icons.check : Icons.work,
-          color: record.isCheckedOut ? Colors.green : Colors.blue,
-        ),
-      ),
-      title: Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w500)),
-      subtitle: Text('$checkInStr - $checkOutStr'),
-      trailing: record.calculatedWorkHours != null
-          ? Text(
-              '${record.calculatedWorkHours!.toStringAsFixed(1)}h',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Theme.of(context).primaryColor,
-              ),
-            )
-          : const Icon(Icons.more_time, color: Colors.grey),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return GeneralPage(
@@ -897,10 +842,6 @@ class _AttendancePageState extends State<AttendancePage> {
 
                     // 打卡按鈕
                     _buildCheckInButtons(),
-                    const SizedBox(height: 16),
-
-                    // 最近記錄
-                    _buildRecentRecords(),
                   ],
                 ),
               ),
