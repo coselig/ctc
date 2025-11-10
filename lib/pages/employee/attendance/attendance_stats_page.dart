@@ -468,7 +468,7 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
                         weekIndex * 7 + dayIndex + 1 - firstWeekday;
 
                     if (dayNumber < 1 || dayNumber > daysInMonth) {
-                      return const Expanded(child: SizedBox(height: 48));
+                      return const Expanded(child: SizedBox(height: 56));
                     }
 
                     final date = DateTime(
@@ -574,27 +574,106 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
             : null,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          height: 48,
+          height: 56,
           child: Stack(
             children: [
-              Center(
-                child: Text(
-                  '$day',
-                  style: TextStyle(
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                    // 週末或國定假日用紅色，否則用原本的 textColor
-                    color:
-                        (isWeekend &&
-                            holiday == null &&
-                            record == null &&
-                            leaveRequests == null)
-                        ? Colors.red
-                        : textColor,
-                    fontSize: 16,
+              // 如果有完整打卡記錄（上下班都有），日期數字放在背景半透明
+              if (record != null && record.checkOutTime != null) ...[
+                // 背景：半透明的日期數字
+                Center(
+                  child: Text(
+                    '$day',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: textColor.withOpacity(0.15),
+                      fontSize: 32,
+                    ),
                   ),
                 ),
-              ),
-              if (icon != null)
+                // 前景：時間和工時資訊
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_formatTime(record.checkInTime)}-${_formatTime(record.checkOutTime!)}',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${record.calculatedWorkHours?.toStringAsFixed(1) ?? "0.0"}h',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ]
+              // 如果只有上班打卡，日期數字放在背景半透明
+              else if (record != null && record.checkOutTime == null) ...[
+                // 背景：半透明的日期數字
+                Center(
+                  child: Text(
+                    '$day',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: textColor.withOpacity(0.15),
+                      fontSize: 32,
+                    ),
+                  ),
+                ),
+                // 前景：上班時間和狀態
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatTime(record.checkInTime),
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '未打卡',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else
+                Center(
+                  child: Text(
+                    '$day',
+                    style: TextStyle(
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                      // 週末或國定假日用紅色，否則用原本的 textColor
+                      color:
+                          (isWeekend &&
+                              holiday == null &&
+                              record == null &&
+                              leaveRequests == null)
+                          ? Colors.red
+                          : textColor,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              if (icon != null &&
+                  (record == null || record.checkOutTime == null))
                 Positioned(
                   top: 2,
                   right: 2,

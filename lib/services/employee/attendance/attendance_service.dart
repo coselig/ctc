@@ -394,7 +394,23 @@ class AttendanceService {
           .where((r) => r.calculatedWorkHours != null)
           .fold<double>(0.0, (sum, r) => sum + (r.calculatedWorkHours ?? 0));
       
-      final averageHours = workDays > 0 ? totalHours / workDays : 0.0;
+      // 計算平均工時時排除今天的記錄（因為今天可能還沒下班，數據不完整）
+      final recordsExcludingToday = records.where((r) {
+        final recordDate = DateTime(
+          r.checkInTime.year,
+          r.checkInTime.month,
+          r.checkInTime.day,
+        );
+        return recordDate.isBefore(today);
+      }).toList();
+
+      final totalHoursExcludingToday = recordsExcludingToday
+          .where((r) => r.calculatedWorkHours != null)
+          .fold<double>(0.0, (sum, r) => sum + (r.calculatedWorkHours ?? 0));
+
+      final averageHours = recordsExcludingToday.isNotEmpty
+          ? totalHoursExcludingToday / recordsExcludingToday.length
+          : 0.0;
       // 使用工作日計算出勤率（只計算到今天）
       final attendanceRate = expectedWorkDays > 0
           ? (workDays / expectedWorkDays) * 100

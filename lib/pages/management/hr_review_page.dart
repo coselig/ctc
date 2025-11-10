@@ -961,6 +961,61 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
     }
   }
 
+  /// 匯出單一員工打卡記錄
+  Future<void> _exportEmployeeRecords(Employee employee) async {
+    try {
+      setState(() => _isExporting = true);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('正在準備匯出 ${employee.name} 的打卡記錄...'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      final startOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month,
+        1,
+      );
+      final endOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
+      await _excelExportService.exportEmployeeAttendanceRecords(
+        employee: employee,
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('匯出成功！${employee.name} 的打卡記錄已儲存到下載資料夾'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('匯出失敗: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
+    }
+  }
+
   /// 選擇月份
   Future<void> _selectMonth() async {
     final currentYear = _selectedMonth.year;
@@ -1197,7 +1252,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
         children: [
           if (records.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('本月暫無打卡記錄'))
-          else
+          else ...[
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1208,6 +1263,35 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                 return _buildRecordListTile(record);
               },
             ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _isExporting
+                        ? null
+                        : () => _exportEmployeeRecords(employee),
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download, size: 18),
+                    label: const Text('下載此員工打卡記錄'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
