@@ -24,11 +24,13 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   Employee? _currentEmployee;
   AttendanceRecord? _existingRecord; // 當天是否已有打卡記錄
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _checkInTime = const TimeOfDay(hour: 8, minute: 30);
-  TimeOfDay? _checkOutTime;
-  bool _hasCheckOut = false;
+  String _punchType = 'checkIn'; // 'checkIn'、'checkOut' 或 'fullDay'
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 30);
+  TimeOfDay _checkOutTime = const TimeOfDay(hour: 17, minute: 30); // 補全天用的下班時間
   String _location = '';
-  String _notes = '';
+  String _otherLocation = ''; // 其他地點的詳細說明
+  String _reasonType = ''; // 原因類型
+  String _notes = ''; // 其他原因的詳細說明
   bool _isLoading = true; // 初始化時應該是 true，表示正在載入
   bool _isSubmitting = false;
   bool _isCheckingRecord = false; // 是否正在檢查記錄
@@ -142,23 +144,26 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
         final record = records.first;
         setState(() {
           _existingRecord = record;
-          // 載入現有資料
-          _checkInTime = TimeOfDay(
-            hour: record.checkInTime.hour,
-            minute: record.checkInTime.minute,
-          );
-          if (record.checkOutTime != null) {
+          _location = record.location ?? '';
+          _notes = record.notes?.replaceAll('【補打卡】', '') ?? '';
+
+          // 根據現有記錄設定預設值
+          if (record.checkOutTime == null) {
+            // 有上班記錄，預設補下班
+            _punchType = 'checkOut';
+            _selectedTime = const TimeOfDay(hour: 17, minute: 30);
+          } else {
+            // 已有完整記錄，預設補全天（修改整天）
+            _punchType = 'fullDay';
+            _selectedTime = TimeOfDay(
+              hour: record.checkInTime.hour,
+              minute: record.checkInTime.minute,
+            );
             _checkOutTime = TimeOfDay(
               hour: record.checkOutTime!.hour,
               minute: record.checkOutTime!.minute,
             );
-            _hasCheckOut = true;
-          } else {
-            _checkOutTime = null;
-            _hasCheckOut = false;
           }
-          _location = record.location ?? '';
-          _notes = record.notes?.replaceAll('【補打卡】', '') ?? '';
         });
 
         if (mounted) {
@@ -166,8 +171,8 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
             SnackBar(
               content: Text(
                 record.checkOutTime == null
-                    ? '⚠️ 該日期已有上班打卡記錄，您可以補登下班時間'
-                    : '⚠️ 該日期已有完整打卡記錄，您可以編輯修改',
+                    ? '⚠️ 該日期已有上班打卡記錄，您可以補登下班時間或補全天'
+                    : '⚠️ 該日期已有完整打卡記錄，您可以修改整天的打卡時間',
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
@@ -175,12 +180,12 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
           );
         }
       } else {
+        // 沒有記錄，預設補上班
         setState(() {
           _existingRecord = null;
-          // 重置為預設值
-          _checkInTime = const TimeOfDay(hour: 8, minute: 30);
-          _checkOutTime = null;
-          _hasCheckOut = false;
+          _punchType = 'checkIn';
+          _selectedTime = const TimeOfDay(hour: 8, minute: 30);
+          _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
           _location = '';
           _notes = '';
         });
@@ -193,10 +198,10 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   }
 
   /// 選擇上班時間
-  Future<void> _selectCheckInTime() async {
+  Future<void> _selectTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _checkInTime,
+      initialTime: _selectedTime,
       helpText: '選擇上班時間',
       cancelText: '取消',
       confirmText: '確定',
@@ -204,7 +209,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
 
     if (picked != null) {
       setState(() {
-        _checkInTime = picked;
+        _selectedTime = picked;
       });
     }
   }
@@ -213,7 +218,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   Future<void> _selectCheckOutTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _checkOutTime ?? const TimeOfDay(hour: 17, minute: 30),
+      initialTime: _checkOutTime,
       helpText: '選擇下班時間',
       cancelText: '取消',
       confirmText: '確定',
@@ -239,10 +244,33 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
       return;
     }
 
-    if (_notes.trim().isEmpty) {
+    // 驗證原因類型
+    if (_reasonType.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('請填寫補打卡原因'),
+          content: Text('請選擇補打卡原因'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // 如果選擇「其他」，必須填寫詳細說明
+    if (_reasonType == '其他' && _notes.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('請填寫原因詳細說明'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // 驗證打卡地點
+    if (_location == '其他' && _otherLocation.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('請填寫地點說明'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -257,35 +285,70 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
-        _checkInTime.hour,
-        _checkInTime.minute,
+        _selectedTime.hour,
+        _selectedTime.minute,
       );
 
-      DateTime? checkOutDateTime;
-      if (_hasCheckOut && _checkOutTime != null) {
-        checkOutDateTime = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          _checkOutTime!.hour,
-          _checkOutTime!.minute,
-        );
-
-        // 檢查下班時間是否早於上班時間
-        if (checkOutDateTime.isBefore(checkInDateTime)) {
-          throw Exception('下班時間不能早於上班時間');
-        }
-      }
+      final checkOutDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _checkOutTime.hour,
+        _checkOutTime.minute,
+      );
 
       // 判斷是更新現有記錄還是創建新記錄
       if (_existingRecord != null) {
         // 更新現有記錄
+        DateTime? newCheckInTime;
+        DateTime? newCheckOutTime;
+
+        if (_punchType == 'checkIn') {
+          // 補上班時間
+          newCheckInTime = checkInDateTime;
+          newCheckOutTime = _existingRecord!.checkOutTime;
+
+          // 如果已有下班時間，檢查上班時間不能晚於下班時間
+          if (newCheckOutTime != null &&
+              checkInDateTime.isAfter(newCheckOutTime)) {
+            throw Exception('上班時間不能晚於下班時間');
+          }
+        } else if (_punchType == 'checkOut') {
+          // 補下班時間
+          newCheckInTime = _existingRecord!.checkInTime;
+          newCheckOutTime = checkOutDateTime;
+
+          // 檢查下班時間不能早於上班時間
+          if (checkOutDateTime.isBefore(newCheckInTime)) {
+            throw Exception('下班時間不能早於上班時間');
+          }
+        } else {
+          // 補全天
+          newCheckInTime = checkInDateTime;
+          newCheckOutTime = checkOutDateTime;
+
+          // 檢查下班時間不能早於上班時間
+          if (checkOutDateTime.isBefore(checkInDateTime)) {
+            throw Exception('下班時間不能早於上班時間');
+          }
+        }
+        
+        // 組合備註內容
+        final noteContent = _reasonType == '其他'
+            ? '【補打卡】$_reasonType：${_notes.trim()}'
+            : '【補打卡】$_reasonType';
+
+        // 組合地點內容
+        final locationContent = _location == '其他'
+            ? _otherLocation.trim()
+            : _location.trim();
+        
         await _attendanceService.updateAttendanceRecord(
           id: _existingRecord!.id,
-          checkInTime: checkInDateTime,
-          checkOutTime: checkOutDateTime,
-          location: _location.trim().isEmpty ? null : _location.trim(),
-          notes: '【補打卡】${_notes.trim()}',
+          checkInTime: newCheckInTime,
+          checkOutTime: newCheckOutTime,
+          location: locationContent.isEmpty ? null : locationContent,
+          notes: noteContent,
         );
 
         if (mounted) {
@@ -301,13 +364,40 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
         }
       } else {
         // 創建新的補打卡記錄
-        await _attendanceService.createManualAttendance(
-          employee: _currentEmployee!,
-          checkInTime: checkInDateTime,
-          checkOutTime: checkOutDateTime,
-          location: _location.trim().isEmpty ? null : _location.trim(),
-          notes: _notes.trim(),
-        );
+        final noteContent = _reasonType == '其他'
+            ? '【補打卡】$_reasonType：${_notes.trim()}'
+            : '【補打卡】$_reasonType';
+
+        // 組合地點內容
+        final locationContent = _location == '其他'
+            ? _otherLocation.trim()
+            : _location.trim();
+
+        if (_punchType == 'checkIn') {
+          // 只補上班
+          await _attendanceService.createManualAttendance(
+            employee: _currentEmployee!,
+            checkInTime: checkInDateTime,
+            checkOutTime: null,
+            location: locationContent.isEmpty ? null : locationContent,
+            notes: noteContent,
+          );
+        } else if (_punchType == 'fullDay') {
+          // 補全天
+          if (checkOutDateTime.isBefore(checkInDateTime)) {
+            throw Exception('下班時間不能早於上班時間');
+          }
+          await _attendanceService.createManualAttendance(
+            employee: _currentEmployee!,
+            checkInTime: checkInDateTime,
+            checkOutTime: checkOutDateTime,
+            location: locationContent.isEmpty ? null : locationContent,
+            notes: noteContent,
+          );
+        } else {
+          // 補下班時必須有上班時間，這種情況不應該發生
+          throw Exception('補下班時間需要先有上班打卡記錄');
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -538,60 +628,172 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
               ),
               const SizedBox(height: 24),
 
-              // 上班時間
-              _buildSectionTitle('上班時間'),
+              // 補打卡類型選擇
+              _buildSectionTitle('補打卡類型'),
               Card(
-                child: ListTile(
-                  leading: const Icon(Icons.login, color: Colors.green),
-                  title: const Text('上班打卡時間'),
-                  subtitle: Text(
-                    '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: _selectCheckInTime,
+                  child: DropdownButtonFormField<String>(
+                    value: _punchType,
+                    decoration: const InputDecoration(
+                      labelText: '選擇補打卡類型',
+                      prefixIcon: Icon(Icons.punch_clock),
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        _existingRecord == null ||
+                            _existingRecord!.checkOutTime == null
+                        ? [
+                            // 沒有記錄或只有上班記錄：顯示「補上班」和「補全天」
+                            const DropdownMenuItem(
+                              value: 'checkIn',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.login, color: Colors.green),
+                                  SizedBox(width: 12),
+                                  Text('補上班'),
+                                ],
+                              ),
+                            ),
+                            if (_existingRecord != null)
+                              const DropdownMenuItem(
+                                value: 'checkOut',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.logout, color: Colors.red),
+                                    SizedBox(width: 12),
+                                    Text('補下班'),
+                                  ],
+                                ),
+                              ),
+                            const DropdownMenuItem(
+                              value: 'fullDay',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_available,
+                                    color: Colors.blue,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('補全天'),
+                                ],
+                              ),
+                            ),
+                          ]
+                        : [
+                            // 已有完整記錄：顯示「補下班」和「補全天」
+                            const DropdownMenuItem(
+                              value: 'checkOut',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.logout, color: Colors.red),
+                                  SizedBox(width: 12),
+                                  Text('補下班'),
+                                ],
+                              ),
+                            ),
+                            const DropdownMenuItem(
+                              value: 'fullDay',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_available,
+                                    color: Colors.blue,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('補全天'),
+                                ],
+                              ),
+                            ),
+                          ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _punchType = value;
+                          // 根據類型設定預設時間
+                          if (value == 'checkIn') {
+                            _selectedTime = const TimeOfDay(
+                              hour: 8,
+                              minute: 30,
+                            );
+                          } else if (value == 'checkOut') {
+                            _selectedTime = const TimeOfDay(
+                              hour: 17,
+                              minute: 30,
+                            );
+                          } else {
+                            // fullDay
+                            _selectedTime = const TimeOfDay(
+                              hour: 8,
+                              minute: 30,
+                            );
+                            _checkOutTime = const TimeOfDay(
+                              hour: 17,
+                              minute: 30,
+                            );
+                          }
+                        });
+                      }
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // 是否補登下班時間
-              Card(
-                child: SwitchListTile(
-                  secondary: const Icon(Icons.logout, color: Colors.orange),
-                  title: const Text('同時補登下班時間'),
-                  subtitle: Text(
-                    _hasCheckOut ? '已啟用' : '未啟用',
-                    style: TextStyle(
-                      color: _hasCheckOut ? Colors.green : Colors.grey,
+              // 時間選擇
+              if (_punchType != 'fullDay') ...[
+                _buildSectionTitle('打卡時間'),
+                Card(
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.access_time,
+                      color: _punchType == 'checkIn'
+                          ? Colors.green
+                          : Colors.red,
                     ),
+                    title: Text(_punchType == 'checkIn' ? '上班時間' : '下班時間'),
+                    subtitle: Text(
+                      '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: _selectTime,
                   ),
-                  value: _hasCheckOut,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _hasCheckOut = value;
-                      if (value && _checkOutTime == null) {
-                        _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
-                      }
-                    });
-                  },
                 ),
-              ),
-
-              // 下班時間選擇
-              if (_hasCheckOut) ...[
-                const SizedBox(height: 8),
+              ] else ...[
+                // 補全天：顯示上班和下班時間
+                _buildSectionTitle('上班時間'),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.login, color: Colors.green),
+                    title: const Text('上班時間'),
+                    subtitle: Text(
+                      '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: _selectTime,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSectionTitle('下班時間'),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text('下班打卡時間'),
+                    title: const Text('下班時間'),
                     subtitle: Text(
-                      _checkOutTime != null
-                          ? '${_checkOutTime!.hour.toString().padLeft(2, '0')}:${_checkOutTime!.minute.toString().padLeft(2, '0')}'
-                          : '未設定',
+                      '${_checkOutTime.hour.toString().padLeft(2, '0')}:${_checkOutTime.minute.toString().padLeft(2, '0')}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -602,59 +804,144 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                     onTap: _selectCheckOutTime,
                   ),
                 ),
-                if (_checkOutTime != null) _buildWorkHoursInfo(),
               ],
               const SizedBox(height: 24),
 
               // 打卡地點
-              _buildSectionTitle('打卡地點（選填）'),
+              _buildSectionTitle('打卡地點'),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: TextFormField(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    value: _location.isEmpty ? null : _location,
                     decoration: const InputDecoration(
-                      hintText: '例如：公司、居家辦公、出差等',
-                      border: OutlineInputBorder(),
+                      labelText: '選擇打卡地點',
                       prefixIcon: Icon(Icons.location_on),
+                      border: OutlineInputBorder(),
                     ),
-                    maxLength: 100,
+                    hint: const Text('請選擇地點'),
+                    items: const [
+                      DropdownMenuItem(value: '辦公室', child: Text('辦公室')),
+                      DropdownMenuItem(value: '出差', child: Text('出差')),
+                      DropdownMenuItem(value: '其他', child: Text('其他')),
+                    ],
                     onChanged: (value) {
-                      _location = value;
+                      setState(() {
+                        _location = value ?? '';
+                      });
                     },
                   ),
                 ),
               ),
+
+              // 其他地點詳細說明
+              if (_location == '其他') ...[
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: '請輸入地點說明',
+                        prefixIcon: Icon(Icons.edit_location),
+                        border: OutlineInputBorder(),
+                        hintText: '例如：客戶公司、展場等',
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _otherLocation = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (_location == '其他' &&
+                            (value == null || value.trim().isEmpty)) {
+                          return '請輸入地點說明';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // 補打卡原因
               _buildSectionTitle('補打卡原因（必填）'),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: TextFormField(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    value: _reasonType.isEmpty ? null : _reasonType,
                     decoration: const InputDecoration(
-                      hintText: '請說明為何需要補打卡...\n例如：忘記打卡、系統故障、外出辦公等',
-                      border: OutlineInputBorder(),
+                      labelText: '選擇原因',
                       prefixIcon: Icon(Icons.comment),
+                      border: OutlineInputBorder(),
                     ),
-                    maxLines: 4,
-                    maxLength: 500,
+                    hint: const Text('請選擇補打卡原因'),
+                    items: const [
+                      DropdownMenuItem(value: '時間更正', child: Text('時間更正')),
+                      DropdownMenuItem(value: '忘記打卡', child: Text('忘記打卡')),
+                      DropdownMenuItem(value: '系統錯誤', child: Text('系統錯誤')),
+                      DropdownMenuItem(value: '其他', child: Text('其他')),
+                    ],
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return '請填寫補打卡原因';
-                      }
-                      if (value.trim().length < 5) {
-                        return '請詳細說明原因（至少5個字）';
+                      if (value == null || value.isEmpty) {
+                        return '請選擇補打卡原因';
                       }
                       return null;
                     },
                     onChanged: (value) {
-                      _notes = value;
+                      setState(() {
+                        _reasonType = value ?? '';
+                        // 如果不是選擇「其他」，清空詳細說明
+                        if (value != '其他') {
+                          _notes = '';
+                        }
+                      });
                     },
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // 如果選擇「其他」，顯示詳細說明欄位
+              if (_reasonType == '其他') ...[
+                _buildSectionTitle('詳細說明（必填）'),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: TextFormField(
+                      decoration: const InputDecoration(
+                        hintText: '請詳細說明補打卡原因...',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.edit_note),
+                      ),
+                      maxLines: 4,
+                      validator: (value) {
+                        if (_reasonType == '其他' &&
+                            (value == null || value.trim().isEmpty)) {
+                          return '請填寫詳細說明';
+                        }
+                        return null;
+                      },
+                      onChanged: (value) {
+                        _notes = value;
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              const SizedBox(height: 16),
 
               // 提交按鈕
               ElevatedButton(
@@ -708,71 +995,4 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
     );
   }
 
-  Widget _buildWorkHoursInfo() {
-    if (_checkOutTime == null) return const SizedBox.shrink();
-
-    final checkInMinutes = _checkInTime.hour * 60 + _checkInTime.minute;
-    final checkOutMinutes = _checkOutTime!.hour * 60 + _checkOutTime!.minute;
-    final workMinutes = checkOutMinutes - checkInMinutes;
-    final workHours = workMinutes / 60.0;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0),
-      child: Card(
-        color: Colors.blue.shade50,
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              Icon(Icons.access_time, color: Colors.blue.shade700),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '預計工作時數',
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      workHours > 0
-                          ? '${workHours.toStringAsFixed(1)} 小時'
-                          : '時間設定有誤',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: workHours > 0
-                            ? Colors.blue.shade900
-                            : Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (workHours > 9)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '加班 ${(workHours - 9).toStringAsFixed(1)}h',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade900,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
