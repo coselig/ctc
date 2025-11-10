@@ -759,8 +759,8 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
                 const SizedBox(height: 8),
                 _buildDetailRow(
                   '工作時數',
-                  record.workHours != null
-                      ? '${record.workHours!.toStringAsFixed(1)}小時'
+                  record.calculatedWorkHours != null
+                      ? '${record.calculatedWorkHours!.toStringAsFixed(1)}小時'
                       : '--',
                   Icons.access_time,
                 ),
@@ -1002,8 +1002,8 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
     final checkOutStr = record.checkOutTime != null
         ? _formatTime(record.checkOutTime!)
         : '--:--';
-    final workHoursStr = record.workHours != null
-        ? '${record.workHours!.toStringAsFixed(1)}h'
+    final workHoursStr = record.calculatedWorkHours != null
+        ? '${record.calculatedWorkHours!.toStringAsFixed(1)}h'
         : '--';
 
     // 計算是否遲到或早退 (標準上班時間 8:30-17:30，寬限時間 ±5 分鐘)

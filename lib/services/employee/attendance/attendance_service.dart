@@ -102,8 +102,6 @@ class AttendanceService {
       final record = AttendanceRecord(
         id: '', // 資料庫會自動生成
         employeeId: employee.id!,
-        employeeName: employee.name,
-        employeeEmail: employee.email ?? '',
         checkInTime: now,
         location: location,
         notes: notes,
@@ -327,22 +325,12 @@ class AttendanceService {
         throw Exception('該日期已經有打卡記錄\n請在頁面上選擇該日期後使用編輯模式修改');
       }
 
-      // 計算工作時數
-      double? workHours;
-      if (checkOutTime != null) {
-        final duration = checkOutTime.difference(checkInTime).inMinutes / 60.0;
-        workHours = duration < 0 ? 0.0 : duration;
-      }
-
       final now = DateTime.now();
       final record = AttendanceRecord(
         id: '', // 資料庫會自動生成
         employeeId: employee.id!,
-        employeeName: employee.name,
-        employeeEmail: employee.email ?? '',
         checkInTime: checkInTime,
         checkOutTime: checkOutTime,
-        workHours: workHours,
         location: location,
         notes: '【補打卡】$notes',
         isManualEntry: true,
@@ -403,8 +391,8 @@ class AttendanceService {
       final totalDays = endDate.difference(startDate).inDays + 1;
       final workDays = records.length;
       final totalHours = records
-          .where((r) => r.workHours != null)
-          .fold<double>(0.0, (sum, r) => sum + (r.workHours ?? 0));
+          .where((r) => r.calculatedWorkHours != null)
+          .fold<double>(0.0, (sum, r) => sum + (r.calculatedWorkHours ?? 0));
       
       final averageHours = workDays > 0 ? totalHours / workDays : 0.0;
       // 使用工作日計算出勤率（只計算到今天）
@@ -551,8 +539,6 @@ class AttendanceService {
       final record = AttendanceRecord(
         id: '',
         employeeId: employeeId,
-        employeeName: employeeName,
-        employeeEmail: employeeEmail,
         checkInTime: checkInTime,
         location: location ?? '補打卡申請',
         notes: notes ?? '補打卡申請已核准',
@@ -735,18 +721,11 @@ class AttendanceService {
         throw Exception('該日期已有打卡記錄，請使用編輯功能');
       }
 
-      // 計算工作時數
-      final duration = checkOutTime.difference(checkInTime).inMinutes / 60.0;
-      final workHours = duration < 0 ? 0.0 : duration;
-
       final record = AttendanceRecord(
         id: '',
         employeeId: employeeId,
-        employeeName: employeeName,
-        employeeEmail: employeeEmail,
         checkInTime: checkInTime,
         checkOutTime: checkOutTime,
-        workHours: workHours,
         location: location ?? '補打卡申請',
         notes: notes ?? '補打卡申請已核准',
         isManualEntry: true,

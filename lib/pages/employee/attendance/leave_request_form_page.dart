@@ -16,10 +16,10 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
   final _formKey = GlobalKey<FormState>();
   final _leaveRequestService = LeaveRequestService();
   final _employeeService = EmployeeService(Supabase.instance.client);
-  
+
   bool _isLoading = false;
   Employee? _currentEmployee;
-  
+
   // 表單欄位
   LeaveType _selectedLeaveType = LeaveType.personal;
   DateTime _startDate = DateTime.now();
@@ -28,7 +28,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
   LeavePeriod _endPeriod = LeavePeriod.fullDay;
   final _reasonController = TextEditingController();
   double _calculatedDays = 1.0;
-  
+
   // 假別額度
   Map<LeaveType, LeaveBalance> _balances = {};
 
@@ -48,28 +48,28 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
   /// 載入當前員工資料和假別額度
   Future<void> _loadEmployeeData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // 取得當前登入使用者的 ID
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
         throw Exception('請先登入');
       }
-      
+
       // 使用 userId 取得員工資料
       final employee = await _employeeService.getEmployeeById(userId);
       if (employee == null) {
         throw Exception('無法取得員工資料');
       }
-      
+
       setState(() => _currentEmployee = employee);
-      
+
       await _loadLeaveBalances();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入資料失敗: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入資料失敗: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -79,16 +79,14 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
   /// 載入假別額度
   Future<void> _loadLeaveBalances() async {
     if (_currentEmployee == null || _currentEmployee!.id == null) return;
-    
+
     try {
       final balances = await _leaveRequestService.getEmployeeLeaveBalances(
         _currentEmployee!.id!,
       );
-      
+
       setState(() {
-        _balances = {
-          for (var balance in balances) balance.leaveType: balance
-        };
+        _balances = {for (var balance in balances) balance.leaveType: balance};
       });
     } catch (e) {
       debugPrint('載入假別額度失敗: $e');
@@ -109,13 +107,26 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
 
   /// 選擇開始日期
   Future<void> _selectStartDate() async {
+    final firstDate = DateTime.now().subtract(
+      const Duration(days: 365),
+    ); // 允許選擇過去1年
+    final lastDate = DateTime.now().add(const Duration(days: 365));
+
+    // 確保 initialDate 在有效範圍內
+    DateTime initialDate = _startDate;
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    } else if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _startDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
-    
+
     if (picked != null) {
       setState(() {
         _startDate = picked;
@@ -130,13 +141,23 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
 
   /// 選擇結束日期
   Future<void> _selectEndDate() async {
+    final lastDate = DateTime.now().add(const Duration(days: 365));
+
+    // 確保 initialDate 在有效範圍內
+    DateTime initialDate = _endDate;
+    if (initialDate.isBefore(_startDate)) {
+      initialDate = _startDate;
+    } else if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _endDate,
+      initialDate: initialDate,
       firstDate: _startDate,
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: lastDate,
     );
-    
+
     if (picked != null) {
       setState(() => _endDate = picked);
       _calculateLeaveDays();
@@ -148,19 +169,19 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
     if (!_formKey.currentState!.validate()) return;
     if (_currentEmployee == null) return;
 
-    // 檢查假別額度
-    final balance = _balances[_selectedLeaveType];
-    if (balance != null && balance.remainingDays < _calculatedDays) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '假別額度不足！剩餘 ${balance.remainingDays} 天，需要 $_calculatedDays 天',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    // 暫時不檢查假別額度限制
+    // final balance = _balances[_selectedLeaveType];
+    // if (balance != null && balance.remainingDays < _calculatedDays) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(
+    //       content: Text(
+    //         '假別額度不足！剩餘 ${balance.remainingDays} 天，需要 $_calculatedDays 天',
+    //       ),
+    //       backgroundColor: Colors.red,
+    //     ),
+    //   );
+    //   return;
+    // }
 
     setState(() => _isLoading = true);
 
@@ -179,7 +200,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
 
       // 除錯：印出要送出的資料
       debugPrint('準備提交請假申請: ${request.toJsonForInsert()}');
-      
+
       await _leaveRequestService.createLeaveRequest(request);
 
       if (mounted) {
@@ -194,7 +215,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
     } catch (e, stackTrace) {
       debugPrint('提交請假申請失敗: $e');
       debugPrint('Stack trace: $stackTrace');
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -212,10 +233,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('請假申請'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('請假申請'), elevation: 0),
       body: _isLoading && _currentEmployee == null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -228,28 +246,28 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
                     // 假別選擇
                     _buildLeaveTypeSection(),
                     const SizedBox(height: 24),
-                    
+
                     // 日期選擇
                     _buildDateSection(),
                     const SizedBox(height: 24),
-                    
+
                     // 時段選擇
                     _buildPeriodSection(),
                     const SizedBox(height: 24),
-                    
+
                     // 計算天數顯示
                     _buildCalculatedDaysCard(),
                     const SizedBox(height: 24),
-                    
+
                     // 請假原因
                     _buildReasonSection(),
                     const SizedBox(height: 24),
-                    
+
                     // 假別額度提示
                     if (_balances.containsKey(_selectedLeaveType))
                       _buildBalanceInfo(),
                     const SizedBox(height: 24),
-                    
+
                     // 提交按鈕
                     _buildSubmitButton(),
                   ],
@@ -269,24 +287,24 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
           children: [
             const Text(
               '假別類型',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<LeaveType>(
               initialValue: _selectedLeaveType,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               items: LeaveType.values.map((type) {
                 final balance = _balances[type];
-                final balanceText = balance != null 
+                final balanceText = balance != null
                     ? ' (剩餘 ${balance.remainingDays} 天)'
                     : '';
-                
+
                 return DropdownMenuItem(
                   value: type,
                   child: Text('${type.displayName}$balanceText'),
@@ -301,24 +319,22 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
             const SizedBox(height: 8),
             Text(
               _selectedLeaveType.description,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             if (_selectedLeaveType.requiresDocument)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Colors.orange[700],
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '此假別需要提供證明文件',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange[700],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.orange[700]),
                     ),
                   ],
                 ),
@@ -332,7 +348,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
   /// 日期選擇區塊
   Widget _buildDateSection() {
     final dateFormat = DateFormat('yyyy-MM-dd (E)', 'zh_TW');
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -341,10 +357,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
           children: [
             const Text(
               '請假日期',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -394,10 +407,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
           children: [
             const Text(
               '請假時段',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -468,10 +478,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
               children: [
                 Text(
                   '請假天數',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
                 Text(
                   '$_calculatedDays 天',
@@ -499,10 +506,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
           children: [
             const Text(
               '請假原因',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -588,16 +592,14 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
     );
   }
 
-  Widget _buildBalanceItem(String label, double value, {bool highlight = false}) {
+  Widget _buildBalanceItem(
+    String label,
+    double value, {
+    bool highlight = false,
+  }) {
     return Column(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 4),
         Text(
           '$value',
@@ -617,9 +619,7 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
       onPressed: _isLoading ? null : _submitRequest,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: _isLoading
           ? const SizedBox(

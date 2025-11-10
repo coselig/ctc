@@ -13,9 +13,10 @@ class HRReviewPage extends StatefulWidget {
   State<HRReviewPage> createState() => _HRReviewPageState();
 }
 
-class _HRReviewPageState extends State<HRReviewPage> with SingleTickerProviderStateMixin {
+class _HRReviewPageState extends State<HRReviewPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -37,18 +38,9 @@ class _HRReviewPageState extends State<HRReviewPage> with SingleTickerProviderSt
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(
-              icon: Icon(Icons.event_busy),
-              text: '請假審核',
-            ),
-            Tab(
-              icon: Icon(Icons.edit_calendar),
-              text: '補打卡審核',
-            ),
-            Tab(
-              icon: Icon(Icons.admin_panel_settings),
-              text: '出勤管理',
-            ),
+            Tab(icon: Icon(Icons.event_busy), text: '請假審核'),
+            Tab(icon: Icon(Icons.edit_calendar), text: '補打卡審核'),
+            Tab(icon: Icon(Icons.admin_panel_settings), text: '出勤管理'),
           ],
         ),
       ),
@@ -72,9 +64,10 @@ class LeaveReviewTab extends StatefulWidget {
   State<LeaveReviewTab> createState() => _LeaveReviewTabState();
 }
 
-class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAliveClientMixin {
+class _LeaveReviewTabState extends State<LeaveReviewTab>
+    with AutomaticKeepAliveClientMixin {
   final _leaveRequestService = LeaveRequestService();
-  
+
   bool _isLoading = false;
   List<LeaveRequest> _pendingRequests = [];
   Employee? _currentReviewer;
@@ -91,14 +84,14 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
   /// 載入資料
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) throw Exception('請先登入');
 
       final employeeService = EmployeeService(Supabase.instance.client);
       final reviewer = await employeeService.getEmployeeById(userId);
-      
+
       final requests = await _leaveRequestService.getPendingLeaveRequests();
 
       if (mounted) {
@@ -109,9 +102,9 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入失敗: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入失敗: $e')));
       }
     } finally {
       if (mounted) {
@@ -164,7 +157,7 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
   /// 顯示審核對話框
   Future<String?> _showReviewDialog(bool isApprove) async {
     final controller = TextEditingController();
-    
+
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -209,7 +202,7 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -219,18 +212,11 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 80,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.check_circle_outline, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               '目前沒有待審核的請假申請',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -283,10 +269,7 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
                       ),
                       Text(
                         request.leaveType.displayName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -311,13 +294,13 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
               ],
             ),
             const Divider(height: 24),
-            
+
             // 請假資訊
             _buildInfoRow(
               Icons.date_range,
               '請假期間',
               '${_formatDate(request.startDate)} ${request.startPeriod.displayName} ~ '
-              '${_formatDate(request.endDate)} ${request.endPeriod.displayName}',
+                  '${_formatDate(request.endDate)} ${request.endPeriod.displayName}',
             ),
             const SizedBox(height: 8),
             _buildInfoRow(
@@ -326,18 +309,10 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
               '${request.totalDays} 天',
             ),
             const SizedBox(height: 8),
-            _buildInfoRow(
-              Icons.note,
-              '請假原因',
-              request.reason,
-            ),
+            _buildInfoRow(Icons.note, '請假原因', request.reason),
             if (request.attachmentUrl != null) ...[
               const SizedBox(height: 8),
-              _buildInfoRow(
-                Icons.attach_file,
-                '證明文件',
-                '已上傳',
-              ),
+              _buildInfoRow(Icons.attach_file, '證明文件', '已上傳'),
             ],
             const SizedBox(height: 8),
             _buildInfoRow(
@@ -345,9 +320,9 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
               '申請時間',
               DateFormat('yyyy-MM-dd HH:mm').format(request.createdAt),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // 操作按鈕
             Row(
               children: [
@@ -389,17 +364,9 @@ class _LeaveReviewTabState extends State<LeaveReviewTab> with AutomaticKeepAlive
       children: [
         Icon(icon, size: 20, color: Colors.grey[600]),
         const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w500)),
         Expanded(
-          child: Text(
-            value,
-            style: TextStyle(color: Colors.grey[700]),
-          ),
+          child: Text(value, style: TextStyle(color: Colors.grey[700])),
         ),
       ],
     );
@@ -466,7 +433,8 @@ class AttendanceReviewTab extends StatefulWidget {
   State<AttendanceReviewTab> createState() => _AttendanceReviewTabState();
 }
 
-class _AttendanceReviewTabState extends State<AttendanceReviewTab> with AutomaticKeepAliveClientMixin {
+class _AttendanceReviewTabState extends State<AttendanceReviewTab>
+    with AutomaticKeepAliveClientMixin {
   final supabase = Supabase.instance.client;
   late final AttendanceLeaveRequestService _requestService;
   late final EmployeeService _employeeService;
@@ -509,9 +477,9 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入失敗: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入失敗: $e')));
       }
     } finally {
       if (mounted) {
@@ -521,7 +489,10 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
   }
 
   /// 審核補打卡申請
-  Future<void> _reviewRequest(AttendanceLeaveRequest request, bool approved) async {
+  Future<void> _reviewRequest(
+    AttendanceLeaveRequest request,
+    bool approved,
+  ) async {
     if (_currentEmployee == null || _currentEmployee!.id == null) return;
 
     // 顯示審核對話框
@@ -572,7 +543,7 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
   /// 顯示審核對話框
   Future<String?> _showReviewDialog(bool isApprove) async {
     final controller = TextEditingController();
-    
+
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -617,7 +588,7 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -627,18 +598,11 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 80,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.check_circle_outline, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               '目前沒有待審核的補打卡申請',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -688,10 +652,7 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
                       ),
                       Text(
                         '補打卡申請',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -716,23 +677,19 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
               ],
             ),
             const Divider(height: 24),
-            
+
             // 補打卡資訊
             ..._buildAttendanceTimeRows(request),
-            _buildInfoRow(
-              Icons.note,
-              '申請原因',
-              request.reason,
-            ),
+            _buildInfoRow(Icons.note, '申請原因', request.reason),
             const SizedBox(height: 8),
             _buildInfoRow(
               Icons.access_time,
               '申請時間',
               _formatDateTime(request.createdAt),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // 操作按鈕
             Row(
               children: [
@@ -774,17 +731,9 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab> with Automati
       children: [
         Icon(icon, size: 20, color: Colors.grey[600]),
         const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w500)),
         Expanded(
-          child: Text(
-            value,
-            style: TextStyle(color: Colors.grey[700]),
-          ),
+          child: Text(value, style: TextStyle(color: Colors.grey[700])),
         ),
       ],
     );
@@ -866,10 +815,12 @@ class AttendanceManagementTab extends StatefulWidget {
   const AttendanceManagementTab({super.key});
 
   @override
-  State<AttendanceManagementTab> createState() => _AttendanceManagementTabState();
+  State<AttendanceManagementTab> createState() =>
+      _AttendanceManagementTabState();
 }
 
-class _AttendanceManagementTabState extends State<AttendanceManagementTab> with AutomaticKeepAliveClientMixin {
+class _AttendanceManagementTabState extends State<AttendanceManagementTab>
+    with AutomaticKeepAliveClientMixin {
   final supabase = Supabase.instance.client;
   late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
@@ -904,8 +855,19 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
       _allEmployees = await _employeeService.getAllEmployees();
 
       // 計算月度範圍
-      final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-      final endOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+      final startOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month,
+        1,
+      );
+      final endOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
 
       // 載入每個員工的記錄和統計
       _employeeRecords.clear();
@@ -934,9 +896,9 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入資料失敗: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入資料失敗: $e')));
       }
     } finally {
       if (mounted) {
@@ -959,8 +921,19 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
         );
       }
 
-      final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-      final endOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+      final startOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month,
+        1,
+      );
+      final endOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
 
       await _excelExportService.exportAllAttendanceRecords(
         startDate: startOfMonth,
@@ -1029,7 +1002,10 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
                 child: InkWell(
                   onTap: _selectMonth,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey[300]!),
                       borderRadius: BorderRadius.circular(8),
@@ -1058,7 +1034,10 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
                     : const Icon(Icons.download),
                 label: Text(_isExporting ? '匯出中...' : '匯出 Excel'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -1077,30 +1056,34 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _allEmployees.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.people_outline, size: 80, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text(
-                            '暫無員工資料',
-                            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                          ),
-                        ],
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 80,
+                        color: Colors.grey[400],
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _allEmployees.length,
-                        itemBuilder: (context, index) {
-                          final employee = _allEmployees[index];
-                          return _buildEmployeeCard(employee);
-                        },
+                      const SizedBox(height: 16),
+                      Text(
+                        '暫無員工資料',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
-                    ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _allEmployees.length,
+                    itemBuilder: (context, index) {
+                      final employee = _allEmployees[index];
+                      return _buildEmployeeCard(employee);
+                    },
+                  ),
+                ),
         ),
       ],
     );
@@ -1125,10 +1108,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
           children: [
             const Text(
               '統計概覽',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Row(
@@ -1166,7 +1146,12 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
   }
 
   /// 建構統計項目
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Column(
       children: [
         Icon(icon, color: color, size: 32),
@@ -1179,13 +1164,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
             color: color,
           ),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
   }
@@ -1217,10 +1196,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
             : const Text('暫無資料'),
         children: [
           if (records.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('本月暫無打卡記錄'),
-            )
+            const Padding(padding: EdgeInsets.all(16), child: Text('本月暫無打卡記錄'))
           else
             ListView.builder(
               shrinkWrap: true,
@@ -1241,11 +1217,11 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab> with 
   Widget _buildRecordListTile(AttendanceRecord record) {
     final dateStr = DateFormat('MM/dd').format(record.checkInTime);
     final checkInStr = DateFormat('HH:mm').format(record.checkInTime);
-    final checkOutStr = record.checkOutTime != null 
-        ? DateFormat('HH:mm').format(record.checkOutTime!) 
+    final checkOutStr = record.checkOutTime != null
+        ? DateFormat('HH:mm').format(record.checkOutTime!)
         : '--:--';
-    final workHoursStr = record.workHours != null 
-        ? '${record.workHours!.toStringAsFixed(1)}h'
+    final workHoursStr = record.calculatedWorkHours != null
+        ? '${record.calculatedWorkHours!.toStringAsFixed(1)}h'
         : '--';
 
     return ListTile(

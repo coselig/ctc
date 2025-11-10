@@ -296,7 +296,7 @@ class _AttendancePageState extends State<AttendancePage> {
             content: Text(
               '打卡成功！下班時間：${_formatTime(record.checkOutTime!)} '
               '地點：$_selectedLocationType '
-              '工作時數：${record.workHours?.toStringAsFixed(1)}小時',
+              '工作時數：${record.calculatedWorkHours?.toStringAsFixed(1)}小時',
             ),
           ),
         );
@@ -368,7 +368,7 @@ class _AttendancePageState extends State<AttendancePage> {
                 const SizedBox(height: 8),
                 _buildStatusRow(
                   '工作時數',
-                  '${_todayRecord!.workHours?.toStringAsFixed(1)} 小時',
+                  '${_todayRecord!.calculatedWorkHours?.toStringAsFixed(1)} 小時',
                   Icons.access_time,
                   Colors.blue,
                 ),
@@ -840,9 +840,9 @@ class _AttendancePageState extends State<AttendancePage> {
       ),
       title: Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text('$checkInStr - $checkOutStr'),
-      trailing: record.workHours != null
+      trailing: record.calculatedWorkHours != null
           ? Text(
-              '${record.workHours!.toStringAsFixed(1)}h',
+              '${record.calculatedWorkHours!.toStringAsFixed(1)}h',
               style: TextStyle(
                 fontWeight: FontWeight.w500,
                 color: Theme.of(context).primaryColor,

@@ -3,11 +3,8 @@ class AttendanceRecord {
   const AttendanceRecord({
     required this.id,
     required this.employeeId,
-    required this.employeeName,
-    required this.employeeEmail,
     required this.checkInTime,
     this.checkOutTime,
-    this.workHours,
     this.location,
     this.notes,
     this.isManualEntry = false,
@@ -17,11 +14,8 @@ class AttendanceRecord {
 
   final String id;
   final String employeeId;
-  final String employeeName;
-  final String employeeEmail;
   final DateTime checkInTime;
   final DateTime? checkOutTime;
-  final double? workHours; // 工作小時數
   final String? location; // 打卡地點
   final String? notes; // 備註
   final bool isManualEntry; // 是否為手動輸入
@@ -52,14 +46,9 @@ class AttendanceRecord {
     return AttendanceRecord(
       id: json['id'] as String,
       employeeId: json['employee_id'] as String,
-      employeeName: json['employee_name'] as String,
-      employeeEmail: json['employee_email'] as String,
       checkInTime: DateTime.parse(json['check_in_time'] as String),
       checkOutTime: json['check_out_time'] != null 
           ? DateTime.parse(json['check_out_time'] as String) 
-          : null,
-      workHours: json['work_hours'] != null 
-          ? (json['work_hours'] as num).toDouble() 
           : null,
       location: json['location'] as String?,
       notes: json['notes'] as String?,
@@ -74,11 +63,8 @@ class AttendanceRecord {
     return {
       'id': id,
       'employee_id': employeeId,
-      'employee_name': employeeName,
-      'employee_email': employeeEmail,
       'check_in_time': checkInTime.toIso8601String(),
       'check_out_time': checkOutTime?.toIso8601String(),
-      'work_hours': workHours,
       'location': location,
       'notes': notes,
       'is_manual_entry': isManualEntry,
@@ -91,11 +77,8 @@ class AttendanceRecord {
   Map<String, dynamic> toJsonForInsert() {
     return {
       'employee_id': employeeId,
-      'employee_name': employeeName,
-      'employee_email': employeeEmail,
       'check_in_time': checkInTime.toIso8601String(),
       'check_out_time': checkOutTime?.toIso8601String(),
-      'work_hours': workHours,
       'location': location,
       'notes': notes,
       'is_manual_entry': isManualEntry,
@@ -117,11 +100,8 @@ class AttendanceRecord {
   AttendanceRecord copyWith({
     String? id,
     String? employeeId,
-    String? employeeName,
-    String? employeeEmail,
     DateTime? checkInTime,
     DateTime? checkOutTime,
-    double? workHours,
     String? location,
     String? notes,
     bool? isManualEntry,
@@ -131,11 +111,8 @@ class AttendanceRecord {
     return AttendanceRecord(
       id: id ?? this.id,
       employeeId: employeeId ?? this.employeeId,
-      employeeName: employeeName ?? this.employeeName,
-      employeeEmail: employeeEmail ?? this.employeeEmail,
       checkInTime: checkInTime ?? this.checkInTime,
       checkOutTime: checkOutTime ?? this.checkOutTime,
-      workHours: workHours ?? this.workHours,
       location: location ?? this.location,
       notes: notes ?? this.notes,
       isManualEntry: isManualEntry ?? this.isManualEntry,
@@ -148,10 +125,10 @@ class AttendanceRecord {
   String toString() {
     return 'AttendanceRecord('
         'id: $id, '
-        'employeeName: $employeeName, '
+        'employeeId: $employeeId, '
         'checkInTime: $checkInTime, '
         'checkOutTime: $checkOutTime, '
-        'workHours: $workHours, '
+        'calculatedWorkHours: $calculatedWorkHours, '
         'status: $workStatus'
         ')';
   }
