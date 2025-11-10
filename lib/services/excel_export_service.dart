@@ -105,6 +105,56 @@ class ExcelExportService {
     }
   }
 
+  /// 匯出單一員工的打卡記錄到Excel
+  Future<void> exportEmployeeAttendanceRecords({
+    required Employee employee,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      print('========== 開始匯出個人打卡記錄 ==========');
+      print('員工: ${employee.name} (${employee.employeeId})');
+
+      // 獲取該員工的打卡記錄
+      print('正在獲取打卡記錄...');
+      print(
+        '日期範圍: ${startDate != null ? startDate.toString() : "不限"} ~ ${endDate != null ? endDate.toString() : "不限"}',
+      );
+
+      final records = await _attendanceService.getAllAttendanceRecords(
+        employeeId: employee.id,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      print('✓ 找到 ${records.length} 筆打卡記錄');
+
+      if (records.isEmpty) {
+        print('⚠️ 警告：沒有打卡記錄（將匯出空白Excel）');
+      }
+
+      // 創建Excel檔案
+      print('開始創建Excel檔案...');
+      var excel = Excel.createExcel();
+
+      // 創建打卡記錄工作表（只有該員工）
+      final employeeMap = {employee.id: employee};
+      _createAttendanceSheet(excel, records, employeeMap);
+
+      // 刪除預設的空白Sheet1
+      if (excel.tables.containsKey('Sheet1')) {
+        excel.delete('Sheet1');
+        print('✓ 已刪除預設的空白工作表 Sheet1');
+      }
+
+      // 下載檔案
+      _downloadExcelFile(excel, '${employee.name}_打卡記錄');
+    } catch (e) {
+      print('匯出Excel失敗: $e');
+      rethrow;
+    }
+  }
+
   /// 創建打卡記錄工作表
   void _createAttendanceSheet(
     Excel excel,

@@ -6,6 +6,7 @@ import '../../../services/employee/attendance/attendance_service.dart';
 import '../../../services/employee/attendance/holiday_service.dart';
 import '../../../services/employee/attendance/leave_request_service.dart';
 import '../../../services/employee/employee_general_service.dart';
+import '../../../services/excel_export_service.dart';
 import '../../../widgets/dialogs/month_year_picker.dart';
 import 'attendance_request_page.dart';
 import 'leave_record_page.dart';
@@ -81,12 +82,14 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
   late final EmployeeService _employeeService;
   late final LeaveRequestService _leaveRequestService;
   late final HolidayService _holidayService;
+  late final ExcelExportService _excelExportService;
 
   Employee? _currentEmployee;
   AttendanceStats? _monthlyStats;
   List<AttendanceRecord> _monthlyRecords = [];
   List<LeaveRequest> _monthlyLeaveRequests = [];
   bool _isLoading = true;
+  bool _isExporting = false;
 
   DateTime _selectedMonth = DateTime.now();
 
@@ -97,6 +100,7 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
     _employeeService = EmployeeService(supabase);
     _leaveRequestService = LeaveRequestService();
     _holidayService = HolidayService(supabase);
+    _excelExportService = ExcelExportService(supabase);
     _initializeHolidays();
     _loadData();
   }
@@ -199,6 +203,67 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
         _selectedMonth = result;
       });
       _loadData();
+    }
+  }
+
+  /// 匯出當月打卡記錄到Excel
+  Future<void> _exportMonthlyRecords() async {
+    if (_currentEmployee == null) return;
+
+    try {
+      setState(() => _isExporting = true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('正在準備匯出打卡記錄...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // 計算日期範圍
+      final startOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month,
+        1,
+      );
+      final endOfMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
+      await _excelExportService.exportEmployeeAttendanceRecords(
+        employee: _currentEmployee!,
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Excel 檔案已下載'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('匯出失敗: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
     }
   }
 
@@ -1078,15 +1143,35 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 月份選擇器
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.calendar_month),
-                title: const Text('統計月份'),
-                subtitle: Text(_formatMonth(_selectedMonth)),
-                trailing: const Icon(Icons.arrow_drop_down),
-                onTap: _selectMonth,
-              ),
+            // 月份選擇器和下載按鈕
+            Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.calendar_month),
+                      title: const Text('統計月份'),
+                      subtitle: Text(_formatMonth(_selectedMonth)),
+                      trailing: const Icon(Icons.arrow_drop_down),
+                      onTap: _selectMonth,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Card(
+                  child: IconButton(
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download),
+                    tooltip: '下載Excel',
+                    onPressed: _isExporting ? null : _exportMonthlyRecords,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
