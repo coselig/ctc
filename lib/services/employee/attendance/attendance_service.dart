@@ -142,14 +142,8 @@ class AttendanceService {
         throw Exception('已經打過下班卡了');
       }
 
-      // 計算工作時數 - 確保不為負數
-      final duration =
-          now.difference(existingRecord.checkInTime).inMinutes / 60.0;
-      final workHours = duration < 0 ? 0.0 : duration;
-
       final updateData = {
         'check_out_time': now.toIso8601String(),
-        'work_hours': workHours,
         'location': location ?? existingRecord.location,
         'notes': notes ?? existingRecord.notes,
         'updated_at': now.toIso8601String(),
@@ -180,7 +174,6 @@ class AttendanceService {
               params: {
                 'record_id': recordId,
                 'checkout_time': now.toIso8601String(),
-                'work_hours': workHours,
                 'location_text': location,
                 'notes_text': notes,
               },
@@ -253,20 +246,6 @@ class AttendanceService {
       }
       if (notes != null) {
         updateData['notes'] = notes;
-      }
-
-      // 如果有上下班時間，重新計算工作時數
-      final existingRecord = await getAttendanceRecord(id);
-      if (existingRecord != null) {
-        final newCheckIn = checkInTime ?? existingRecord.checkInTime;
-        final newCheckOut = checkOutTime ?? existingRecord.checkOutTime;
-        
-        if (newCheckOut != null) {
-          final duration = newCheckOut.difference(newCheckIn).inMinutes / 60.0;
-          // 確保工作時數不為負數
-          final workHours = duration < 0 ? 0.0 : duration;
-          updateData['work_hours'] = workHours;
-        }
       }
 
       updateData['updated_at'] = DateTime.now().toIso8601String();
@@ -624,20 +603,13 @@ class AttendanceService {
         print('⚠️ 該記錄已有下班時間: ${existingRecord.checkOutTime}');
       }
 
-      // 2. 計算工作時數
-      // 如果有提供新的上班時間，使用新的；否則使用原有的
-      final actualCheckIn = checkInTime ?? existingRecord.checkInTime;
-      final duration = checkOutTime.difference(actualCheckIn);
-      final workHours = duration.inMinutes / 60.0;
-
-      print('上班時間: $actualCheckIn');
+      // 2. 準備更新資料
+      print('上班時間: ${checkInTime ?? existingRecord.checkInTime}');
       print('下班時間: $checkOutTime');
-      print('工作時數: $workHours 小時');
 
       // 3. 更新打卡記錄
       final updateData = {
         'check_out_time': checkOutTime.toIso8601String(),
-        'work_hours': workHours,
         'is_manual_entry': true,
       };
 
@@ -669,7 +641,6 @@ class AttendanceService {
         print('✅ 補下班打卡記錄建立成功');
         print('記錄ID: ${result['id']}');
         print('更新後的下班時間: ${result['check_out_time']}');
-        print('更新後的工作時數: ${result['work_hours']}');
         if (checkInTime != null) {
           print('已同時更新上班時間: ${result['check_in_time']}');
         }
@@ -689,7 +660,6 @@ class AttendanceService {
               params: {
                 'record_id': existingRecord.id,
                 'checkout_time': checkOutTime.toIso8601String(),
-                'work_hours': workHours,
                 'location_text': location,
                 'notes_text': notes,
               },

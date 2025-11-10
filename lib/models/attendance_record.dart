@@ -89,7 +89,6 @@ class AttendanceRecord {
   Map<String, dynamic> toJsonForUpdate() {
     return {
       'check_out_time': checkOutTime?.toIso8601String(),
-      'work_hours': calculatedWorkHours,
       'location': location,
       'notes': notes,
       'updated_at': DateTime.now().toIso8601String(),
