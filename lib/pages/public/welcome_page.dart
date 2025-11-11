@@ -24,7 +24,6 @@ class _WelcomePageState extends State<WelcomePage>
   final supabase = Supabase.instance.client;
   Timer? _timer;
   StreamSubscription<AuthState>? _authSubscription;
-  User? _currentUser;
 
   bool _loading = true;
   String? _pdfUrl;
@@ -84,7 +83,6 @@ class _WelcomePageState extends State<WelcomePage>
   @override
   void initState() {
     super.initState();
-    _currentUser = supabase.auth.currentUser;
     _setupAuthListener();
     _activePdfIndex = null;
     _hoverPdfIndex = null;
@@ -111,10 +109,8 @@ class _WelcomePageState extends State<WelcomePage>
 
   void _setupAuthListener() {
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
-      final Session? session = data.session;
       if (mounted) {
         setState(() {
-          _currentUser = session?.user;
         });
       }
     });

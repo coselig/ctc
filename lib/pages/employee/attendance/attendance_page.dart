@@ -696,7 +696,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
             // 地點類型下拉選單
             DropdownButtonFormField<String>(
-              value: _selectedLocationType,
+              initialValue: _selectedLocationType,
               decoration: const InputDecoration(
                 labelText: '地點類型',
                 border: OutlineInputBorder(),

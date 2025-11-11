@@ -1,11 +1,10 @@
+import 'package:ctc/models/models.dart';
+import 'package:ctc/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../services/general/user_preferences_service.dart';
 import '../../widgets/general_components/general_page.dart';
 
-/// 用戶設置頁面
-/// 讓用戶管理各種偏好設置，包括主題模式
 class UserSettingsPage extends StatefulWidget {
   const UserSettingsPage({super.key, this.onThemeChanged});
 
@@ -19,7 +18,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
   late UserPreferencesService _userPreferencesService;
   String _currentThemePreference = UserPreferencesService.themeModeSystem;
   bool _isLoading = true;
-  Map<String, dynamic>? _userProfile;
+  late UserProfile _userProfile;
 
   // 密碼修改相關的控制器
   final _newPasswordController = TextEditingController();
@@ -44,12 +43,14 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
     try {
       final themePreference = await _userPreferencesService
           .getThemePreference();
-      final userProfile = await _userPreferencesService.getUserProfile();
+      // final userProfile = await _userPreferencesService.getUserProfile();
+      UserService userService = UserService(Supabase.instance.client);
+      final userProfile = await userService.getCurrentUserProfile();
 
       if (mounted) {
         setState(() {
           _currentThemePreference = themePreference;
-          _userProfile = userProfile;
+          _userProfile = userProfile!;
           _isLoading = false;
         });
       }
@@ -320,11 +321,9 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
   }
 
   Widget _buildUserInfoCard() {
-    if (_userProfile == null) return const SizedBox.shrink();
-
-    final email = _userProfile!['email'] as String?;
-    final fullName = _userProfile!['full_name'] as String?;
-    final createdAt = _userProfile!['created_at'] as String?;
+    final email = _userProfile.email;
+    final fullName = _userProfile.fullName;
+    final createdAt = _userProfile.createdAt;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -367,17 +366,17 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                   ),
                 ],
               ),
-              if (createdAt != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '註冊時間: ${DateTime.parse(createdAt).toLocal().toString().split('.')[0]}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+              ...[
+              const SizedBox(height: 12),
+              Text(
+                '註冊時間: ${createdAt.toLocal().toString().split('.')[0]}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
-              ],
+              ),
+            ],
               const SizedBox(height: 16),
               // 密碼修改按鈕
               SizedBox(
@@ -416,8 +415,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
         _buildUserInfoCard(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text('主題設置',
-            style: Theme.of(context).textTheme.headlineSmall),
+          child: Text('主題設置', style: Theme.of(context).textTheme.headlineSmall),
         ),
         _buildThemeOption(
           themeMode: UserPreferencesService.themeModeLight,
@@ -439,8 +437,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text('安全設置',
-            style: Theme.of(context).textTheme.headlineSmall),
+          child: Text('安全設置', style: Theme.of(context).textTheme.headlineSmall),
         ),
         Container(
           margin: const EdgeInsets.symmetric(vertical: 4),

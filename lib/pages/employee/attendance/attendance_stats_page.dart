@@ -585,7 +585,7 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
                     '$day',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: textColor.withOpacity(0.15),
+                      color: textColor.withAlpha(38),
                       fontSize: 32,
                     ),
                   ),
@@ -624,7 +624,7 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
                     '$day',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: textColor.withOpacity(0.15),
+                      color: textColor.withAlpha(38),
                       fontSize: 32,
                     ),
                   ),

@@ -33,7 +33,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   String _notes = ''; // 其他原因的詳細說明
   bool _isLoading = true; // 初始化時應該是 true，表示正在載入
   bool _isSubmitting = false;
-  bool _isCheckingRecord = false; // 是否正在檢查記錄
+// 是否正在檢查記錄
   bool _canManualAttendance = false; // 是否有手動補打卡權限
 
   @override
@@ -125,7 +125,6 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
   Future<void> _checkExistingRecord() async {
     if (_currentEmployee?.id == null) return;
 
-    setState(() => _isCheckingRecord = true);
 
     try {
       final targetDate = DateTime(
@@ -193,7 +192,6 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
     } catch (e) {
       print('檢查打卡記錄失敗: $e');
     } finally {
-      setState(() => _isCheckingRecord = false);
     }
   }
 
@@ -637,7 +635,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                     vertical: 8,
                   ),
                   child: DropdownButtonFormField<String>(
-                    value: _punchType,
+                    initialValue: _punchType,
                     decoration: const InputDecoration(
                       labelText: '選擇補打卡類型',
                       prefixIcon: Icon(Icons.punch_clock),
@@ -816,7 +814,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                     vertical: 8,
                   ),
                   child: DropdownButtonFormField<String>(
-                    value: _location.isEmpty ? null : _location,
+                    initialValue: _location.isEmpty ? null : _location,
                     decoration: const InputDecoration(
                       labelText: '選擇打卡地點',
                       prefixIcon: Icon(Icons.location_on),
@@ -880,7 +878,7 @@ class _ManualAttendancePageState extends State<ManualAttendancePage> {
                     vertical: 8,
                   ),
                   child: DropdownButtonFormField<String>(
-                    value: _reasonType.isEmpty ? null : _reasonType,
+                    initialValue: _reasonType.isEmpty ? null : _reasonType,
                     decoration: const InputDecoration(
                       labelText: '選擇原因',
                       prefixIcon: Icon(Icons.comment),
