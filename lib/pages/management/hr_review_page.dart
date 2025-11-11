@@ -1016,6 +1016,345 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
     }
   }
 
+  /// 顯示代理打卡對話框
+  Future<void> _showProxyAttendanceDialog(Employee employee) async {
+    final now = DateTime.now();
+    final records = _employeeRecords[employee.id] ?? [];
+
+    // 查找今天的打卡記錄
+    AttendanceRecord? todayRecord;
+    for (final r in records) {
+      if (r.checkInTime.year == now.year &&
+          r.checkInTime.month == now.month &&
+          r.checkInTime.day == now.day) {
+        todayRecord = r;
+        break;
+      }
+    }
+
+    final hasExistingRecord = todayRecord != null;
+    DateTime? selectedCheckInTime = todayRecord?.checkInTime;
+    DateTime? selectedCheckOutTime = todayRecord?.checkOutTime;
+
+    final checkInController = TextEditingController(
+      text: selectedCheckInTime != null
+          ? DateFormat('HH:mm').format(selectedCheckInTime)
+          : '',
+    );
+    final checkOutController = TextEditingController(
+      text: selectedCheckOutTime != null
+          ? DateFormat('HH:mm').format(selectedCheckOutTime)
+          : '',
+    );
+
+    String selectedLocation = todayRecord?.location ?? '辦公室';
+    final locationController = TextEditingController(
+      text: selectedLocation == '其他' ? (todayRecord?.notes ?? '') : '',
+    );
+    final reasonController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('代理打卡 - ${employee.name}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasExistingRecord) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '今日已有打卡記錄，修改時間將覆蓋原記錄',
+                            style: TextStyle(
+                              color: Colors.blue.shade700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                Text(
+                  '日期：${DateFormat('yyyy年MM月dd日').format(now)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+
+                // 上班時間
+                TextField(
+                  controller: checkInController,
+                  decoration: InputDecoration(
+                    labelText: '上班時間',
+                    hintText: '例如：09:00',
+                    prefixIcon: const Icon(Icons.login),
+                    border: const OutlineInputBorder(),
+                    helperText: hasExistingRecord
+                        ? '原時間：${DateFormat('HH:mm').format(todayRecord!.checkInTime)} (只能往更早調整)'
+                        : '未打卡，可設定任意時間',
+                  ),
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: selectedCheckInTime != null
+                          ? TimeOfDay.fromDateTime(selectedCheckInTime!)
+                          : const TimeOfDay(hour: 9, minute: 0),
+                    );
+                    if (time != null) {
+                      final newDateTime = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        time.hour,
+                        time.minute,
+                      );
+
+                      // 檢查時間限制
+                      if (hasExistingRecord) {
+                        if (newDateTime.isAfter(todayRecord!.checkInTime)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('上班時間只能往更早調整'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
+                      setDialogState(() {
+                        selectedCheckInTime = newDateTime;
+                        checkInController.text = DateFormat(
+                          'HH:mm',
+                        ).format(newDateTime);
+                      });
+                    }
+                  },
+                  readOnly: true,
+                ),
+                const SizedBox(height: 16),
+
+                // 下班時間
+                TextField(
+                  controller: checkOutController,
+                  decoration: InputDecoration(
+                    labelText: '下班時間',
+                    hintText: '例如：18:00',
+                    prefixIcon: const Icon(Icons.logout),
+                    border: const OutlineInputBorder(),
+                    helperText:
+                        hasExistingRecord && todayRecord!.checkOutTime != null
+                        ? '原時間：${DateFormat('HH:mm').format(todayRecord.checkOutTime!)} (只能往更晚調整)'
+                        : '未打卡，可設定任意時間',
+                  ),
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: selectedCheckOutTime != null
+                          ? TimeOfDay.fromDateTime(selectedCheckOutTime!)
+                          : const TimeOfDay(hour: 18, minute: 0),
+                    );
+                    if (time != null) {
+                      final newDateTime = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        time.hour,
+                        time.minute,
+                      );
+
+                      // 檢查時間限制
+                      if (hasExistingRecord &&
+                          todayRecord!.checkOutTime != null) {
+                        final existingCheckOut = todayRecord.checkOutTime!;
+                        if (newDateTime.isBefore(existingCheckOut)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('下班時間只能往更晚調整'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
+                      setDialogState(() {
+                        selectedCheckOutTime = newDateTime;
+                        checkOutController.text = DateFormat(
+                          'HH:mm',
+                        ).format(newDateTime);
+                      });
+                    }
+                  },
+                  readOnly: true,
+                ),
+                const SizedBox(height: 16),
+
+                // 地點選擇
+                DropdownButtonFormField<String>(
+                  value: selectedLocation,
+                  decoration: const InputDecoration(
+                    labelText: '地點',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.location_on),
+                  ),
+                  items: ['辦公室', '出差', '其他'].map((location) {
+                    return DropdownMenuItem(
+                      value: location,
+                      child: Text(location),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      selectedLocation = value!;
+                      if (value != '其他') {
+                        locationController.clear();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // 其他地點說明
+                if (selectedLocation == '其他') ...[
+                  TextField(
+                    controller: locationController,
+                    decoration: const InputDecoration(
+                      labelText: '地點說明',
+                      hintText: '請輸入具體地點',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.edit_location),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 代理打卡原因
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(
+                    labelText: '代理打卡原因',
+                    hintText: '例如：忘記打卡、系統問題等',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.note),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // 驗證
+                if (selectedCheckInTime == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('請選擇上班時間'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
+                if (selectedLocation == '其他' &&
+                    locationController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('請填寫地點說明'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('請填寫代理打卡原因'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.of(context).pop();
+
+                // 執行代理打卡
+                try {
+                  final locationText = selectedLocation == '其他'
+                      ? locationController.text.trim()
+                      : selectedLocation;
+
+                  final notes = '代理打卡原因：${reasonController.text.trim()}';
+
+                  if (hasExistingRecord) {
+                    // 更新現有記錄
+                    await _attendanceService.updateAttendanceRecord(
+                      id: todayRecord!.id,
+                      checkInTime: selectedCheckInTime,
+                      checkOutTime: selectedCheckOutTime,
+                      location: locationText,
+                      notes: notes,
+                    );
+                  } else {
+                    // 創建新記錄
+                    await _attendanceService.createManualAttendance(
+                      employee: employee,
+                      checkInTime: selectedCheckInTime!,
+                      checkOutTime: selectedCheckOutTime,
+                      location: locationText,
+                      notes: notes,
+                    );
+                  }
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('代理打卡成功：${employee.name}'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _loadData(); // 重新載入資料
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('代理打卡失敗：$e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('確認打卡'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 選擇月份
   Future<void> _selectMonth() async {
     final currentYear = _selectedMonth.year;
@@ -1269,6 +1608,20 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _showProxyAttendanceDialog(employee),
+                    icon: const Icon(Icons.access_time, size: 18),
+                    label: const Text('代理打卡'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: _isExporting
                         ? null

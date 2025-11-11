@@ -28,49 +28,7 @@ class SystemHomePage extends StatefulWidget {
 
 class _SystemHomePageState extends State<SystemHomePage> {
   List<SystemCardData> get systemCards => [
-    SystemCardData(
-      icon: Icons.folder_special,
-      title: '專案管理',
-      subtitle: '專案、任務、時程管理',
-      color: Colors.deepPurple,
-      page: const ProjectManagementPage(),
-    ),
-    SystemCardData(
-      icon: Icons.camera_alt,
-      title: '照片記錄',
-      subtitle: '工地照片記錄管理',
-      color: Colors.blue,
-      page: PhotoRecordPage(
-        title: '工地照片記錄系統',
-        onThemeToggle: widget.onThemeToggle,
-        currentThemeMode: widget.currentThemeMode,
-      ),
-    ),
-    SystemCardData(
-      icon: Icons.upload_file,
-      title: '資產圖片上傳',
-      subtitle: '上傳照片至公司資產 bucket',
-      color: Colors.teal,
-      page: const UploadAssetPage(),
-    ),
-    SystemCardData(
-      icon: Icons.upload_file,
-      title: '首頁頁面管理',
-      subtitle: '上傳pdf至資料庫',
-      color: Colors.teal,
-      page: const UploadPdfPage(),
-    ),
-    SystemCardData(
-      icon: Icons.people,
-      title: '員工管理',
-      subtitle: '人力資源管理系統',
-      color: Colors.green,
-      page: EmployeeManagementPage(
-        title: '員工管理系統',
-        onThemeToggle: widget.onThemeToggle,
-        currentThemeMode: widget.currentThemeMode,
-      ),
-    ),
+    // 1. 打卡系統
     SystemCardData(
       icon: Icons.access_time,
       title: '打卡系統',
@@ -82,12 +40,61 @@ class _SystemHomePageState extends State<SystemHomePage> {
         currentThemeMode: widget.currentThemeMode,
       ),
     ),
+    // 2. 個人出勤中心
     SystemCardData(
       icon: Icons.assessment,
       title: '個人出勤中心',
       subtitle: '出勤統計、請假、補打卡申請',
       color: Colors.purple,
       page: const AttendanceStatsPage(),
+    ),
+    // 3. 照片記錄
+    SystemCardData(
+      icon: Icons.camera_alt,
+      title: '照片記錄',
+      subtitle: '工地照片記錄管理',
+      color: Colors.blue,
+      page: PhotoRecordPage(
+        title: '工地照片記錄系統',
+        onThemeToggle: widget.onThemeToggle,
+        currentThemeMode: widget.currentThemeMode,
+      ),
+    ),
+    // 4. 專案管理
+    SystemCardData(
+      icon: Icons.folder_special,
+      title: '專案管理',
+      subtitle: '專案、任務、時程管理',
+      color: Colors.deepPurple,
+      page: const ProjectManagementPage(),
+    ),
+    // 5. 首頁頁面管理
+    SystemCardData(
+      icon: Icons.upload_file,
+      title: '首頁頁面管理',
+      subtitle: '上傳pdf至資料庫',
+      color: Colors.teal,
+      page: const UploadPdfPage(),
+    ),
+    // 6. 資產圖片上傳
+    SystemCardData(
+      icon: Icons.upload_file,
+      title: '資產圖片上傳',
+      subtitle: '上傳照片至公司資產 bucket',
+      color: Colors.cyan,
+      page: const UploadAssetPage(),
+    ),
+    // 7. 員工管理
+    SystemCardData(
+      icon: Icons.people,
+      title: '員工管理',
+      subtitle: '人力資源管理系統',
+      color: Colors.green,
+      page: EmployeeManagementPage(
+        title: '員工管理系統',
+        onThemeToggle: widget.onThemeToggle,
+        currentThemeMode: widget.currentThemeMode,
+      ),
     ),
   ];
   final supabase = Supabase.instance.client;
