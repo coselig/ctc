@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+// GPS 定位功能相關套件 (保留功能，暫時停用)
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -43,6 +44,7 @@ class _AttendancePageState extends State<AttendancePage> {
   String _selectedLocationType = '辦公室';
   final List<String> _locationTypes = ['辦公室', '出差', '其他'];
 
+  // GPS 定位相關變數 (保留功能，暫時停用)
   // 公司位置設定 (從本地存儲讀取)
   CompanyLocation? _companyLocation;
 
@@ -56,8 +58,8 @@ class _AttendancePageState extends State<AttendancePage> {
     _attendanceService = AttendanceService(supabase);
     _employeeService = EmployeeService(supabase);
     _permissionService = PermissionService();
-    _loadCompanyLocation();
-    _updateCompanyLocationFromAddress();
+    // _loadCompanyLocation(); // GPS 功能暫時停用
+    // _updateCompanyLocationFromAddress(); // GPS 功能暫時停用
     _loadData();
     _checkPermissions();
   }
@@ -76,7 +78,8 @@ class _AttendancePageState extends State<AttendancePage> {
     }
   }
 
-  /// 從地址獲取精確座標並更新公司位置
+  /// 從地址獲取精確座標並更新公司位置 (保留功能，暫時停用)
+  // ignore: unused_element
   Future<void> _updateCompanyLocationFromAddress() async {
     try {
       const address = '406台中市北屯區后庄七街215號';
@@ -144,7 +147,8 @@ class _AttendancePageState extends State<AttendancePage> {
     }
   }
 
-  /// 載入公司位置設定
+  /// 載入公司位置設定 (保留功能，暫時停用)
+  // ignore: unused_element
   Future<void> _loadCompanyLocation() async {
     _companyLocation = await CompanyLocationService.getCurrentCompanyLocation();
     if (mounted) {
@@ -449,7 +453,8 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  /// 建構位置狀態指示器
+  /// 建構位置狀態指示器 (保留功能，暫時停用)
+  // ignore: unused_element
   Widget _buildLocationStatusIndicator() {
     return FutureBuilder<bool>(
       future: _isCurrentLocationInCompany(),
@@ -540,7 +545,8 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  /// 獲取位置（使用快取機制）
+  /// 獲取位置（使用快取以提升效能）(保留功能，暫時停用)
+  // ignore: unused_element
   Future<Position?> _getCachedPosition({bool forceRefresh = false}) async {
     final now = DateTime.now();
 
@@ -632,7 +638,8 @@ class _AttendancePageState extends State<AttendancePage> {
     }
   }
 
-  /// 檢查當前位置是否在公司範圍內
+  /// 檢查當前位置是否在公司範圍內 (保留功能，暫時停用)
+  // ignore: unused_element
   Future<bool> _isCurrentLocationInCompany() async {
     try {
       if (_companyLocation == null) return false;
@@ -683,9 +690,9 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
             const SizedBox(height: 16),
 
-            // 位置狀態指示器
-            _buildLocationStatusIndicator(),
-            const SizedBox(height: 12),
+            // 位置狀態指示器 (暫時停用)
+            // _buildLocationStatusIndicator(),
+            // const SizedBox(height: 12),
 
             // 地點類型下拉選單
             DropdownButtonFormField<String>(
