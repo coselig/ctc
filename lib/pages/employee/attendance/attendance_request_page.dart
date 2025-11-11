@@ -156,32 +156,35 @@ class _AttendanceRequestPageState extends State<AttendanceRequestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('我的補打卡申請'),
-      ),
-      body: Column(
-        children: [
-          // 狀態篩選按鈕列
-          _buildStatusFilterBar(),
-          
-          const SizedBox(height: 8),
-          
-          // 申請列表
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _requests.isEmpty
-                    ? _buildEmptyState()
-                    : _buildRequestList(),
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // 狀態篩選按鈕列
+            _buildStatusFilterBar(),
+
+            const SizedBox(height: 8),
+
+            // 申請列表
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _requests.isEmpty
+                  ? _buildEmptyState()
+                  : _buildRequestList(),
+            ),
+          ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            onPressed: () => _navigateToForm(),
+            icon: const Icon(Icons.add),
+            label: const Text('新增申請'),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('新增申請'),
-      ),
+        ),
+      ],
     );
   }
 

@@ -13,24 +13,25 @@ class LeaveRecordPage extends StatefulWidget {
   State<LeaveRecordPage> createState() => _LeaveRecordPageState();
 }
 
-class _LeaveRecordPageState extends State<LeaveRecordPage> with SingleTickerProviderStateMixin {
+class _LeaveRecordPageState extends State<LeaveRecordPage> {
   final _leaveRequestService = LeaveRequestService();
-  late TabController _tabController;
   
   bool _isLoading = false;
   List<LeaveRequest> _allRequests = [];
-  Map<LeaveType, LeaveBalance> _balances = {};
+  // 移除假別額度相關變數
+  // Map<LeaveType, LeaveBalance> _balances = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    // 只保留請假記錄，移除假別額度分頁
+    // _tabController = TabController(length: 2, vsync: this);
     _loadData();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    // _tabController.dispose();
     super.dispose();
   }
 
@@ -49,11 +50,12 @@ class _LeaveRecordPageState extends State<LeaveRecordPage> with SingleTickerProv
       }
 
       final requests = await _leaveRequestService.getEmployeeLeaveRequests(employee.id!);
-      final balances = await _leaveRequestService.getEmployeeLeaveBalances(employee.id!);
+      // 不再載入假別額度
+      // final balances = await _leaveRequestService.getEmployeeLeaveBalances(employee.id!);
 
       setState(() {
         _allRequests = requests;
-        _balances = {for (var b in balances) b.leaveType: b};
+        // _balances = {for (var b in balances) b.leaveType: b};
       });
     } catch (e) {
       if (mounted) {
@@ -121,32 +123,21 @@ class _LeaveRecordPageState extends State<LeaveRecordPage> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('請假記錄'),
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '請假記錄'),
-            Tab(text: '假別額度'),
-          ],
+    return Stack(
+      children: [
+        _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildRequestsTab(),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            onPressed: _goToAddLeave,
+            icon: const Icon(Icons.add),
+            label: const Text('申請請假'),
+          ),
         ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRequestsTab(),
-                _buildBalancesTab(),
-              ],
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _goToAddLeave,
-        icon: const Icon(Icons.add),
-        label: const Text('申請請假'),
-      ),
+      ],
     );
   }
 
@@ -289,126 +280,22 @@ class _LeaveRecordPageState extends State<LeaveRecordPage> with SingleTickerProv
     );
   }
 
-  /// 假別額度分頁
+  /// 假別額度分頁（已停用）
+  // ignore: unused_element
   Widget _buildBalancesTab() {
-    if (_balances.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.info_outline, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('尚未設定假別額度', style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: LeaveType.values.length,
-        itemBuilder: (context, index) {
-          final leaveType = LeaveType.values[index];
-          final balance = _balances[leaveType];
-          return _buildBalanceCard(leaveType, balance);
-        },
-      ),
-    );
+    return const SizedBox.shrink(); // 已移除假別額度顯示
   }
 
-  /// 假別額度卡片
+  /// 假別額度卡片（已停用）
+  // ignore: unused_element
   Widget _buildBalanceCard(LeaveType leaveType, LeaveBalance? balance) {
-    final hasBalance = balance != null;
-    final totalDays = balance?.totalDays ?? 0;
-    final usedDays = balance?.usedDays ?? 0;
-    final pendingDays = balance?.pendingDays ?? 0;
-    final remainingDays = balance?.remainingDays ?? 0;
-    
-    final usagePercent = totalDays > 0 ? (usedDays + pendingDays) / totalDays : 0.0;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  leaveType.displayName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                if (hasBalance)
-                  Text(
-                    '剩餘 $remainingDays 天',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: remainingDays > 0 ? Colors.green[700] : Colors.red[700],
-                    ),
-                  )
-                else
-                  const Text(
-                    '未設定',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-              ],
-            ),
-            if (hasBalance) ...[
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildBalanceItem('總額度', totalDays, Colors.blue),
-                  _buildBalanceItem('已使用', usedDays, Colors.red),
-                  _buildBalanceItem('審核中', pendingDays, Colors.orange),
-                ],
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: usagePercent.clamp(0.0, 1.0),
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  usagePercent > 0.8 ? Colors.red : Colors.blue,
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              leaveType.description,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const SizedBox.shrink(); // 已移除假別額度顯示
   }
 
+  /// 假別額度項目（已停用）
+  // ignore: unused_element
   Widget _buildBalanceItem(String label, double value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '$value',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
+    return const SizedBox.shrink(); // 已移除假別額度顯示
   }
 
   /// 顯示請假詳情
