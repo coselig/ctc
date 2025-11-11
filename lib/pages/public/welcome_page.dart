@@ -71,6 +71,7 @@ class _WelcomePageState extends State<WelcomePage>
       if (res.isNotEmpty) {
         final jsonStr = utf8.decode(res);
         pdfLabels = Map<String, String>.from(json.decode(jsonStr));
+        // 直接使用 keys 的順序，這個順序在 JSON 中已經排好
         pdfFiles = pdfLabels.keys.toList();
       }
     } catch (e) {
@@ -99,6 +100,8 @@ class _WelcomePageState extends State<WelcomePage>
 
   Future<void> _initLabelsAndPdf() async {
     await _fetchPdfLabels();
+    
+    // pdfFiles 已經按照 pdf_labels.json 中的順序排列
     if (pdfFiles.isNotEmpty) {
       _loadPdfUrl(pdfFiles[0]);
       setState(() {
