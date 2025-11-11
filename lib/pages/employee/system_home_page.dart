@@ -155,10 +155,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => WelcomePage(
-                  onThemeToggle: widget.onThemeToggle,
-                  currentThemeMode: widget.currentThemeMode,
-                ),
+                builder: (context) => const WelcomePage(),
               ),
             );
           },

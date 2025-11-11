@@ -8,12 +8,7 @@ import '../../widgets/widgets.dart';
 class WelcomePage extends StatefulWidget {
   const WelcomePage({
     super.key,
-    required this.onThemeToggle,
-    required this.currentThemeMode,
   });
-
-  final VoidCallback onThemeToggle;
-  final ThemeMode currentThemeMode;
 
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -205,11 +200,6 @@ class _WelcomePageState extends State<WelcomePage>
 
     return GeneralPage(
       actions: [
-        ThemeToggleButton(
-          currentThemeMode: widget.currentThemeMode,
-          onToggle: widget.onThemeToggle,
-          color: primaryColor,
-        ),
         AuthActionButton(),
       ],
       children: [

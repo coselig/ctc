@@ -244,10 +244,7 @@ class _AppRootState extends State<AppRoot> {
 
     debugPrint('_buildHomeWidget: 顯示 WelcomePage');
     // 如果用戶未登入，顯示歡迎頁面
-    return WelcomePage(
-      onThemeToggle: _advancedToggleTheme,
-      currentThemeMode: _themeMode,
-    );
+    return const WelcomePage();
   }
 
   /// 高級主題切換（包含資料庫儲存）
