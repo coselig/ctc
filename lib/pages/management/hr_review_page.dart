@@ -1207,7 +1207,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
 
                 // 地點選擇
                 DropdownButtonFormField<String>(
-                  value: selectedLocation,
+                  initialValue: selectedLocation,
                   decoration: const InputDecoration(
                     labelText: '地點',
                     border: OutlineInputBorder(),

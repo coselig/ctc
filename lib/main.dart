@@ -18,7 +18,7 @@ void main() async {
       await initializeDateFormatting('en_US', null);
     
       await Supabase.initialize(  
-        url: 'http://coselig.com:8000',
+        url: 'https://coselig.com/api',
       anonKey:
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MTUzNTgwNX0.ZektOIBBAUq3m3wP9M2vjjLnpiBNas1IrLkWV9_9n3A',
     );
