@@ -2,6 +2,7 @@
 /// 使用方式: import 'package:ctc/models/models.dart';
 library models;
 
+export 'attendance_form_models.dart';
 export 'attendance_leave_request.dart';
 // ==================== 出勤相關模型 ====================
 export 'attendance_record.dart';
