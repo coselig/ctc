@@ -607,77 +607,78 @@ class AttendanceService {
       print('上班時間: ${checkInTime ?? existingRecord.checkInTime}');
       print('下班時間: $checkOutTime');
 
-      // 3. 更新打卡記錄
-      final updateData = {
-        'check_out_time': checkOutTime.toIso8601String(),
-        'is_manual_entry': true,
-      };
-
-      // 如果有提供新的上班時間，也更新它
-      if (checkInTime != null) {
-        updateData['check_in_time'] = checkInTime.toIso8601String();
-      }
-
-      if (location != null) {
-        updateData['location'] = location;
-      }
-
-      if (notes != null) {
-        updateData['notes'] = notes;
-      }
-
+      // 3. 使用 RPC 函數更新打卡記錄（繞過 RLS 限制）
       print('🔄 正在更新打卡記錄...');
-      print('更新資料: $updateData');
       print('目標記錄ID: ${existingRecord.id}');
 
       try {
-        final result = await _client
-            .from('attendance_records')
-            .update(updateData)
-            .eq('id', existingRecord.id)
-            .select()
-            .single();
-
-        print('✅ 補下班打卡記錄建立成功');
-        print('記錄ID: ${result['id']}');
-        print('更新後的下班時間: ${result['check_out_time']}');
-        if (checkInTime != null) {
-          print('已同時更新上班時間: ${result['check_in_time']}');
-        }
-      } catch (updateError) {
-        print('❌ 直接更新失敗: $updateError');
-        print('錯誤詳情: ${updateError.toString()}');
-
-        // 檢查是否為權限問題
-        if (updateError.toString().toLowerCase().contains('policy') ||
-            updateError.toString().toLowerCase().contains('rls') ||
-            updateError.toString().toLowerCase().contains('permission')) {
-          print('🔄 檢測到權限問題，嘗試使用 RPC 函數...');
-
-          try {
-            final rpcResult = await _client.rpc(
-              'update_cross_day_checkout',
-              params: {
-                'record_id': existingRecord.id,
-                'checkout_time': checkOutTime.toIso8601String(),
-                'location_text': location,
-                'notes_text': notes,
-              },
-            );
-
-            print('✅ RPC 函數更新成功');
-            print('RPC 結果: $rpcResult');
-            return; // 成功完成
-          } catch (rpcError) {
-            print('❌ RPC 函數也失敗: $rpcError');
-            throw Exception(
-              '更新下班打卡失敗：直接更新和 RPC 函數都失敗。\n直接更新錯誤：$updateError\nRPC 錯誤：$rpcError',
-            );
+        // 優先使用 RPC 函數（SECURITY DEFINER，可繞過 RLS）
+        final rpcResult = await _client.rpc(
+          'update_attendance_for_approved_request',
+          params: {
+            'p_record_id': existingRecord.id,
+            'p_check_in_time': checkInTime?.toIso8601String(),
+            'p_check_out_time': checkOutTime.toIso8601String(),
+            'p_location': location,
+            'p_notes': notes,
+          },
+        );
+        
+        print('✅ RPC 函數執行完成，結果: $rpcResult');
+        
+        // 檢查執行結果
+        if (rpcResult != null && rpcResult is List && rpcResult.isNotEmpty) {
+          final result = rpcResult.first;
+          if (result['success'] == true) {
+            print('✅ 使用 RPC 函數更新成功');
+            return; // 成功，直接返回
+          } else {
+            final message = result['message'] ?? '未知錯誤';
+            print('⚠️ RPC 函數執行失敗: $message');
+            throw Exception('更新失敗: $message');
           }
-        } else {
-          // 非權限問題，直接拋出原始錯誤
+        }
+        
+        print('✅ 使用 RPC 函數更新成功（無返回值）');
+      } catch (rpcError) {
+        print('⚠️ RPC 函數呼叫失敗，嘗試直接更新: $rpcError');
+        
+        // 如果是權限錯誤，不要嘗試備用方案（因為會失敗）
+        if (rpcError.toString().contains('權限') || 
+            rpcError.toString().contains('更新失敗')) {
           rethrow;
         }
+
+        // 備用方案：直接更新（可能受 RLS 限制）
+        final updateData = <String, dynamic>{
+          'check_out_time': checkOutTime.toIso8601String(),
+          'is_manual_entry': true,
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        if (checkInTime != null) {
+          updateData['check_in_time'] = checkInTime.toIso8601String();
+        }
+        if (location != null) {
+          updateData['location'] = location;
+        }
+        if (notes != null) {
+          updateData['notes'] = notes;
+        }
+
+        await _client
+            .from('attendance_records')
+            .update(updateData)
+            .eq('id', existingRecord.id);
+
+        print('✅ 直接更新成功');
+      }
+
+      print('✅ 補下班打卡記錄建立成功');
+      print('記錄ID: ${existingRecord.id}');
+      print('更新後的下班時間: $checkOutTime');
+      if (checkInTime != null) {
+        print('已同時更新上班時間: $checkInTime');
       }
     } catch (e, stack) {
       print('❌ 建立補下班打卡記錄失敗: $e');

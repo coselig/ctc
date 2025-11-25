@@ -232,41 +232,14 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
           break;
 
         case AttendanceRequestType.checkOut:
-          try {
-            await _attendanceService.createManualCheckOut(
-              employeeId: request.employeeId,
-              checkOutTime: request.requestTime!,
-              checkInTime: request.checkInTime, // 傳入上班時間（如果有提供）
-              location: '補打卡申請',
-              notes: '補打卡申請已核准\n原因：${request.reason}',
-            );
-            print(
-              '✅ 已自動補下班打卡${request.checkInTime != null ? '（含上班時間修改）' : ''}',
-            );
-          } catch (checkoutError) {
-            print('❌ 自動補下班打卡失敗，嘗試管理員函數: $checkoutError');
-
-            // 使用管理員專用函數作為備用方案
-            try {
-              await supabase.rpc(
-                'admin_update_attendance',
-                params: {
-                  'record_id': null, // 需要先找到記錄ID
-                  'checkin_time': request.checkInTime?.toIso8601String(),
-                  'checkout_time': request.requestTime!.toIso8601String(),
-                  'location_text': '補打卡申請',
-                  'notes_text': '補打卡申請已核准（管理員強制更新）\n原因：${request.reason}',
-                },
-              );
-              print('✅ 管理員函數補下班打卡成功');
-            } catch (adminError) {
-              print('❌ 管理員函數也失敗: $adminError');
-              // 拋出詳細錯誤供上層處理
-              throw Exception(
-                '補下班打卡失敗：\n1. 一般方法：$checkoutError\n2. 管理員方法：$adminError',
-              );
-            }
-          }
+          await _attendanceService.createManualCheckOut(
+            employeeId: request.employeeId,
+            checkOutTime: request.requestTime!,
+            checkInTime: request.checkInTime, // 傳入上班時間（如果有提供）
+            location: '補打卡申請',
+            notes: '補打卡申請已核准\n原因：${request.reason}',
+          );
+          print('✅ 已自動補下班打卡${request.checkInTime != null ? '（含上班時間修改）' : ''}');
           break;
 
         case AttendanceRequestType.fullDay:

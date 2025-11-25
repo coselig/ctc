@@ -1,6 +1,7 @@
 import 'package:ctc/models/models.dart';
 import 'package:ctc/services/services.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../widgets/general_components/general_page.dart';
@@ -19,6 +20,8 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
   String _currentThemePreference = UserPreferencesService.themeModeSystem;
   bool _isLoading = true;
   late UserProfile _userProfile;
+  String _appVersion = '';
+  String _buildNumber = '';
 
   // 密碼修改相關的控制器
   final _newPasswordController = TextEditingController();
@@ -46,11 +49,16 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
       // final userProfile = await _userPreferencesService.getUserProfile();
       UserService userService = UserService(Supabase.instance.client);
       final userProfile = await userService.getCurrentUserProfile();
+      
+      // 獲取 APP 版本資訊
+      final packageInfo = await PackageInfo.fromPlatform();
 
       if (mounted) {
         setState(() {
           _currentThemePreference = themePreference;
           _userProfile = userProfile!;
+          _appVersion = packageInfo.version;
+          _buildNumber = packageInfo.buildNumber;
           _isLoading = false;
         });
       }
@@ -456,6 +464,72 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
               title: const Text('登出'),
               leading: const Icon(Icons.logout),
               onTap: _handleLogout,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        // APP 版本資訊
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Text(
+            '關於應用程式',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Coselig 智慧家居應用',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('版本', style: Theme.of(context).textTheme.bodyMedium),
+                      Text(
+                        _appVersion.isNotEmpty
+                            ? '$_appVersion ($_buildNumber)'
+                            : '載入中...',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '光悅科技提供務實、穩定、實惠、耐用、永續、舒適的智慧家居解決方案',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

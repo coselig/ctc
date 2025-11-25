@@ -1018,23 +1018,25 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
 
   /// 顯示代理打卡對話框
   Future<void> _showProxyAttendanceDialog(Employee employee) async {
-    final now = DateTime.now();
-    final records = _employeeRecords[employee.id] ?? [];
+    DateTime selectedDate = DateTime.now();
 
-    // 查找今天的打卡記錄
-    AttendanceRecord? todayRecord;
-    for (final r in records) {
-      if (r.checkInTime.year == now.year &&
-          r.checkInTime.month == now.month &&
-          r.checkInTime.day == now.day) {
-        todayRecord = r;
-        break;
+    // 查找選定日期的打卡記錄的內部函數
+    AttendanceRecord? findRecordForDate(DateTime date) {
+      final records = _employeeRecords[employee.id] ?? [];
+      for (final r in records) {
+        if (r.checkInTime.year == date.year &&
+            r.checkInTime.month == date.month &&
+            r.checkInTime.day == date.day) {
+          return r;
+        }
       }
+      return null;
     }
 
-    final hasExistingRecord = todayRecord != null;
-    DateTime? selectedCheckInTime = todayRecord?.checkInTime;
-    DateTime? selectedCheckOutTime = todayRecord?.checkOutTime;
+    AttendanceRecord? currentRecord = findRecordForDate(selectedDate);
+    bool hasExistingRecord = currentRecord != null;
+    DateTime? selectedCheckInTime = currentRecord?.checkInTime;
+    DateTime? selectedCheckOutTime = currentRecord?.checkOutTime;
 
     final checkInController = TextEditingController(
       text: selectedCheckInTime != null
@@ -1047,9 +1049,9 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
           : '',
     );
 
-    String selectedLocation = todayRecord?.location ?? '辦公室';
+    String selectedLocation = currentRecord?.location ?? '辦公室';
     final locationController = TextEditingController(
-      text: selectedLocation == '其他' ? (todayRecord?.notes ?? '') : '',
+      text: selectedLocation == '其他' ? (currentRecord?.notes ?? '') : '',
     );
     final reasonController = TextEditingController();
 
@@ -1077,7 +1079,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '今日已有打卡記錄，修改時間將覆蓋原記錄',
+                            '該日期已有打卡記錄，修改時間將覆蓋原記錄',
                             style: TextStyle(
                               color: Colors.blue.shade700,
                               fontSize: 12,
@@ -1090,9 +1092,82 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                   const SizedBox(height: 16),
                 ],
 
-                Text(
-                  '日期：${DateFormat('yyyy年MM月dd日').format(now)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                // 日期選擇器
+                InkWell(
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now().subtract(
+                        const Duration(days: 90),
+                      ),
+                      lastDate: DateTime.now(),
+                    );
+
+                    if (picked != null && picked != selectedDate) {
+                      setDialogState(() {
+                        selectedDate = picked;
+                        currentRecord = findRecordForDate(selectedDate);
+                        hasExistingRecord = currentRecord != null;
+
+                        // 更新時間控制器
+                        selectedCheckInTime = currentRecord?.checkInTime;
+                        selectedCheckOutTime = currentRecord?.checkOutTime;
+
+                        checkInController.text = selectedCheckInTime != null
+                            ? DateFormat('HH:mm').format(selectedCheckInTime!)
+                            : '';
+                        checkOutController.text = selectedCheckOutTime != null
+                            ? DateFormat('HH:mm').format(selectedCheckOutTime!)
+                            : '';
+
+                        // 更新地點
+                        selectedLocation = currentRecord?.location ?? '辦公室';
+                        locationController.text = selectedLocation == '其他'
+                            ? (currentRecord?.notes ?? '')
+                            : '';
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Colors.blue),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '選擇日期',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat(
+                                  'yyyy年MM月dd日 (E)',
+                                  'zh_TW',
+                                ).format(selectedDate),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -1105,7 +1180,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                     prefixIcon: const Icon(Icons.login),
                     border: const OutlineInputBorder(),
                     helperText: hasExistingRecord
-                        ? '原時間：${DateFormat('HH:mm').format(todayRecord!.checkInTime)} (只能往更早調整)'
+                        ? '原時間：${DateFormat('HH:mm').format(currentRecord!.checkInTime)} (只能往更早調整)'
                         : '未打卡，可設定任意時間',
                   ),
                   onTap: () async {
@@ -1117,16 +1192,16 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                     );
                     if (time != null) {
                       final newDateTime = DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
+                        selectedDate.year,
+                        selectedDate.month,
+                        selectedDate.day,
                         time.hour,
                         time.minute,
                       );
 
                       // 檢查時間限制
                       if (hasExistingRecord) {
-                        if (newDateTime.isAfter(todayRecord!.checkInTime)) {
+                        if (newDateTime.isAfter(currentRecord!.checkInTime)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('上班時間只能往更早調整'),
@@ -1158,8 +1233,8 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                     prefixIcon: const Icon(Icons.logout),
                     border: const OutlineInputBorder(),
                     helperText:
-                        hasExistingRecord && todayRecord!.checkOutTime != null
-                        ? '原時間：${DateFormat('HH:mm').format(todayRecord.checkOutTime!)} (只能往更晚調整)'
+                        hasExistingRecord && currentRecord!.checkOutTime != null
+                        ? '原時間：${DateFormat('HH:mm').format(currentRecord!.checkOutTime!)} (只能往更晚調整)'
                         : '未打卡，可設定任意時間',
                   ),
                   onTap: () async {
@@ -1171,17 +1246,17 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                     );
                     if (time != null) {
                       final newDateTime = DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
+                        selectedDate.year,
+                        selectedDate.month,
+                        selectedDate.day,
                         time.hour,
                         time.minute,
                       );
 
                       // 檢查時間限制
                       if (hasExistingRecord &&
-                          todayRecord!.checkOutTime != null) {
-                        final existingCheckOut = todayRecord.checkOutTime!;
+                          currentRecord!.checkOutTime != null) {
+                        final existingCheckOut = currentRecord!.checkOutTime!;
                         if (newDateTime.isBefore(existingCheckOut)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -1310,7 +1385,7 @@ class _AttendanceManagementTabState extends State<AttendanceManagementTab>
                   if (hasExistingRecord) {
                     // 更新現有記錄
                     await _attendanceService.updateAttendanceRecord(
-                      id: todayRecord!.id,
+                      id: currentRecord!.id,
                       checkInTime: selectedCheckInTime,
                       checkOutTime: selectedCheckOutTime,
                       location: locationText,

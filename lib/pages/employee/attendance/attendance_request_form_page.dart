@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../models/attendance_leave_request.dart';
-import '../../../models/employee.dart';
+import '../../../models/models.dart';
 import '../../../services/employee/attendance/attendance_leave_request_service.dart';
+import '../../../services/employee/attendance/attendance_service.dart';
 import '../../../services/employee/employee_general_service.dart';
-import '../../../widgets/general_components/general_page.dart';
 
-/// 補打卡申請表單頁面 - 新增/編輯申請
+/// 補打卡申請表單頁面 - 使用與管理員相同的 UI，但提交為申請而非直接補打卡
 class AttendanceRequestFormPage extends StatefulWidget {
   const AttendanceRequestFormPage({
     super.key,
     required this.onThemeToggle,
     required this.currentThemeMode,
-    this.request, // null 表示新增，有值表示編輯
+    this.request,
   });
 
   final VoidCallback onThemeToggle;
@@ -27,465 +26,647 @@ class AttendanceRequestFormPage extends StatefulWidget {
 }
 
 class _AttendanceRequestFormPageState extends State<AttendanceRequestFormPage> {
-  final supabase = Supabase.instance.client;
+  final _formKey = GlobalKey<FormState>();
+  final _supabase = Supabase.instance.client;
   late final AttendanceLeaveRequestService _requestService;
+  late final AttendanceService _attendanceService;
   late final EmployeeService _employeeService;
 
-  final _formKey = GlobalKey<FormState>();
-  final _reasonController = TextEditingController();
-
-  AttendanceRequestType _requestType = AttendanceRequestType.checkIn;
-  DateTime _requestDate = DateTime.now();
-  TimeOfDay _requestTime = TimeOfDay.now();
-  TimeOfDay _checkInTime = const TimeOfDay(hour: 8, minute: 30);
-  TimeOfDay _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
-  bool _modifyCheckIn = false; // 補下班打卡時，是否要同時修改上班時間
-
   Employee? _currentEmployee;
-  bool _isLoading = false;
+  AttendanceRecord? _existingRecord;
+  DateTime _selectedDate = DateTime.now();
+  String _punchType = 'checkIn';
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 30);
+  TimeOfDay _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
+  String _reasonType = '';
+  String _notes = '';
+  bool _isLoading = true;
+  bool _isSubmitting = false;
   bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
-    _requestService = AttendanceLeaveRequestService(supabase);
-    _employeeService = EmployeeService(supabase);
+    _requestService = AttendanceLeaveRequestService(_supabase);
+    _attendanceService = AttendanceService(_supabase);
+    _employeeService = EmployeeService(_supabase);
     _loadCurrentEmployee();
 
-    // 如果是編輯模式，載入現有資料
     if (widget.request != null) {
       _isEditing = true;
       _loadRequestData(widget.request!);
     }
   }
 
-  /// 載入當前員工資料
   Future<void> _loadCurrentEmployee() async {
+    setState(() => _isLoading = true);
     try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      final employee = await _employeeService.getEmployeeById(userId);
-      if (mounted) {
-        setState(() {
-          _currentEmployee = employee;
-        });
-      }
+      final employee = await _employeeService.getCurrentEmployee();
+      if (employee == null) throw Exception('找不到員工資料');
+      setState(() => _currentEmployee = employee);
+      await _checkExistingRecord();
     } catch (e) {
-      print('載入員工資料失敗: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('載入員工資料失敗: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  /// 載入申請資料（編輯模式）
   void _loadRequestData(AttendanceLeaveRequest request) {
-    _requestType = request.requestType;
-    _requestDate = request.requestDate;
-    _reasonController.text = request.reason;
+    _selectedDate = request.requestDate;
+    _notes = request.reason;
 
-    if (request.requestType == AttendanceRequestType.fullDay) {
+    if (request.requestType == AttendanceRequestType.checkIn) {
+      _punchType = 'checkIn';
+      final time = request.requestTime!;
+      _selectedTime = TimeOfDay(hour: time.hour, minute: time.minute);
+    } else if (request.requestType == AttendanceRequestType.checkOut) {
+      _punchType = 'checkOut';
+      final time = request.requestTime!;
+      _selectedTime = TimeOfDay(hour: time.hour, minute: time.minute);
+    } else {
+      _punchType = 'fullDay';
       final checkIn = request.checkInTime!;
       final checkOut = request.checkOutTime!;
-      _checkInTime = TimeOfDay(hour: checkIn.hour, minute: checkIn.minute);
+      _selectedTime = TimeOfDay(hour: checkIn.hour, minute: checkIn.minute);
       _checkOutTime = TimeOfDay(hour: checkOut.hour, minute: checkOut.minute);
-    } else {
-      final time = request.requestTime!;
-      _requestTime = TimeOfDay(hour: time.hour, minute: time.minute);
     }
   }
 
-  /// 提交表單
-  Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now(),
+    );
 
-    if (_currentEmployee == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('無法取得員工資料，請重新登入')));
-      return;
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _existingRecord = null;
+      });
+      await _checkExistingRecord();
     }
+  }
 
-    // 檢查日期不能是未來
-    if (_requestDate.isAfter(DateTime.now())) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('不能申請未來日期的補打卡')));
-      return;
-    }
-
-    // 檢查日期不能超過 30 天前
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-    if (_requestDate.isBefore(thirtyDaysAgo)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('只能申請 30 天內的補打卡')));
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _checkExistingRecord() async {
+    if (_currentEmployee?.id == null) return;
 
     try {
-      // 建立申請物件
-      final request = AttendanceLeaveRequest(
-        id: _isEditing ? widget.request!.id : null,
+      final targetDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+      );
+      final records = await _attendanceService.getAllAttendanceRecords(
         employeeId: _currentEmployee!.id!,
-        employeeName: _currentEmployee!.name,
-        requestType: _requestType,
-        requestDate: _requestDate,
-        requestTime: _requestType != AttendanceRequestType.fullDay
-            ? _combineDateAndTime(_requestDate, _requestTime)
-            : null,
-        checkInTime: _requestType == AttendanceRequestType.fullDay
-            ? _combineDateAndTime(_requestDate, _checkInTime)
-            : (_requestType == AttendanceRequestType.checkOut && _modifyCheckIn
-                  ? _combineDateAndTime(_requestDate, _checkInTime)
-                  : null),
-        checkOutTime: _requestType == AttendanceRequestType.fullDay
-            ? _combineDateAndTime(_requestDate, _checkOutTime)
-            : null,
-        reason: _reasonController.text.trim(),
-        status: AttendanceRequestStatus.pending,
+        startDate: targetDate,
+        endDate: targetDate.add(const Duration(days: 1)),
       );
 
-      if (_isEditing) {
-        // 更新現有申請
-        await _requestService.updateRequest(request);
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('已更新申請')));
-        }
+      if (records.isNotEmpty) {
+        final record = records.first;
+        setState(() {
+          _existingRecord = record;
+          if (record.checkOutTime == null) {
+            _punchType = 'checkOut';
+            _selectedTime = const TimeOfDay(hour: 17, minute: 30);
+          } else {
+            _punchType = 'fullDay';
+            _selectedTime = TimeOfDay(
+              hour: record.checkInTime.hour,
+              minute: record.checkInTime.minute,
+            );
+            _checkOutTime = TimeOfDay(
+              hour: record.checkOutTime!.hour,
+              minute: record.checkOutTime!.minute,
+            );
+          }
+        });
       } else {
-        // 創建新申請
-        await _requestService.createRequest(request);
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('已提交申請')));
-        }
+        setState(() {
+          _existingRecord = null;
+          _punchType = 'checkIn';
+        });
+      }
+    } catch (e) {
+      print('檢查打卡記錄失敗: $e');
+    }
+  }
+
+  Future<void> _selectTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  Future<void> _selectCheckOutTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _checkOutTime,
+    );
+    if (picked != null) setState(() => _checkOutTime = picked);
+  }
+
+  Future<void> _submitRequest() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_currentEmployee == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('找不到員工資料'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_reasonType.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('請選擇補打卡原因'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    if (_reasonType == '其他' && _notes.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('請填寫原因詳細說明'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final checkInDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+      final checkOutDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _checkOutTime.hour,
+        _checkOutTime.minute,
+      );
+      final reasonContent = _reasonType == '其他'
+          ? '$_reasonType：${_notes.trim()}'
+          : _reasonType;
+
+      AttendanceLeaveRequest request;
+      if (_punchType == 'checkIn') {
+        request = AttendanceLeaveRequest(
+          id: _isEditing ? widget.request!.id : null,
+          employeeId: _currentEmployee!.id!,
+          employeeName: _currentEmployee!.name,
+          requestType: AttendanceRequestType.checkIn,
+          requestDate: _selectedDate,
+          requestTime: checkInDateTime,
+          reason: reasonContent,
+          status: AttendanceRequestStatus.pending,
+        );
+      } else if (_punchType == 'checkOut') {
+        request = AttendanceLeaveRequest(
+          id: _isEditing ? widget.request!.id : null,
+          employeeId: _currentEmployee!.id!,
+          employeeName: _currentEmployee!.name,
+          requestType: AttendanceRequestType.checkOut,
+          requestDate: _selectedDate,
+          requestTime: checkOutDateTime,
+          checkInTime: _existingRecord?.checkInTime,
+          reason: reasonContent,
+          status: AttendanceRequestStatus.pending,
+        );
+      } else {
+        request = AttendanceLeaveRequest(
+          id: _isEditing ? widget.request!.id : null,
+          employeeId: _currentEmployee!.id!,
+          employeeName: _currentEmployee!.name,
+          requestType: AttendanceRequestType.fullDay,
+          requestDate: _selectedDate,
+          checkInTime: checkInDateTime,
+          checkOutTime: checkOutDateTime,
+          reason: reasonContent,
+          status: AttendanceRequestStatus.pending,
+        );
       }
 
-      if (mounted) {
-        Navigator.pop(context, true); // 返回 true 表示成功
+      if (_isEditing) {
+        await _requestService.updateRequest(request);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ 已更新申請'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        await _requestService.createRequest(request);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ 已提交補打卡申請，等待審核'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('提交失敗：$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('提交失敗: $e'), backgroundColor: Colors.red),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  /// 合併日期和時間
-  DateTime _combineDateAndTime(DateTime date, TimeOfDay time) {
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
-  }
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GeneralPage(
-      title: _isEditing ? '編輯補打卡申請' : '新增補打卡申請',
-      children: [
-        Form(
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('補打卡申請')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_currentEmployee == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('補打卡申請')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text('無法載入員工資料'),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadCurrentEmployee,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重新載入'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: Text(_isEditing ? '編輯補打卡申請' : '新增補打卡申請')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 申請類型選擇
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        '申請類型',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildRequestTypeRadio(
-                        AttendanceRequestType.checkIn,
-                        '補上班打卡',
-                        Icons.login,
-                        Colors.green,
-                      ),
-                      _buildRequestTypeRadio(
-                        AttendanceRequestType.checkOut,
-                        '補下班打卡',
-                        Icons.logout,
-                        Colors.orange,
-                      ),
-                      _buildRequestTypeRadio(
-                        AttendanceRequestType.fullDay,
-                        '補整天打卡',
-                        Icons.event_available,
-                        Colors.blue,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // 日期和時間選擇
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '日期與時間',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // 日期選擇
-                      ListTile(
-                        leading: const Icon(Icons.calendar_today),
-                        title: const Text('補打卡日期'),
-                        subtitle: Text(
-                          DateFormat('yyyy-MM-dd').format(_requestDate),
+                      CircleAvatar(
+                        backgroundColor: Colors.blue,
+                        child: Text(
+                          _currentEmployee!.name[0],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: _selectDate,
                       ),
-
-                      const Divider(),
-
-                      // 根據申請類型顯示不同的時間選擇器
-                      if (_requestType == AttendanceRequestType.fullDay) ...[
-                        // 整天：上班時間
-                        ListTile(
-                          leading: const Icon(Icons.login),
-                          title: const Text('上班時間'),
-                          subtitle: Text(_checkInTime.format(context)),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () => _selectTime(true),
-                        ),
-                        const Divider(),
-                        // 整天：下班時間
-                        ListTile(
-                          leading: const Icon(Icons.logout),
-                          title: const Text('下班時間'),
-                          subtitle: Text(_checkOutTime.format(context)),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () => _selectTime(false),
-                        ),
-                      ] else ...[
-                        // 單次打卡：時間
-                        ListTile(
-                          leading: Icon(
-                            _requestType == AttendanceRequestType.checkIn
-                                ? Icons.login
-                                : Icons.logout,
-                          ),
-                          title: Text(
-                            _requestType == AttendanceRequestType.checkIn
-                                ? '上班時間'
-                                : '下班時間',
-                          ),
-                          subtitle: Text(_requestTime.format(context)),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () => _selectTime(null),
-                        ),
-
-                        // 補下班打卡時：提供修改上班時間的選項
-                        if (_requestType == AttendanceRequestType.checkOut) ...[
-                          const Divider(),
-                          CheckboxListTile(
-                            secondary: const Icon(Icons.edit_calendar),
-                            title: const Text('同時修改上班時間'),
-                            subtitle: Text(
-                              _modifyCheckIn
-                                  ? '上班時間：${_checkInTime.format(context)}'
-                                  : '不修改上班時間（使用原有記錄）',
-                            ),
-                            value: _modifyCheckIn,
-                            onChanged: (value) {
-                              setState(() {
-                                _modifyCheckIn = value ?? false;
-                              });
-                            },
-                          ),
-                          if (_modifyCheckIn) ...[
-                            const Divider(),
-                            ListTile(
-                              leading: const Icon(Icons.login),
-                              title: const Text('修改上班時間為'),
-                              subtitle: Text(_checkInTime.format(context)),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                size: 16,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _currentEmployee!.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                              onTap: () => _selectTime(true),
+                            ),
+                            Text(
+                              '${_currentEmployee!.department} - ${_currentEmployee!.position}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ],
-                        ],
-                      ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // 申請原因
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '此為員工補打卡申請，提交後需等待管理員審核',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionTitle('補打卡日期'),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.calendar_today, color: Colors.blue),
+                  title: const Text('選擇日期'),
+                  subtitle: Text(
+                    DateFormat('yyyy年MM月dd日').format(_selectedDate),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: _selectDate,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionTitle('補打卡類型'),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '申請原因（選填）',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _reasonController,
-                        maxLines: 4,
-                        maxLength: 500,
-                        decoration: const InputDecoration(
-                          hintText: '可填寫補打卡的原因（選填）...',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          // 原因改為選填，不強制要求
-                          return null;
-                        },
-                      ),
-                    ],
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _punchType,
+                    decoration: const InputDecoration(
+                      labelText: '選擇補打卡類型',
+                      prefixIcon: Icon(Icons.punch_clock),
+                      border: OutlineInputBorder(),
+                    ),
+                    items:
+                        _existingRecord == null ||
+                            _existingRecord!.checkOutTime == null
+                        ? [
+                            const DropdownMenuItem(
+                              value: 'checkIn',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.login, color: Colors.green),
+                                  SizedBox(width: 12),
+                                  Text('補上班'),
+                                ],
+                              ),
+                            ),
+                            if (_existingRecord != null)
+                              const DropdownMenuItem(
+                                value: 'checkOut',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.logout, color: Colors.red),
+                                    SizedBox(width: 12),
+                                    Text('補下班'),
+                                  ],
+                                ),
+                              ),
+                            const DropdownMenuItem(
+                              value: 'fullDay',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_available,
+                                    color: Colors.blue,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('補全天'),
+                                ],
+                              ),
+                            ),
+                          ]
+                        : [
+                            const DropdownMenuItem(
+                              value: 'checkOut',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.logout, color: Colors.red),
+                                  SizedBox(width: 12),
+                                  Text('補下班'),
+                                ],
+                              ),
+                            ),
+                            const DropdownMenuItem(
+                              value: 'fullDay',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_available,
+                                    color: Colors.blue,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('補全天'),
+                                ],
+                              ),
+                            ),
+                          ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _punchType = value;
+                          if (value == 'checkIn')
+                            _selectedTime = const TimeOfDay(
+                              hour: 8,
+                              minute: 30,
+                            );
+                          else if (value == 'checkOut')
+                            _selectedTime = const TimeOfDay(
+                              hour: 17,
+                              minute: 30,
+                            );
+                          else {
+                            _selectedTime = const TimeOfDay(
+                              hour: 8,
+                              minute: 30,
+                            );
+                            _checkOutTime = const TimeOfDay(
+                              hour: 17,
+                              minute: 30,
+                            );
+                          }
+                        });
+                      }
+                    },
                   ),
                 ),
               ),
-
+              const SizedBox(height: 16),
+              if (_punchType != 'fullDay') ...[
+                _buildSectionTitle('打卡時間'),
+                Card(
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.access_time,
+                      color: _punchType == 'checkIn'
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                    title: Text(_punchType == 'checkIn' ? '上班時間' : '下班時間'),
+                    subtitle: Text(
+                      '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: _selectTime,
+                  ),
+                ),
+              ] else ...[
+                _buildSectionTitle('上班時間'),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.login, color: Colors.green),
+                    title: const Text('上班時間'),
+                    subtitle: Text(
+                      '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: _selectTime,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSectionTitle('下班時間'),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text('下班時間'),
+                    subtitle: Text(
+                      '${_checkOutTime.hour.toString().padLeft(2, '0')}:${_checkOutTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: _selectCheckOutTime,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
-
-              // 提交按鈕
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+              _buildSectionTitle('補打卡原因（必填）'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _reasonType.isEmpty ? null : _reasonType,
+                    decoration: const InputDecoration(
+                      labelText: '選擇原因',
+                      prefixIcon: Icon(Icons.comment),
+                      border: OutlineInputBorder(),
+                    ),
+                    hint: const Text('請選擇補打卡原因'),
+                    items: const [
+                      DropdownMenuItem(value: '時間更正', child: Text('時間更正')),
+                      DropdownMenuItem(value: '忘記打卡', child: Text('忘記打卡')),
+                      DropdownMenuItem(value: '系統錯誤', child: Text('系統錯誤')),
+                      DropdownMenuItem(value: '其他', child: Text('其他')),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _reasonType = value ?? '';
+                      if (value != '其他') _notes = '';
+                    }),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_isEditing ? '更新申請' : '提交申請'),
                 ),
               ),
-
+              if (_reasonType == '其他') ...[
+                const SizedBox(height: 16),
+                _buildSectionTitle('詳細說明（必填）'),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: TextFormField(
+                      decoration: const InputDecoration(
+                        hintText: '請詳細說明補打卡原因...',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.edit_note),
+                      ),
+                      maxLines: 4,
+                      onChanged: (value) => _notes = value,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _isSubmitting ? null : _submitRequest,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        _isEditing ? '更新申請' : '提交補打卡申請',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
               const SizedBox(height: 16),
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  /// 建立申請類型單選按鈕
-  Widget _buildRequestTypeRadio(
-    AttendanceRequestType type,
-    String label,
-    IconData icon,
-    Color color,
-  ) {
-    return RadioListTile<AttendanceRequestType>(
-      value: type,
-      groupValue: _requestType,
-      onChanged: (value) {
-        setState(() {
-          _requestType = value!;
-        });
-      },
-      title: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
       ),
     );
   }
 
-  /// 選擇日期
-  Future<void> _selectDate() async {
-    final now = DateTime.now();
-    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _requestDate,
-      firstDate: thirtyDaysAgo,
-      lastDate: now,
-      helpText: '選擇補打卡日期',
-      cancelText: '取消',
-      confirmText: '確定',
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
     );
-
-    if (picked != null && picked != _requestDate) {
-      setState(() {
-        _requestDate = picked;
-      });
-    }
-  }
-
-  /// 選擇時間
-  /// [isCheckIn] - null: 單次打卡時間, true: 上班時間, false: 下班時間
-  Future<void> _selectTime(bool? isCheckIn) async {
-    final initialTime = isCheckIn == null
-        ? _requestTime
-        : (isCheckIn ? _checkInTime : _checkOutTime);
-
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-      helpText: isCheckIn == null
-          ? '選擇打卡時間'
-          : (isCheckIn ? '選擇上班時間' : '選擇下班時間'),
-      cancelText: '取消',
-      confirmText: '確定',
-    );
-
-    if (picked != null) {
-      setState(() {
-        if (isCheckIn == null) {
-          _requestTime = picked;
-        } else if (isCheckIn) {
-          _checkInTime = picked;
-        } else {
-          _checkOutTime = picked;
-        }
-      });
-    }
   }
 }
