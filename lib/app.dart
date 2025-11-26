@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:ctc/pages/management/upload_asset_page.dart';
+import 'package:ctc/pages/management/upload_pdf_page.dart';
+import 'package:ctc/pages/pages.dart' show EmployeeManagementPage, HRReviewPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -217,35 +220,35 @@ class _AppRootState extends State<AppRoot> {
     final user = Supabase.instance.client.auth.currentUser;
 
     debugPrint(
-      '_buildHomeWidget: user = ${user?.email}, userType = $_userType',
+      '_buildHomeWidget: user = [38;5;2m${user?.email}[0m, userType = $_userType',
     );
 
-    // 如果用戶已登入
-    if (user != null) {
-      // 根據用戶類型導向不同頁面
-      switch (_userType) {
-        case UserType.employee:
-          debugPrint('_buildHomeWidget: 顯示 SystemHomePage');
-          // 員工 → 進入員工管理系統
-          return SystemHomePage(
-            title: '光悅科技管理系統',
-            onThemeToggle: _advancedToggleTheme,
-            currentThemeMode: _themeMode,
-          );
-        case UserType.customer:
-          debugPrint('_buildHomeWidget: 顯示 CustomerHomePage');
-          // 客戶 → 進入客戶中心
-          return const CustomerHomePage();
-        case UserType.guest:
-          debugPrint('_buildHomeWidget: 顯示 GuestWelcome');
-          // 一般註冊用戶 → 引導完善資料
-          return GuestWelcomePage(onCustomerRegistered: _checkUserType);
+    // 根據用戶狀態與類型，統一用 route 導向
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (user != null) {
+        switch (_userType) {
+          case UserType.employee:
+            debugPrint('_buildHomeWidget: route /systemHome');
+            navigatorKey.currentState?.pushReplacementNamed('/systemHome');
+            break;
+          case UserType.customer:
+            debugPrint('_buildHomeWidget: route /customerHome');
+            navigatorKey.currentState?.pushReplacementNamed('/customerHome');
+            break;
+          case UserType.guest:
+            debugPrint('_buildHomeWidget: route /guestWelcome');
+            navigatorKey.currentState?.pushReplacementNamed('/guestWelcome');
+            break;
+        }
+      } else {
+        debugPrint('_buildHomeWidget: route /welcome');
+        navigatorKey.currentState?.pushReplacementNamed('/welcome');
       }
-    }
+    });
 
-    debugPrint('_buildHomeWidget: 顯示 WelcomePage');
-    // 如果用戶未登入，顯示歡迎頁面
-    return const WelcomePage();
+    // 回傳一個空白頁面，避免重複 build 分頁
+    return const SizedBox.shrink();
   }
 
   /// 高級主題切換（包含資料庫儲存）
@@ -289,6 +292,37 @@ class _AppRootState extends State<AppRoot> {
       ],
       locale: const Locale('zh', 'TW'), // 預設語言
       home: _buildHomeWidget(),
+      routes: {
+        '/systemHome': (context) => SystemHomePage(
+          title: '光悅科技管理系統',
+          onThemeToggle: _advancedToggleTheme,
+          currentThemeMode: _themeMode,
+        ),
+        '/customerHome': (context) => const CustomerHomePage(),
+        '/guestWelcome': (context) =>
+            GuestWelcomePage(onCustomerRegistered: _checkUserType),
+        '/welcome': (context) => const WelcomePage(),
+        '/attendance': (context) => AttendancePage(
+          title: '打卡系統',
+          onThemeToggle: _advancedToggleTheme,
+          currentThemeMode: _themeMode,
+        ),
+        '/attendanceStats': (context) => const AttendanceStatsPage(),
+        '/photoRecord': (context) => PhotoRecordPage(
+          title: '工地照片記錄系統',
+          onThemeToggle: _advancedToggleTheme,
+          currentThemeMode: _themeMode,
+        ),
+        '/projectManagement': (context) => const ProjectManagementPage(),
+        '/uploadPdf': (context) => const UploadPdfPage(),
+        '/uploadAsset': (context) => const UploadAssetPage(),
+        '/employeeManagement': (context) => EmployeeManagementPage(
+          title: '員工管理系統',
+          onThemeToggle: _advancedToggleTheme,
+          currentThemeMode: _themeMode,
+        ),
+        '/hrReview': (context) => const HRReviewPage(),
+      },
     );
   }
 }

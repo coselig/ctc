@@ -22,7 +22,6 @@ class SystemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 根據父容器大小動態調整 icon/padding
         double minSide = min(constraints.maxWidth, constraints.maxHeight);
         double iconSize = min(48, minSide * 0.3);
         double padding = min(16, minSide * 0.1);
@@ -31,7 +30,45 @@ class SystemCard extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) => page));
+              // 根據 page widget 類型對應到 route 名稱
+              String? routeName;
+              final type = page.runtimeType.toString();
+              switch (type) {
+                case 'AttendancePage':
+                  routeName = '/attendance';
+                  break;
+                case 'AttendanceStatsPage':
+                  routeName = '/attendanceStats';
+                  break;
+                case 'PhotoRecordPage':
+                  routeName = '/photoRecord';
+                  break;
+                case 'ProjectManagementPage':
+                  routeName = '/projectManagement';
+                  break;
+                case 'UploadPdfPage':
+                  routeName = '/uploadPdf';
+                  break;
+                case 'UploadAssetPage':
+                  routeName = '/uploadAsset';
+                  break;
+                case 'EmployeeManagementPage':
+                  routeName = '/employeeManagement';
+                  break;
+                case 'HRReviewPage':
+                  routeName = '/hrReview';
+                  break;
+                default:
+                  // fallback: 仍然用原本方式
+                  routeName = null;
+              }
+              if (routeName != null) {
+                Navigator.of(context).pushNamed(routeName);
+              } else {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (context) => page));
+              }
             },
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

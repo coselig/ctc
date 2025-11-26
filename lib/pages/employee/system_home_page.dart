@@ -153,11 +153,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
         IconButton(
           icon: const Icon(Icons.home),
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const WelcomePage(),
-              ),
-            );
+            Navigator.of(context).pushNamed('/welcome');
           },
           tooltip: '回到首頁',
         ),
