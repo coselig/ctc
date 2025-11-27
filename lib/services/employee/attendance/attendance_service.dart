@@ -301,7 +301,15 @@ class AttendanceService {
       );
 
       if (existingRecords.isNotEmpty) {
-        throw Exception('該日期已經有打卡記錄\n請在頁面上選擇該日期後使用編輯模式修改');
+        // 已有記錄，直接 update（覆蓋）
+        final record = existingRecords.first;
+        return await updateAttendanceRecord(
+          id: record.id,
+          checkInTime: checkInTime,
+          checkOutTime: checkOutTime,
+          location: location,
+          notes: '【補打卡】$notes',
+        );
       }
 
       final now = DateTime.now();
