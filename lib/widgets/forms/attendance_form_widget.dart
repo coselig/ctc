@@ -92,18 +92,20 @@ class _AttendanceFormWidgetState extends State<AttendanceFormWidget> {
         minute: record.checkInTime.minute,
       );
       if (record.checkOutTime != null) {
+        // 已有完整記錄，預設建議補全天
         _punchType = 'fullDay';
         _checkOutTime = TimeOfDay(
           hour: record.checkOutTime!.hour,
           minute: record.checkOutTime!.minute,
         );
       } else {
+        // 只打過上班卡，預設建議補下班
         _punchType = 'checkOut';
         _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
       }
       _location = record.location ?? '辦公室';
     } else {
-      // 預設值
+      // 預設值：都沒打卡，建議補上班
       _punchType = 'checkIn';
       _checkInTime = const TimeOfDay(hour: 8, minute: 30);
       _checkOutTime = const TimeOfDay(hour: 17, minute: 30);
@@ -386,7 +388,7 @@ class _AttendanceFormWidgetState extends State<AttendanceFormWidget> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: DropdownButtonFormField<String>(
-                  value: _punchType,
+                  initialValue: _punchType,
                   decoration: const InputDecoration(
                     labelText: '選擇補打卡類型',
                     prefixIcon: Icon(Icons.punch_clock),
@@ -541,7 +543,7 @@ class _AttendanceFormWidgetState extends State<AttendanceFormWidget> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: DropdownButtonFormField<String>(
-                  value: _location,
+                  initialValue: _location,
                   decoration: const InputDecoration(
                     labelText: '選擇地點',
                     prefixIcon: Icon(Icons.location_on),
@@ -585,7 +587,7 @@ class _AttendanceFormWidgetState extends State<AttendanceFormWidget> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: DropdownButtonFormField<String>(
-                  value: _reasonType.isEmpty ? null : _reasonType,
+                  initialValue: _reasonType.isEmpty ? null : _reasonType,
                   decoration: const InputDecoration(
                     labelText: '選擇原因',
                     prefixIcon: Icon(Icons.comment),
@@ -686,71 +688,38 @@ class _AttendanceFormWidgetState extends State<AttendanceFormWidget> {
   }
 
   List<DropdownMenuItem<String>> _buildPunchTypeItems() {
-    final hasRecord = widget.config.existingRecord != null;
-    final record = widget.config.existingRecord;
-
-    if (!hasRecord) {
-      // 沒有記錄：可以補上班、補全天
-      return const [
-        DropdownMenuItem(
-          value: 'checkIn',
-          child: Row(
-            children: [
-              Icon(Icons.login, color: Colors.green),
-              SizedBox(width: 12),
-              Text('補上班'),
-            ],
-          ),
+    // 代理打卡：不論有無記錄都能補上班、補下班、補全天
+    return const [
+      DropdownMenuItem(
+        value: 'checkIn',
+        child: Row(
+          children: [
+            Icon(Icons.login, color: Colors.green),
+            SizedBox(width: 12),
+            Text('補上班'),
+          ],
         ),
-        DropdownMenuItem(
-          value: 'fullDay',
-          child: Row(
-            children: [
-              Icon(Icons.event_available, color: Colors.blue),
-              SizedBox(width: 12),
-              Text('補全天'),
-            ],
-          ),
+      ),
+      DropdownMenuItem(
+        value: 'checkOut',
+        child: Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 12),
+            Text('補下班'),
+          ],
         ),
-      ];
-    } else if (record!.checkOutTime == null) {
-      // 有上班記錄但沒下班：可以補下班、補全天
-      return const [
-        DropdownMenuItem(
-          value: 'checkOut',
-          child: Row(
-            children: [
-              Icon(Icons.logout, color: Colors.red),
-              SizedBox(width: 12),
-              Text('補下班'),
-            ],
-          ),
+      ),
+      DropdownMenuItem(
+        value: 'fullDay',
+        child: Row(
+          children: [
+            Icon(Icons.event_available, color: Colors.blue),
+            SizedBox(width: 12),
+            Text('補全天'),
+          ],
         ),
-        DropdownMenuItem(
-          value: 'fullDay',
-          child: Row(
-            children: [
-              Icon(Icons.event_available, color: Colors.blue),
-              SizedBox(width: 12),
-              Text('補全天'),
-            ],
-          ),
-        ),
-      ];
-    } else {
-      // 已有完整記錄：只能補全天（覆蓋）
-      return const [
-        DropdownMenuItem(
-          value: 'fullDay',
-          child: Row(
-            children: [
-              Icon(Icons.event_available, color: Colors.blue),
-              SizedBox(width: 12),
-              Text('補全天'),
-            ],
-          ),
-        ),
-      ];
-    }
+      ),
+    ];
   }
 }
