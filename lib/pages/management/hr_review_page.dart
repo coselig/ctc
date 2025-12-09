@@ -438,6 +438,7 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab>
   final supabase = Supabase.instance.client;
   late final AttendanceLeaveRequestService _requestService;
   late final EmployeeService _employeeService;
+  late final AttendanceService _attendanceService;
 
   List<AttendanceLeaveRequest> _requests = [];
   Employee? _currentEmployee;
@@ -451,6 +452,7 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab>
     super.initState();
     _requestService = AttendanceLeaveRequestService(supabase);
     _employeeService = EmployeeService(supabase);
+    _attendanceService = AttendanceService(supabase);
     _loadData();
   }
 
@@ -495,49 +497,150 @@ class _AttendanceReviewTabState extends State<AttendanceReviewTab>
   ) async {
     if (_currentEmployee == null || _currentEmployee!.id == null) return;
 
-    // 顯示審核對話框
-    final comment = await _showReviewDialog(approved);
-    if (comment == null) return;
+    if (!approved) {
+      // 拒絕流程：顯示拒絕對話框
+      final comment = await _showReviewDialog(false);
+      if (comment == null) return;
 
-    setState(() => _isLoading = true);
+      setState(() => _isLoading = true);
 
-    try {
-      if (approved) {
-        await _requestService.approveRequest(
-          request.id!,
-          _currentEmployee!.id!,
-          _currentEmployee!.name,
-          comment: comment.isEmpty ? null : comment,
-        );
-      } else {
+      try {
         await _requestService.rejectRequest(
           request.id!,
           _currentEmployee!.id!,
           _currentEmployee!.name,
           comment: comment.isEmpty ? null : comment,
         );
-      }
 
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('已拒絕補打卡申請'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          _loadData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('審核失敗: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    } else {
+      // 核准流程：顯示補打卡表單讓審核者確認/調整
+      await _showApproveWithFormDialog(request);
+    }
+  }
+
+  /// 顯示核准時的補打卡表單對話框（類似代理打卡視窗）
+  Future<void> _showApproveWithFormDialog(
+    AttendanceLeaveRequest request,
+  ) async {
+    // 取得該員工資料
+    final employee = await _employeeService.getEmployeeById(request.employeeId);
+    if (employee == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(approved ? '已核准補打卡申請' : '已拒絕補打卡申請'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _loadData();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('找不到員工資料')));
+      }
+      return;
+    }
+
+    // 取得該日期的現有打卡記錄（如果有的話）
+    AttendanceRecord? existingRecord;
+    try {
+      final records = await _attendanceService.getAllAttendanceRecords(
+        employeeId: request.employeeId,
+        startDate: request.requestDate,
+        endDate: request.requestDate.add(const Duration(days: 1)),
+      );
+      if (records.isNotEmpty) {
+        existingRecord = records.first;
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('審核失敗: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      print('載入現有記錄失敗: $e');
     }
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('核准補打卡 - ${request.employeeName}'),
+        content: SizedBox(
+          width: MediaQuery.of(dialogContext).size.width * 0.9,
+          child: AttendanceFormWidget(
+            config: AttendanceFormConfig(
+              mode: AttendanceFormMode.proxyAttendance,
+              targetEmployee: employee,
+              existingRecord: existingRecord,
+              editingRequest: request,
+              initialDate: request.requestDate,
+              onSubmit: (formData) async {
+                try {
+                  // 1. 核准申請
+                  await _requestService.approveRequest(
+                    request.id!,
+                    _currentEmployee!.id!,
+                    _currentEmployee!.name,
+                    comment: '已核准並補打卡',
+                  );
+
+                  // 2. 建立/更新打卡記錄
+                  if (existingRecord != null) {
+                    await _attendanceService.updateAttendanceRecord(
+                      id: existingRecord.id,
+                      checkInTime:
+                          formData.checkInTime ?? existingRecord.checkInTime,
+                      checkOutTime: formData.checkOutTime,
+                      location: formData.location,
+                      notes: '補打卡申請已核准\n原因：${request.reason}',
+                    );
+                  } else {
+                    await _attendanceService.createManualAttendance(
+                      employee: employee,
+                      checkInTime: formData.checkInTime!,
+                      checkOutTime: formData.checkOutTime,
+                      location: formData.location,
+                      notes: '補打卡申請已核准\n原因：${request.reason}',
+                    );
+                  }
+
+                  if (mounted) {
+                    Navigator.of(dialogContext).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ 已核准申請並補打卡成功'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _loadData();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('核准失敗：$e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                  rethrow;
+                }
+              },
+              onCancel: () => Navigator.of(dialogContext).pop(),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// 顯示審核對話框

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/models.dart';
 import '../../services/services.dart';
+import '../../widgets/widgets.dart';
 
 class AttendanceRequestReviewPage extends StatefulWidget {
   const AttendanceRequestReviewPage({
@@ -16,10 +17,12 @@ class AttendanceRequestReviewPage extends StatefulWidget {
   final ThemeMode currentThemeMode;
 
   @override
-  State<AttendanceRequestReviewPage> createState() => _AttendanceRequestReviewPageState();
+  State<AttendanceRequestReviewPage> createState() =>
+      _AttendanceRequestReviewPageState();
 }
 
-class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPage> {
+class _AttendanceRequestReviewPageState
+    extends State<AttendanceRequestReviewPage> {
   final supabase = Supabase.instance.client;
   late final AttendanceLeaveRequestService _requestService;
   late final AttendanceService _attendanceService;
@@ -56,11 +59,11 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         setState(() {
           _canReview = canReview;
         });
-        
+
         if (!canReview) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('您沒有審核權限')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('您沒有審核權限')));
           Navigator.pop(context);
         }
       }
@@ -125,9 +128,9 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('載入申請列表失敗：$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('載入申請列表失敗：$e')));
       }
     }
   }
@@ -137,192 +140,147 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     bool approve,
   ) async {
     if (_currentEmployee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('無法取得審核人資料')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('無法取得審核人資料')));
       return;
     }
 
-    String? comment;
     if (!approve) {
+      // 拒絕流程：顯示拒絕對話框
       final result = await _showRejectDialog();
       if (result == null || result.isEmpty) {
         return;
       }
-      comment = result;
-    } else {
-      comment = await _showApproveDialog();
-    }
 
-    try {
-      if (approve) {
-        await _requestService.approveRequest(
-          request.id!,
-          _currentEmployee!.id!,
-          _currentEmployee!.name,
-          comment: comment,
-        );
-
-        bool autoAttendanceSuccess = true;
-        try {
-          await _createAttendanceRecord(request);
-        } catch (e) {
-          autoAttendanceSuccess = false;
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                autoAttendanceSuccess ? '✅ 已核准申請並自動補打卡成功' : '✅ 已核准申請（請手動補打卡）',
-              ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
+      try {
         await _requestService.rejectRequest(
           request.id!,
           _currentEmployee!.id!,
           _currentEmployee!.name,
-          comment: comment!,
+          comment: result,
         );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('已拒絕申請'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('已拒絕申請'), backgroundColor: Colors.red),
           );
         }
+        _loadRequests();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('審核失敗：$e')));
+        }
       }
-
-      _loadRequests();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('審核失敗：$e')),
-        );
-      }
+    } else {
+      // 核准流程：顯示補打卡表單讓審核者確認/調整
+      await _showApproveWithFormDialog(request);
     }
   }
 
-  Future<void> _createAttendanceRecord(AttendanceLeaveRequest request) async {
+  /// 顯示核准時的補打卡表單對話框（類似代理打卡視窗）
+  Future<void> _showApproveWithFormDialog(
+    AttendanceLeaveRequest request,
+  ) async {
+    // 取得該員工資料
+    final employee = await _employeeService.getEmployeeById(request.employeeId);
+    if (employee == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('找不到員工資料')));
+      }
+      return;
+    }
+
+    // 取得該日期的現有打卡記錄（如果有的話）
+    AttendanceRecord? existingRecord;
     try {
-      final employee = await _employeeService.getEmployeeById(
-        request.employeeId,
+      final records = await _attendanceService.getAllAttendanceRecords(
+        employeeId: request.employeeId,
+        startDate: request.requestDate,
+        endDate: request.requestDate.add(const Duration(days: 1)),
       );
-      if (employee == null) {
-        throw Exception('找不到員工資料');
-      }
-
-      switch (request.requestType) {
-        case AttendanceRequestType.checkIn:
-          await _attendanceService.createManualCheckIn(
-            employeeId: request.employeeId,
-            employeeName: request.employeeName,
-            employeeEmail: employee.email ?? '',
-            checkInTime: request.requestTime!,
-            location: '補打卡申請',
-            notes: '補打卡申請已核准\n原因：${request.reason}',
-          );
-          print('✅ 已自動補上班打卡');
-          break;
-
-        case AttendanceRequestType.checkOut:
-          await _attendanceService.createManualCheckOut(
-            employeeId: request.employeeId,
-            checkOutTime: request.requestTime!,
-            checkInTime: request.checkInTime, // 傳入上班時間（如果有提供）
-            location: '補打卡申請',
-            notes: '補打卡申請已核准\n原因：${request.reason}',
-          );
-          print('✅ 已自動補下班打卡${request.checkInTime != null ? '（含上班時間修改）' : ''}');
-          break;
-
-        case AttendanceRequestType.fullDay:
-          // 補整天打卡
-          await _attendanceService.createManualFullDayRecord(
-            employeeId: request.employeeId,
-            employeeName: request.employeeName,
-            employeeEmail: employee.email ?? '',
-            checkInTime: request.checkInTime!,
-            checkOutTime: request.checkOutTime!,
-            location: '補打卡申請',
-            notes: '補打卡申請已核准\n原因：${request.reason}',
-          );
-          print('✅ 已自動補整天打卡');
-          break;
+      if (records.isNotEmpty) {
+        existingRecord = records.first;
       }
     } catch (e) {
-      print('❌ 自動補打卡失敗: $e');
-      // 不拋出錯誤，因為申請已經核准了
-      // 顯示警告訊息給審核者
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('申請已核准，但自動補打卡失敗：$e\n請手動到「手動補打卡」頁面補打卡'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 6),
-            action: SnackBarAction(
-              label: '知道了',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
+      print('載入現有記錄失敗: $e');
     }
-  }
 
-  /// 顯示核准對話框
-  Future<String?> _showApproveDialog() async {
-    final commentController = TextEditingController();
+    if (!mounted) return;
 
-    return showDialog<String>(
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text('核准申請'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('確定要核准此補打卡申請嗎？'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: commentController,
-              maxLines: 3,
-              maxLength: 200,
-              decoration: const InputDecoration(
-                labelText: '審核意見（選填）',
-                hintText: '可以填寫審核意見...',
-                border: OutlineInputBorder(),
-              ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text('核准補打卡 - ${request.employeeName}'),
+        content: SizedBox(
+          width: MediaQuery.of(dialogContext).size.width * 0.9,
+          child: AttendanceFormWidget(
+            config: AttendanceFormConfig(
+              mode: AttendanceFormMode.proxyAttendance,
+              targetEmployee: employee,
+              existingRecord: existingRecord,
+              editingRequest: request,
+              initialDate: request.requestDate,
+              onSubmit: (formData) async {
+                try {
+                  // 1. 核准申請
+                  await _requestService.approveRequest(
+                    request.id!,
+                    _currentEmployee!.id!,
+                    _currentEmployee!.name,
+                    comment: '已核准並補打卡',
+                  );
+
+                  // 2. 建立/更新打卡記錄
+                  if (existingRecord != null) {
+                    await _attendanceService.updateAttendanceRecord(
+                      id: existingRecord.id,
+                      checkInTime:
+                          formData.checkInTime ?? existingRecord.checkInTime,
+                      checkOutTime: formData.checkOutTime,
+                      location: formData.location,
+                      notes: '補打卡申請已核准\n原因：${request.reason}',
+                    );
+                  } else {
+                    await _attendanceService.createManualAttendance(
+                      employee: employee,
+                      checkInTime: formData.checkInTime!,
+                      checkOutTime: formData.checkOutTime,
+                      location: formData.location,
+                      notes: '補打卡申請已核准\n原因：${request.reason}',
+                    );
+                  }
+
+                  if (mounted) {
+                    Navigator.of(dialogContext).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ 已核准申請並補打卡成功'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _loadRequests();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('核准失敗：$e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                  rethrow;
+                }
+              },
+              onCancel: () => Navigator.of(dialogContext).pop(),
             ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, commentController.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('確認核准'),
-          ),
-        ],
       ),
     );
   }
@@ -369,15 +327,15 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
             onPressed: () {
               final reason = reasonController.text.trim();
               if (reason.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('請填寫拒絕原因')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('請填寫拒絕原因')));
                 return;
               }
               if (reason.length < 5) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('拒絕原因至少需要 5 個字')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('拒絕原因至少需要 5 個字')));
                 return;
               }
               Navigator.pop(context, reason);
@@ -396,11 +354,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
   @override
   Widget build(BuildContext context) {
     if (!_canReview) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -427,16 +381,16 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         children: [
           // 狀態篩選按鈕列
           _buildStatusFilterBar(),
-          
+
           const SizedBox(height: 8),
-          
+
           // 申請列表
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _requests.isEmpty
-                    ? _buildEmptyState()
-                    : _buildRequestList(),
+                ? _buildEmptyState()
+                : _buildRequestList(),
           ),
         ],
       ),
@@ -469,7 +423,11 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
   }
 
   /// 建立篩選按鈕
-  Widget _buildFilterChip(String label, AttendanceRequestStatus? status, {int? badge}) {
+  Widget _buildFilterChip(
+    String label,
+    AttendanceRequestStatus? status, {
+    int? badge,
+  }) {
     final isSelected = _selectedStatus == status;
     return FilterChip(
       label: Row(
@@ -526,10 +484,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
                 hintText: '全部員工',
               ),
               items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('全部員工'),
-                ),
+                const DropdownMenuItem(value: null, child: Text('全部員工')),
                 ..._allEmployees.map((employee) {
                   return DropdownMenuItem(
                     value: employee.id,
@@ -587,9 +542,9 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
             _selectedStatus == AttendanceRequestStatus.pending
                 ? '目前沒有待審核的申請'
                 : '目前沒有符合條件的申請',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -625,7 +580,9 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
                   child: Text(
                     request.employeeName.substring(0, 1),
                     style: TextStyle(
@@ -641,15 +598,14 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
                     children: [
                       Text(
                         request.employeeName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         _getRequestTypeName(request.requestType),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey.shade600,
-                            ),
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -657,11 +613,11 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
                 _buildStatusBadge(request.status),
               ],
             ),
-            
+
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 8),
-            
+
             // 日期和時間
             Row(
               children: [
@@ -680,9 +636,9 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 8),
-            
+
             // 申請原因
             Container(
               padding: const EdgeInsets.all(12),
@@ -704,13 +660,13 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
                 ],
               ),
             ),
-            
+
             // 如果已審核，顯示審核資訊
             if (!isPending) ...[
               const SizedBox(height: 12),
               _buildReviewInfo(request),
             ],
-            
+
             // 如果待審核，顯示審核按鈕
             if (isPending) ...[
               const SizedBox(height: 16),
@@ -765,7 +721,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         final checkIn = DateFormat('HH:mm').format(request.checkInTime!);
         final checkOut = DateFormat('HH:mm').format(request.checkOutTime!);
         return '$checkIn - $checkOut';
-        
+
       case AttendanceRequestType.checkOut:
         // 補下班打卡：檢查是否同時修改上班時間
         if (request.checkInTime != null) {
@@ -789,7 +745,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
     Color color;
     String text;
     IconData icon;
-    
+
     switch (status) {
       case AttendanceRequestStatus.pending:
         color = Colors.orange;
@@ -807,7 +763,7 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
         icon = Icons.cancel;
         break;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -861,9 +817,9 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
               const SizedBox(width: 4),
               Text(
                 '審核人：${request.reviewerName ?? '未知'}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -874,13 +830,14 @@ class _AttendanceRequestReviewPageState extends State<AttendanceRequestReviewPag
               const SizedBox(width: 4),
               Text(
                 '審核時間：${request.reviewedAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(request.reviewedAt!) : '未知'}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
               ),
             ],
           ),
-          if (request.reviewComment != null && request.reviewComment!.isNotEmpty) ...[
+          if (request.reviewComment != null &&
+              request.reviewComment!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               '審核意見：${request.reviewComment}',
