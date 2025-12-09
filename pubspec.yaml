@@ -74,6 +74,7 @@ flutter:
     - assets/sqare_ctc_icon.png
     - assets/menu/
     - assets/home/
+    - assets/version.json
   fonts:
     - family: Iansui
       fonts:

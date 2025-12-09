@@ -9,6 +9,7 @@ import '../../models/models.dart';
 import '../../services/services.dart';
 import '../../widgets/widgets.dart';
 import '../management/upload_asset_page.dart';
+import '../../utils/version_util.dart';
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({
@@ -176,11 +177,17 @@ class _SystemHomePageState extends State<SystemHomePage> {
         const AuthActionButton(),
       ],
       children: [
-        Text(
-          '系統功能',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        FutureBuilder<String>(
+          future: VersionUtil.getVersionString(),
+          builder: (context, snapshot) {
+            final version = snapshot.data;
+            return Text(
+              version == null ? '系統功能' : '系統功能 (v$version)',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            );
+          },
         ),
         const SizedBox(height: 16),
 

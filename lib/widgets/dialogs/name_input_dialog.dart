@@ -27,13 +27,11 @@ class _NameInputDialogState extends State<NameInputDialog> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue);
-    debugPrint('NameInputDialog 已初始化: ${widget.title}');
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    debugPrint('NameInputDialog 已銷毀: ${widget.title}');
     super.dispose();
   }
 

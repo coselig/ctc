@@ -276,7 +276,7 @@ class _AppRootState extends State<AppRoot> {
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: '光悅科技',
-      debugShowCheckedModeBanner: false, // 關閉 debug 標籤
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _themeMode,
