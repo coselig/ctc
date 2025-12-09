@@ -8,6 +8,9 @@ import '../../../services/employee/attendance/leave_request_service.dart';
 import '../../../services/employee/employee_general_service.dart';
 import '../../../services/excel_export_service.dart';
 import '../../../widgets/dialogs/month_year_picker.dart';
+import '../../../widgets/widgets.dart';
+import '../../../services/general/permission_service.dart';
+import '../../../services/employee/attendance/attendance_leave_request_service.dart';
 import 'attendance_request_page.dart';
 import 'leave_record_page.dart';
 
@@ -83,6 +86,9 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
   late final LeaveRequestService _leaveRequestService;
   late final HolidayService _holidayService;
   late final ExcelExportService _excelExportService;
+  late final PermissionService _permissionService;
+  late final AttendanceLeaveRequestService _attendanceRequestService;
+  bool _canManualAttendance = false; // 是否有手動補打卡權限（管理員）
 
   Employee? _currentEmployee;
   AttendanceStats? _monthlyStats;
@@ -101,13 +107,26 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
     _leaveRequestService = LeaveRequestService();
     _holidayService = HolidayService(supabase);
     _excelExportService = ExcelExportService(supabase);
+    _permissionService = PermissionService();
+    _attendanceRequestService = AttendanceLeaveRequestService(supabase);
     _initializeHolidays();
+    _loadPermissions();
     _loadData();
   }
 
   /// 初始化假日資料
   Future<void> _initializeHolidays() async {
     await _holidayService.loadFromDatabase();
+  }
+
+  /// 載入用戶權限
+  Future<void> _loadPermissions() async {
+    try {
+      _canManualAttendance = await _permissionService.canManualAttendance();
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('載入權限失敗: $e');
+    }
   }
 
   /// 載入統計資料
@@ -534,23 +553,31 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
       icon = Icons.event_busy;
     } else if (record != null) {
       // 有打卡記錄
-      // 標準上班時間 8:30-17:30，寬限時間 ±5 分鐘
-      // 上班寬限到 8:35，下班寬限到 17:25
-      final isLate =
-          record.checkInTime.hour > 8 ||
-          (record.checkInTime.hour == 8 && record.checkInTime.minute > 40);
-      final isEarlyLeave =
-          record.checkOutTime != null &&
-          (record.checkOutTime!.hour < 17 ||
-              (record.checkOutTime!.hour == 17 &&
-                  record.checkOutTime!.minute < 20));
       final isIncomplete = record.checkOutTime == null;
 
-      if (isIncomplete || isLate || isEarlyLeave) {
+      // 計算工作時數
+      final workHours = record.calculatedWorkHours ?? 0;
+
+      // 8~9 小時視為正常工時
+      final isNormalWorkHours = workHours >= 8.0 && workHours <= 9.0;
+
+      if (isIncomplete) {
+        // 未完成打卡（只有上班沒下班）
+        backgroundColor = Colors.orange.shade100;
+        textColor = Colors.orange.shade900;
+        icon = Icons.warning_amber;
+      } else if (isNormalWorkHours) {
+        // 工時 8~9 小時，顯示正常（綠色）
+        backgroundColor = Colors.green.shade100;
+        textColor = Colors.green.shade900;
+        icon = Icons.check_circle;
+      } else if (workHours < 8.0) {
+        // 工時不足 8 小時，顯示異常（橘色）
         backgroundColor = Colors.orange.shade100;
         textColor = Colors.orange.shade900;
         icon = Icons.warning_amber;
       } else {
+        // 工時超過 9 小時，也算正常（加班情況）
         backgroundColor = Colors.green.shade100;
         textColor = Colors.green.shade900;
         icon = Icons.check_circle;
@@ -561,161 +588,340 @@ class _AttendanceStatsTabState extends State<AttendanceStatsTab>
       textColor = Colors.grey.shade600;
     }
 
-    return Container(
-      margin: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-        border: isToday ? Border.all(color: Colors.blue, width: 2) : null,
-      ),
-      child: InkWell(
-        onTap: (record != null || leaveRequests != null || holiday != null)
-            ? () => _showDayDetail(day, record, leaveRequests, holiday)
-            : null,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 56,
-          child: Stack(
-            children: [
-              // 如果有完整打卡記錄（上下班都有），日期數字放在背景半透明
-              if (record != null && record.checkOutTime != null) ...[
-                // 背景：半透明的日期數字
-                Center(
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: textColor.withAlpha(38),
-                      fontSize: 32,
-                    ),
-                  ),
-                ),
-                // 前景：時間和工時資訊
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${_formatTime(record.checkInTime)}-${_formatTime(record.checkOutTime!)}',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${record.calculatedWorkHours?.toStringAsFixed(1) ?? "0.0"}h',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ]
-              // 如果只有上班打卡，日期數字放在背景半透明
-              else if (record != null && record.checkOutTime == null) ...[
-                // 背景：半透明的日期數字
-                Center(
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: textColor.withAlpha(38),
-                      fontSize: 32,
-                    ),
-                  ),
-                ),
-                // 前景：上班時間和狀態
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _formatTime(record.checkInTime),
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '未打卡',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else
-                Center(
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                      // 週末或國定假日用紅色，否則用原本的 textColor
-                      color:
-                          (isWeekend &&
-                              holiday == null &&
-                              record == null &&
-                              leaveRequests == null)
-                          ? Colors.red
-                          : textColor,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              if (icon != null &&
-                  (record == null || record.checkOutTime == null))
-                Positioned(
-                  top: 2,
-                  right: 2,
-                  child: Icon(icon, size: 12, color: textColor),
-                ),
-              if (record?.isManualEntry == true)
-                Positioned(
-                  bottom: 2,
-                  left: 4,
-                  child: Icon(
-                    Icons.edit,
-                    size: 10,
-                    color: textColor.withAlpha(179),
-                  ),
-                ),
-              // 顯示請假數量
-              if (leaveRequests != null && leaveRequests.length > 1)
-                Positioned(
-                  bottom: 2,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: textColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 14,
-                      minHeight: 14,
-                    ),
+    // 計算該日期的 DateTime
+    final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+
+    return GestureDetector(
+      onLongPress: () => _showAttendanceRequestDialog(date, record),
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(8),
+          border: isToday ? Border.all(color: Colors.blue, width: 2) : null,
+        ),
+        child: InkWell(
+          onTap: (record != null || leaveRequests != null || holiday != null)
+              ? () => _showDayDetail(day, record, leaveRequests, holiday)
+              : null,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            height: 56,
+            child: Stack(
+              children: [
+                // 如果有完整打卡記錄（上下班都有），日期數字放在背景半透明
+                if (record != null && record.checkOutTime != null) ...[
+                  // 背景：半透明的日期數字
+                  Center(
                     child: Text(
-                      '${leaveRequests.length}',
+                      '$day',
                       style: TextStyle(
-                        color: backgroundColor,
-                        fontSize: 8,
                         fontWeight: FontWeight.bold,
+                        color: textColor.withAlpha(38),
+                        fontSize: 32,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-            ],
+                  // 前景：時間和工時資訊
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${_formatTime(record.checkInTime)}-${_formatTime(record.checkOutTime!)}',
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${record.calculatedWorkHours?.toStringAsFixed(1) ?? "0.0"}h',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]
+                // 如果只有上班打卡，日期數字放在背景半透明
+                else if (record != null && record.checkOutTime == null) ...[
+                  // 背景：半透明的日期數字
+                  Center(
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textColor.withAlpha(38),
+                        fontSize: 32,
+                      ),
+                    ),
+                  ),
+                  // 前景：上班時間和狀態
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatTime(record.checkInTime),
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '未打卡',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else
+                  Center(
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                        // 週末或國定假日用紅色，否則用原本的 textColor
+                        color:
+                            (isWeekend &&
+                                holiday == null &&
+                                record == null &&
+                                leaveRequests == null)
+                            ? Colors.red
+                            : textColor,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                if (icon != null &&
+                    (record == null || record.checkOutTime == null))
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Icon(icon, size: 12, color: textColor),
+                  ),
+                if (record?.isManualEntry == true)
+                  Positioned(
+                    bottom: 2,
+                    left: 4,
+                    child: Icon(
+                      Icons.edit,
+                      size: 10,
+                      color: textColor.withAlpha(179),
+                    ),
+                  ),
+                // 顯示請假數量
+                if (leaveRequests != null && leaveRequests.length > 1)
+                  Positioned(
+                    bottom: 2,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: textColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 14,
+                        minHeight: 14,
+                      ),
+                      child: Text(
+                        '${leaveRequests.length}',
+                        style: TextStyle(
+                          color: backgroundColor,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 顯示補打卡申請對話框（根據權限決定顯示哪種）
+  Future<void> _showAttendanceRequestDialog(
+    DateTime date,
+    AttendanceRecord? existingRecord,
+  ) async {
+    if (_currentEmployee == null) return;
+
+    // 不能申請未來的日期
+    if (date.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('無法為未來日期申請補打卡'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_canManualAttendance) {
+      // 管理員：直接補打卡（立即生效）
+      await _showManagerAttendanceDialog(date, existingRecord);
+    } else {
+      // 一般員工：申請補打卡（需審核）
+      await _showEmployeeAttendanceRequestDialog(date, existingRecord);
+    }
+  }
+
+  /// 管理員直接補打卡對話框
+  Future<void> _showManagerAttendanceDialog(
+    DateTime date,
+    AttendanceRecord? existingRecord,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('手動補打卡 - ${_currentEmployee!.name}'),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          child: AttendanceFormWidget(
+            config: AttendanceFormConfig(
+              mode: AttendanceFormMode.managerDirect,
+              targetEmployee: _currentEmployee!,
+              existingRecord: existingRecord,
+              initialDate: date,
+              onSubmit: (formData) async {
+                try {
+                  if (existingRecord != null) {
+                    // 更新現有記錄
+                    await _attendanceService.updateAttendanceRecord(
+                      id: existingRecord.id,
+                      checkInTime:
+                          formData.checkInTime ?? existingRecord.checkInTime,
+                      checkOutTime: formData.checkOutTime,
+                      location: formData.location,
+                      notes: '手動補打卡原因：${formData.reason}',
+                    );
+                  } else {
+                    // 創建新記錄
+                    await _attendanceService.createManualAttendance(
+                      employee: _currentEmployee!,
+                      checkInTime: formData.checkInTime!,
+                      checkOutTime: formData.checkOutTime,
+                      location: formData.location,
+                      notes: formData.reason,
+                    );
+                  }
+
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✓ 補打卡成功'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _loadData(); // 重新載入資料
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('補打卡失敗：$e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                  rethrow;
+                }
+              },
+              onCancel: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 一般員工申請補打卡對話框
+  Future<void> _showEmployeeAttendanceRequestDialog(
+    DateTime date,
+    AttendanceRecord? existingRecord,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('申請補打卡 - ${_currentEmployee!.name}'),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          child: AttendanceFormWidget(
+            config: AttendanceFormConfig(
+              mode: AttendanceFormMode.employeeRequest,
+              targetEmployee: _currentEmployee!,
+              existingRecord: existingRecord,
+              initialDate: date,
+              onSubmit: (formData) async {
+                try {
+                  // 提交補打卡申請（需審核）
+                  final requestType = formData.punchType == 'checkIn'
+                      ? AttendanceRequestType.checkIn
+                      : formData.punchType == 'checkOut'
+                      ? AttendanceRequestType.checkOut
+                      : AttendanceRequestType.fullDay;
+
+                  final request = AttendanceLeaveRequest(
+                    employeeId: _currentEmployee!.id!,
+                    employeeName: _currentEmployee!.name,
+                    requestType: requestType,
+                    requestDate: formData.date,
+                    requestTime: formData.punchType == 'checkIn'
+                        ? formData.checkInTime
+                        : formData.punchType == 'checkOut'
+                        ? formData.checkOutTime
+                        : null,
+                    checkInTime: formData.punchType == 'fullDay'
+                        ? formData.checkInTime
+                        : null,
+                    checkOutTime: formData.punchType == 'fullDay'
+                        ? formData.checkOutTime
+                        : null,
+                    reason: formData.reason,
+                  );
+
+                  await _attendanceRequestService.createRequest(request);
+
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✓ 補打卡申請已提交，等待審核'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('申請失敗：$e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                  rethrow;
+                }
+              },
+              onCancel: () => Navigator.of(context).pop(),
+            ),
           ),
         ),
       ),

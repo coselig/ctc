@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/models.dart';
-import '../../models/attendance_form_models.dart';
 
 /// 統一的補打卡表單元件
 class AttendanceFormWidget extends StatefulWidget {
@@ -54,6 +54,9 @@ class _AttendanceFormWidgetState extends State<AttendanceFormWidget> {
     // 初始化日期
     if (request != null) {
       _selectedDate = request.requestDate;
+    } else if (config.initialDate != null) {
+      // 使用傳入的初始日期（從月曆選擇時）
+      _selectedDate = config.initialDate!;
     } else if (record != null) {
       _selectedDate = DateTime(
         record.checkInTime.year,

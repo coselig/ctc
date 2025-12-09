@@ -43,6 +43,7 @@ class AttendanceFormConfig {
   final Employee? currentUser; // 當前操作用戶（代理打卡時使用）
   final AttendanceRecord? existingRecord; // 現有打卡記錄
   final AttendanceLeaveRequest? editingRequest; // 正在編輯的申請
+  final DateTime? initialDate; // 初始日期（從月曆選擇時使用）
   final Function(AttendanceFormData) onSubmit;
   final VoidCallback? onCancel;
 
@@ -52,6 +53,7 @@ class AttendanceFormConfig {
     this.currentUser,
     this.existingRecord,
     this.editingRequest,
+    this.initialDate,
     required this.onSubmit,
     this.onCancel,
   });
