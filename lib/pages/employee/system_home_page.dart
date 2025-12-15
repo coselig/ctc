@@ -7,9 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/models.dart';
 import '../../services/services.dart';
+import '../../utils/version_util.dart';
 import '../../widgets/widgets.dart';
 import '../management/upload_asset_page.dart';
-import '../../utils/version_util.dart';
 
 class SystemHomePage extends StatefulWidget {
   const SystemHomePage({
@@ -182,7 +182,7 @@ class _SystemHomePageState extends State<SystemHomePage> {
           builder: (context, snapshot) {
             final version = snapshot.data;
             return Text(
-              version == null ? '系統功能' : '系統功能 (v$version)',
+              version == null ? '系統功能' : '系統功能 ($version)',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
