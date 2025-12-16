@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../widgets/widgets.dart';
 
@@ -16,9 +16,7 @@ class WelcomePage extends StatefulWidget {
 
 class _WelcomePageState extends State<WelcomePage>
     with SingleTickerProviderStateMixin {
-  final supabase = Supabase.instance.client;
   Timer? _timer;
-  StreamSubscription<AuthState>? _authSubscription;
 
   bool _loading = true;
   String? _pdfUrl;
@@ -36,50 +34,56 @@ class _WelcomePageState extends State<WelcomePage>
 
   Future<void> _loadPdfUrl(String fileName) async {
     try {
-      final supabase = Supabase.instance.client;
-      final url = supabase.storage
-          .from('assets')
-          .getPublicUrl('books/$fileName');
       setState(() {
-        _pdfUrl = url;
+        _pdfUrl = 'assets/pages/$fileName';
         _loading = false;
-        // _activePdf 由 index 控制
       });
-      pdf = SfPdfViewer.network(
-        _pdfUrl!,
+      pdf = SfPdfViewer.asset(
+        'assets/pages/$fileName',
         pageSpacing: 0,
         canShowScrollStatus: false,
         canShowScrollHead: false,
       );
     } catch (e) {
       setState(() {
-        _error = 'PDF 連結取得失敗: $e';
+        _error = 'PDF 載入失敗: $e';
         _loading = false;
       });
     }
   }
 
-  Future<void> _fetchPdfLabels() async {
+  Future<void> _fetchPdfFiles() async {
     try {
-      final storage = Supabase.instance.client.storage.from('assets');
-      final res = await storage.download('books/pdf_labels.json');
-      if (res.isNotEmpty) {
-        final jsonStr = utf8.decode(res);
-        pdfLabels = Map<String, String>.from(json.decode(jsonStr));
-        // 直接使用 keys 的順序，這個順序在 JSON 中已經排好
-        pdfFiles = pdfLabels.keys.toList();
-      }
+      // 讀取 AssetManifest.json 取得所有 assets/pages/ 下的 PDF 檔案
+      final manifestContent = await rootBundle.loadString('AssetManifest.json');
+      final Map<String, dynamic> manifestMap = json.decode(manifestContent);
+      final files = manifestMap.keys
+          .where(
+            (String key) =>
+                key.startsWith('assets/pages/') && key.endsWith('.pdf'),
+          )
+          .toList();
+      files.sort();
+      pdfFiles = files.map((e) => e.replaceFirst('assets/pages/', '')).toList();
+      pdfLabels = {for (var f in pdfFiles) f: _autoLabel(f)};
     } catch (e) {
-      print('取得 pdf_labels.json 失敗: $e');
+      print('取得 assets/pages/ PDF 檔案失敗: $e');
       pdfLabels = {};
       pdfFiles = [];
     }
   }
 
+  String _autoLabel(String fileName) {
+    // 以檔名自動產生 label（去除副檔名、底線轉空格、首字大寫）
+    final base = fileName.replaceAll('.pdf', '').replaceAll('_', ' ');
+    return base.isNotEmpty
+        ? base[0].toUpperCase() + base.substring(1)
+        : fileName;
+  }
+
   @override
   void initState() {
     super.initState();
-    _setupAuthListener();
     _activePdfIndex = null;
     _hoverPdfIndex = null;
     _fadeController = AnimationController(
@@ -90,13 +94,11 @@ class _WelcomePageState extends State<WelcomePage>
       parent: _fadeController,
       curve: Curves.easeInOut,
     );
-    _initLabelsAndPdf();
+    _initFilesAndPdf();
   }
 
-  Future<void> _initLabelsAndPdf() async {
-    await _fetchPdfLabels();
-    
-    // pdfFiles 已經按照 pdf_labels.json 中的順序排列
+  Future<void> _initFilesAndPdf() async {
+    await _fetchPdfFiles();
     if (pdfFiles.isNotEmpty) {
       _loadPdfUrl(pdfFiles[0]);
       setState(() {
@@ -105,19 +107,11 @@ class _WelcomePageState extends State<WelcomePage>
     }
   }
 
-  void _setupAuthListener() {
-    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
-      if (mounted) {
-        setState(() {
-        });
-      }
-    });
-  }
+
 
   @override
   void dispose() {
     _timer?.cancel();
-    _authSubscription?.cancel();
     _fadeController.dispose();
     super.dispose();
   }

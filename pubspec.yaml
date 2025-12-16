@@ -75,6 +75,7 @@ flutter:
     - assets/menu/
     - assets/home/
     - assets/version.json
+    - assets/pages/
   fonts:
     - family: Iansui
       fonts:
